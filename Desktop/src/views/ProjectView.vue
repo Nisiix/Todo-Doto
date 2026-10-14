@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Check, Lock, Pencil, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ItemRow from '@/components/board/ItemRow.vue'
@@ -16,8 +16,6 @@ import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useConfirm } from '@/composables/useConfirm'
-import { useProjectFolder } from '@/composables/useProjectFolder'
-import { getFs } from '@/services/fs'
 import { BUCKET_LABEL, EMPTY_FILTER, type Bucket, type ItemFilter } from '@/types'
 import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
 import { projectSection, type ProjectSection } from '@/services/sections'
@@ -35,12 +33,6 @@ const m = defineMessages({
     restore: 'Ripristina',
     unfavorite: 'Togli dai preferiti',
     favorite: 'Aggiungi ai preferiti',
-    edit: 'Modifica il nome del progetto',
-    saveName: 'Salva il nome (Invio)',
-    cancelName: 'Annulla (Esc)',
-    nameLabel: 'Nome del progetto',
-    errName: 'Il progetto ha bisogno di un nome.',
-    renamed: 'Nome del progetto aggiornato',
     containers: 'Contenitori',
     newItemKey: 'Nuovo task (N)',
     newItem: 'Nuovo task',
@@ -59,12 +51,6 @@ const m = defineMessages({
     restore: 'Restore',
     unfavorite: 'Remove from favorites',
     favorite: 'Add to favorites',
-    edit: 'Edit the project name',
-    saveName: 'Save the name (Enter)',
-    cancelName: 'Cancel (Esc)',
-    nameLabel: 'Project name',
-    errName: 'The project needs a name.',
-    renamed: 'Project name updated',
     containers: 'Lists',
     newItemKey: 'New task (N)',
     newItem: 'New task',
@@ -93,8 +79,6 @@ watch(
 )
 /** Progetto nel cestino: tutto in sola lettura finché non viene ripristinato. */
 const trashed = computed(() => !!project.value?.trashedAt)
-/** Collegato a una cartella esistente sul disco: il progetto non si modifica più (il nome è quello della cartella). */
-const { linked: folderLinked } = useProjectFolder(project)
 
 /** Sezione aperta dal sottomenu del progetto nella barra laterale: Todo, Stack, Allegati. */
 const section = computed<ProjectSection>(() => projectSection(props.section))
@@ -144,37 +128,6 @@ const favorite = computed(() => ws.isFavorite(props.id))
 // --- azioni progetto ----------------------------------------------------------
 // (lo spostamento nel cestino sta accanto al progetto nella barra laterale)
 
-// --- nome del progetto: modifica nell'intestazione (solo se non è collegato a una cartella) ---
-const renaming = ref(false)
-const newName = ref('')
-const nameInput = ref<HTMLInputElement | null>(null)
-async function startRename() {
-  if (!project.value || folderLinked.value) return
-  newName.value = project.value.name
-  renaming.value = true
-  await nextTick()
-  nameInput.value?.focus()
-  nameInput.value?.select()
-}
-const cancelRename = () => (renaming.value = false)
-async function saveRename() {
-  const p = project.value
-  if (!p || !renaming.value) return
-  const name = newName.value.trim()
-  if (!name) return ui.toast(m.errName, 'warning', undefined, 2500)
-  // Nel frattempo la cartella potrebbe essere stata creata: allora il nome resta quello
-  if (folderLinked.value || name === p.name) return cancelRename()
-  // La cartella proposta <cartella dei progetti>/<nome> (non ancora creata) segue il nome
-  const fs = await getFs()
-  const root = ws.meta?.projectsPath
-  const followDisk = !!root && !!p.stack.sourcePath && p.stack.sourcePath === (await fs.join(root, p.name)) && !(await fs.exists(p.stack.sourcePath))
-  await ws.updateProject(p.id, { name })
-  if (followDisk) await ws.setProjectSourcePath(p.id, await fs.join(root!, name))
-  renaming.value = false
-  ui.toast(m.renamed, 'success', undefined, 1800)
-}
-watch(() => props.id, cancelRename)
-watch(folderLinked, (v) => v && cancelRename())
 const showLabels = ref(false)
 const showNewItem = ref(false)
 async function deleteForever() {
@@ -235,25 +188,10 @@ const tabs: { id: Bucket; label: string }[] = [
         <div class="flex items-start gap-3">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <form v-if="renaming" class="flex min-w-0 items-center gap-1" data-rename-project @submit.prevent="saveRename">
-                <input
-                  ref="nameInput"
-                  v-model="newName"
-                  class="field h-9 min-w-0 w-[min(28rem,60vw)] text-[20px] font-extrabold tracking-tight"
-                  :aria-label="m.nameLabel"
-                  @keydown.esc.prevent.stop="cancelRename"
-                />
-                <button type="submit" class="rounded-md p-1 text-ok transition-colors hover:bg-surface-2" :title="m.saveName" :aria-label="m.saveName"><Check :size="18" /></button>
-                <button type="button" class="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink" :title="m.cancelName" :aria-label="m.cancelName" @click="cancelRename"><X :size="18" /></button>
-              </form>
-              <template v-else>
-                <h1 class="truncate text-[24px] font-extrabold leading-tight tracking-tight">{{ project.name }}</h1>
-                <button v-if="!trashed && !folderLinked" class="rounded-md p-1 text-ink-3 transition-colors hover:text-ink" :title="m.edit" :aria-label="m.edit" data-edit-project @click="startRename">
-                  <Pencil :size="16" />
-                </button>
-              </template>
+              <!-- Il nome è quello della cartella del progetto: non si modifica qui -->
+              <h1 class="truncate text-[24px] font-extrabold leading-tight tracking-tight">{{ project.name }}</h1>
               <button
-                v-if="!trashed && !renaming"
+                v-if="!trashed"
                 class="rounded-md p-1 transition-colors"
                 :class="favorite ? 'text-p-media' : 'text-ink-3 hover:text-p-media'"
                 :title="favorite ? m.unfavorite : m.favorite"

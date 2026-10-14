@@ -494,7 +494,7 @@ test('stack come modello: nuovo progetto con lo stack copiato e cartella del pro
   await expect(page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)')).toHaveValue('git clone https://example.com/altro.git')
 })
 
-test('barra laterale: sottomenu del progetto; nessun cestino nelle sezioni; matita accanto al nome', async ({ page }) => {
+test('barra laterale: sottomenu del progetto; nessun cestino né modifica del nome nelle sezioni', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Uno')
   const submenu = sidebar(page).getByRole('list', { name: 'Sezioni di Uno' })
@@ -503,9 +503,9 @@ test('barra laterale: sottomenu del progetto; nessun cestino nelle sezioni; mati
     await openSection(page, s)
     // Il pulsante per cestinare il progetto non è più nell'intestazione delle sezioni
     await expect(page.getByRole('main').getByRole('button', { name: /nel cestino/i })).toHaveCount(0)
-    // Niente ingranaggio: si modifica dalla matita accanto al nome
+    // Né ingranaggio né matita: il nome è quello della cartella del progetto
     await expect(page.getByRole('button', { name: 'Impostazioni progetto' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Modifica il nome del progetto' })).toBeVisible()
+    await expect(page.locator('[data-edit-project]')).toHaveCount(0)
   }
   // Il vecchio indirizzo della sezione Strumenti AI porta allo Stack
   await page.goto(page.url().replace(/\/attachments$/, '/ai'))
@@ -673,39 +673,26 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
   expect(left).toEqual({ data: false, project: true })
 })
 
-test('nome del progetto: matita → salva/annulla nell’intestazione, finché non c’è la cartella sul disco', async ({ page }) => {
+test('nome del progetto: è quello della cartella, si decide alla creazione e poi non si cambia', async ({ page }) => {
   await createLocalWorkspace(page)
-  await createProject(page, 'Bozza')
-  // Niente dialog: la matita trasforma il titolo in un campo, con Salva e Annulla
-  await page.getByRole('button', { name: 'Modifica il nome del progetto' }).click()
-  await expect(dialog(page)).toHaveCount(0)
-  const input = page.getByLabel('Nome del progetto')
-  await expect(input).toHaveValue('Bozza')
-  await input.fill('Altro nome')
-  await page.getByRole('button', { name: 'Annulla (Esc)' }).click()
-  await expect(page.getByRole('heading', { name: 'Bozza' })).toBeVisible()
-  // Esc annulla, Invio salva
-  await page.getByRole('button', { name: 'Modifica il nome del progetto' }).click()
-  await input.fill('Altro nome')
-  await input.press('Escape')
-  await expect(page.getByRole('heading', { name: 'Bozza' })).toBeVisible()
-  await page.getByRole('button', { name: 'Modifica il nome del progetto' }).click()
-  await input.fill('Portale clienti')
-  await input.press('Enter')
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
+  await expect(page.locator('[data-name-hint]')).toContainText('Il nome del progetto è il nome della sua cartella sul disco')
+  // Scrivendo il nome si propone la cartella <cartella dei progetti>/<nome>
+  await page.fill('#p-name', 'Bozza')
+  await expect(page.locator('#p-disk')).toHaveValue(/[\\/]Bozza$/)
+  // Scegliendo una cartella il progetto ne prende il nome
+  await page.getByRole('button', { name: 'Scegli la cartella del progetto' }).click()
+  const chosen = await page.locator('#p-disk').inputValue()
+  const folder = chosen.split(/[\\/]/).pop()!
+  await expect(page.locator('#p-name')).toHaveValue(folder)
+  // Scrivendo la cartella a mano il nome la segue
+  await page.fill('#p-disk', `${chosen.slice(0, chosen.length - folder.length)}Portale clienti`)
+  await expect(page.locator('#p-name')).toHaveValue('Portale clienti')
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
   await expect(page.getByRole('heading', { name: 'Portale clienti' })).toBeVisible()
-  await expect(page.getByText('Nome del progetto aggiornato')).toBeVisible()
-  await expect(sidebar(page).getByRole('link', { name: 'Portale clienti' })).toBeVisible()
-
-  // La cartella proposta (non ancora creata) ha seguito il nome
-  await openSection(page, 'Stack')
-  const disk = (await page.locator('code', { hasText: /Portale clienti$/ }).textContent())!.trim()
-  // Ora la cartella esiste sul disco: il progetto è collegato e il nome non si modifica più
-  await page.evaluate(async (dir) => {
-    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
-    await fs.writeTextAtomic(`${dir}/README.md`, '# Portale clienti')
-    window.dispatchEvent(new Event('focus'))
-  }, disk)
-  await expect(page.getByRole('button', { name: 'Modifica il nome del progetto' })).toHaveCount(0)
+  // Nessuna matita: il nome non si modifica dalla pagina del progetto
+  await expect(page.locator('[data-edit-project]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Modifica il nome/ })).toHaveCount(0)
   // Workspace locale: nella pagina Membri non c'è «Gestione permessi» (c'è un solo utente)
   await page.getByTitle('Membri del workspace').click()
   await expect(page.getByRole('button', { name: 'Gestione permessi' })).toHaveCount(0)

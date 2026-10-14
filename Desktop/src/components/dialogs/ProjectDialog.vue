@@ -17,8 +17,10 @@ const m = defineMessages({
     errMembers: 'Scegli almeno una persona, oppure apri il progetto a tutti.',
     newProject: 'Nuovo progetto',
     namePlaceholder: 'Es. Progetto di test',
+    nameHint: (folder: string) => `Il nome del progetto è il nome della sua cartella sul disco${folder ? ` (${folder})` : ''} e dopo la creazione non si cambia più.`,
+    nameHintNoRoot: 'Il nome del progetto è il nome della sua cartella sul disco e dopo la creazione non si cambia più.',
     diskPath: 'Cartella del progetto sul disco',
-    diskHint: 'Dove si trovano i file del progetto. Se la cartella non esiste ancora, la crei dalla sezione Stack con «Crea cartella del progetto».',
+    diskHint: 'Dove si trovano (o verranno creati) i file del progetto. Scegliendo una cartella esistente il progetto ne prende il nome; se non esiste ancora, la crei dalla sezione Stack con «Crea cartella del progetto».',
     pickDisk: 'Scegli la cartella del progetto',
     create: 'Crea progetto',
     stackFrom: 'Stack e configurazione iniziale',
@@ -31,8 +33,10 @@ const m = defineMessages({
     errMembers: 'Choose at least one person, or open the project to everyone.',
     newProject: 'New project',
     namePlaceholder: 'E.g. Test project',
+    nameHint: (folder: string) => `The project name is the name of its folder on disk${folder ? ` (${folder})` : ''} and cannot be changed after creation.`,
+    nameHintNoRoot: 'The project name is the name of its folder on disk and cannot be changed after creation.',
     diskPath: 'Project folder on disk',
-    diskHint: 'Where the project files are. If the folder does not exist yet, create it from the Stack section with “Create project folder”.',
+    diskHint: 'Where the project files are (or will be created). Choosing an existing folder gives the project its name; if it does not exist yet, create it from the Stack section with “Create project folder”.',
     pickDisk: 'Choose the project folder',
     create: 'Create project',
     stackFrom: 'Stack and initial setup',
@@ -43,8 +47,10 @@ const m = defineMessages({
 })
 
 /**
- * Creazione di un progetto. (Il nome si cambia nell'intestazione del progetto
- * con la matita, chi lo vede con «Gestione utenti».)
+ * Creazione di un progetto. Il nome è quello della cartella del progetto sul
+ * disco (e non si cambia più): scrivendo il nome si propone
+ * <cartella dei progetti>/<nome>, scegliendo una cartella se ne prende il nome.
+ * Chi vede il progetto si cambia poi da Membri › Gestione permessi.
  * `stackFrom`: id del progetto da cui copiare lo stack (preselezionato).
  */
 const props = defineProps<{ defaultFolderId?: string | null; stackFrom?: string | null }>()
@@ -60,30 +66,35 @@ const stackSource = ref<string | null>(null)
 /** Progetti con uno stack da usare come modello (solo per gli admin). */
 const templates = computed(() => (ws.isAdmin ? ws.visibleProjects.filter((p) => hasStack(p.stack)) : []))
 
-// Cartella del progetto sul disco (Stack › Cartella del progetto): si propone
-// <cartella dei progetti del workspace>/<nome> finché non la si cambia a mano.
+// Cartella del progetto sul disco (Stack › Cartella del progetto) e nome vanno
+// insieme: il nome è l'ultima parte del percorso della cartella.
 const diskPath = ref('')
-let diskTouched = false
+const folderName = (path: string) => path.split(/[\\/]+/).filter(Boolean).pop() ?? ''
+/** Scrivendo il nome: <cartella dei progetti>/<nome> (o, con una cartella scelta, nella stessa cartella madre). */
 watch(name, async (n) => {
-  const root = ws.meta?.projectsPath
-  if (!open.value || diskTouched || !root) return
+  const current = diskPath.value.trim()
+  // Il nome arriva già dalla cartella (scelta o scritta): niente da fare
+  if (!open.value || n.trim() === folderName(current)) return
+  const parent = current ? current.slice(0, current.length - folderName(current).length).replace(/[\\/]+$/, '') : ''
+  const root = parent || ws.meta?.projectsPath
+  if (!root) return
   diskPath.value = n.trim() ? await (await getFs()).join(root, n.trim()) : ''
 })
-function onDiskInput() {
-  diskTouched = true
+/** Cambiando la cartella: il nome diventa quello della cartella. */
+function syncName() {
+  name.value = folderName(diskPath.value.trim())
 }
 async function pickDisk() {
   const p = await (await getFs()).pickFolder(m.pickDisk)
   if (p) {
     diskPath.value = p
-    diskTouched = true
+    syncName()
   }
 }
 
 watch(open, (o) => {
   if (!o) return
   diskPath.value = ''
-  diskTouched = false
   name.value = ''
   members.value = []
   access.value = 'all'
@@ -92,6 +103,9 @@ watch(open, (o) => {
 })
 
 async function submit() {
+  // Il nome è sempre quello della cartella, quando c'è
+  const folder = folderName(diskPath.value.trim())
+  if (folder) name.value = folder
   if (!name.value.trim()) return (error.value = m.errName)
   const memberIds = ws.isNetwork ? resolveMembers(ws.users, access.value, members.value) : []
   if (!memberIds) return (error.value = m.errMembers)
@@ -111,11 +125,12 @@ async function submit() {
       <div>
         <label class="label" for="p-name">{{ common.name }}</label>
         <input id="p-name" v-model="name" class="field" :placeholder="m.namePlaceholder" data-autofocus />
+        <p class="mt-1 text-[12px] text-ink-3" data-name-hint>{{ ws.meta?.projectsPath ? m.nameHint(diskPath.trim()) : m.nameHintNoRoot }}</p>
       </div>
       <div>
         <label class="label" for="p-disk">{{ m.diskPath }}</label>
         <div class="flex gap-2">
-          <input id="p-disk" v-model="diskPath" class="field font-mono text-[12.5px]" @input="onDiskInput" />
+          <input id="p-disk" v-model="diskPath" class="field font-mono text-[12.5px]" @input="syncName" />
           <BaseButton :aria-label="m.pickDisk" @click="pickDisk"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
         </div>
         <p class="mt-1 text-[12px] text-ink-3">{{ m.diskHint }}</p>
