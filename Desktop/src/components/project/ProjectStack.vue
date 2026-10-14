@@ -506,7 +506,7 @@ const { linked: folderLinked, refresh: refreshFolder } = useProjectFolder(comput
  */
 async function projectDir(): Promise<string> {
   if (stack.value.sourcePath) return view.value.sourcePath
-  const root = ws.meta?.projectsPath
+  const root = ws.projectsRoot
   return root ? (await getFs()).join(root, props.project.name) : ''
 }
 async function createFolder() {

@@ -10,7 +10,7 @@ import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, type AiTool, type Stack } from '@/types'
 import { firstLine } from '@/services/items'
-import { detectStack } from '@/services/projectScan'
+import { detectStack, inferProjectsPath } from '@/services/projectScan'
 import { mergeStack } from '@/services/stackDoc'
 import type {
   Attachment,
@@ -72,6 +72,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   )
   const isAdmin = computed(() => meta.value?.mode === 'local' || currentUser.value?.role === 'admin')
   const isNetwork = computed(() => meta.value?.mode === 'network')
+  /** Cartella dei progetti ricavata dalle cartelle dei progetti (per i workspace che non l'hanno salvata). */
+  const inferredProjectsPath = computed(() => inferProjectsPath(Object.values(projects.value).map((p) => p.stack.sourcePath).filter(Boolean)))
+  /** Cartella dei progetti da usare: quella del workspace, altrimenti quella ricavata dai progetti. */
+  const projectsRoot = computed(() => meta.value?.projectsPath || inferredProjectsPath.value)
   /** Solo gli amministratori eliminano definitivamente (elementi e progetti nel cestino, svuota cestino). */
   const canPurge = computed(() => isAdmin.value)
   const isCleaner = computed(() => currentUser.value?.role === 'cleaner')
@@ -189,7 +193,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const p = projects.value[pid]
       return !!p && canSee(p)
     })
-    await session.touchRecent({ id: meta.value!.id, name: meta.value!.name, path: s.root, projectsPath: meta.value!.projectsPath, mode: meta.value!.mode })
+    // Workspace creati prima della 0.2.4: la cartella dei progetti non era salvata,
+    // la si ricava da quelle dei progetti (e, per l'admin, la si memorizza)
+    if (!meta.value!.projectsPath && isAdmin.value && inferredProjectsPath.value) await setProjectsPath(inferredProjectsPath.value)
+    await session.touchRecent({ id: meta.value!.id, name: meta.value!.name, path: s.root, projectsPath: projectsRoot.value, mode: meta.value!.mode })
     startWatching()
   }
 
@@ -931,6 +938,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentUser,
     isAdmin,
     isNetwork,
+    projectsRoot,
     canPurge,
     isCleaner,
     canTrashItem,

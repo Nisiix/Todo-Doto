@@ -108,3 +108,18 @@ describe('progetti esistenti in una cartella', () => {
     expect(await fs.exists('/progetti/workspace.json')).toBe(false)
   })
 })
+
+describe('inferProjectsPath', () => {
+  it('ricava la cartella madre più frequente delle cartelle dei progetti', async () => {
+    const { inferProjectsPath } = await import('./projectScan')
+    expect(inferProjectsPath(['/progetti/alfa', '/progetti/beta/', '/altro/gamma'])).toBe('/progetti')
+    expect(inferProjectsPath(['Z:\\Progetti\\Alfa', 'z:/progetti/Beta'])).toBe('Z:\\Progetti')
+    expect(inferProjectsPath(['/solo/uno'])).toBe('/solo')
+  })
+  it('nessuna cartella credibile: stringa vuota', async () => {
+    const { inferProjectsPath } = await import('./projectScan')
+    expect(inferProjectsPath([])).toBe('')
+    expect(inferProjectsPath(['C:\\Progetto'])).toBe('')
+    expect(inferProjectsPath(['progetto'])).toBe('')
+  })
+})

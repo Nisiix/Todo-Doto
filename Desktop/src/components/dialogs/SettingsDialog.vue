@@ -27,6 +27,7 @@ const m = defineMessages({
     userOn: (u: string, h: string) => `${u} su ${h}`,
     wsName: 'Nome workspace',
     projectsFolder: 'Cartella dei progetti',
+    projectsEmpty: 'Non ancora impostata (workspace creato con una versione precedente, senza progetti collegati a una cartella): indicala qui.',
     projectsHint: 'Dove si trovano (o verranno creati) i progetti. Serve a proporre la cartella dei progetti nuovi (<cartella>/<nome>, anche per quelli da GitHub) e a «Crea cartella del progetto» per i progetti senza cartella; è quella mostrata nei workspace recenti. Cambiarla non sposta né rinomina i progetti esistenti.',
     pickProjects: 'Scegli la cartella dei progetti',
     dataFolder: 'Cartella Dati Project Goal Manager',
@@ -51,6 +52,7 @@ const m = defineMessages({
     userOn: (u: string, h: string) => `${u} on ${h}`,
     wsName: 'Workspace name',
     projectsFolder: 'Projects folder',
+    projectsEmpty: 'Not set yet (workspace created with an earlier version, with no project linked to a folder): set it here.',
     projectsHint: 'Where the projects are (or will be created). It is used to suggest the folder of new projects (<folder>/<name>, GitHub ones too) and by “Create project folder” for projects without a folder; it is the one shown in the recent workspaces. Changing it does not move or rename existing projects.',
     pickProjects: 'Choose the projects folder',
     dataFolder: 'Project Goal Manager data folder',
@@ -88,7 +90,8 @@ const reopenLast = ref(true)
 watch(open, (o) => {
   if (!o) return
   wsName.value = ws.meta?.name ?? ''
-  projectsPath.value = ws.meta?.projectsPath ?? ''
+  // Anche per i workspace che non l'hanno salvata: quella ricavata dalle cartelle dei progetti
+  projectsPath.value = ws.projectsRoot
   folderMsg.value = ''
   displayName.value = ws.currentUser?.displayName ?? ''
   pw1.value = pw2.value = pwMsg.value = ''
@@ -149,7 +152,7 @@ const themes: { value: Theme; label: string }[] = [
             <input id="s-projects" v-model="projectsPath" class="field font-mono text-[12.5px]" :disabled="!ws.isAdmin" />
             <BaseButton v-if="ws.isAdmin" :aria-label="m.pickProjects" @click="pickProjects"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
           </div>
-          <p class="mt-1 text-[12px]" :class="folderMsg ? 'text-danger' : 'text-ink-3'">{{ folderMsg || m.projectsHint }}</p>
+          <p class="mt-1 text-[12px]" :class="folderMsg ? 'text-danger' : 'text-ink-3'">{{ folderMsg || (projectsPath.trim() ? m.projectsHint : m.projectsEmpty) }}</p>
         </div>
         <div>
           <span class="label">{{ m.dataFolder }}</span>

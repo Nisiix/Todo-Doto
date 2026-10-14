@@ -41,6 +41,31 @@ export const isInside = (child: string, parent: string) => {
 }
 export const samePath = (a: string, b: string) => norm(a) === norm(b)
 
+/**
+ * Cartella dei progetti ricavata dalle cartelle dei singoli progetti: la
+ * cartella madre più frequente (es. Z:\Progetti per Z:\Progetti\Alfa e
+ * Z:\Progetti\Beta). Serve ai workspace creati prima che la cartella dei
+ * progetti venisse salvata. '' se non ci sono cartelle da cui ricavarla.
+ */
+export function inferProjectsPath(projectDirs: string[]): string {
+  const counts = new Map<string, { path: string; n: number }>()
+  for (const dir of projectDirs) {
+    const d = dir.trim().replace(/[\\/]+$/, '')
+    const cut = Math.max(d.lastIndexOf('/'), d.lastIndexOf('\\'))
+    if (cut <= 0) continue
+    const parent = d.slice(0, cut)
+    // "C:" da solo non è una cartella dei progetti credibile
+    if (/^[a-z]:$/i.test(parent)) continue
+    const k = norm(parent)
+    const e = counts.get(k) ?? { path: parent, n: 0 }
+    e.n++
+    counts.set(k, e)
+  }
+  let best: { path: string; n: number } | null = null
+  for (const e of counts.values()) if (!best || e.n > best.n) best = e
+  return best?.path ?? ''
+}
+
 async function markersOf(path: string): Promise<{ markers: string[]; isWorkspace: boolean }> {
   const fs = await getFs()
   const entries = await fs.listDir(path).catch(() => [])

@@ -76,7 +76,7 @@ watch(name, async (n) => {
   // Il nome arriva già dalla cartella (scelta o scritta): niente da fare
   if (!open.value || n.trim() === folderName(current)) return
   const parent = current ? current.slice(0, current.length - folderName(current).length).replace(/[\\/]+$/, '') : ''
-  const root = parent || ws.meta?.projectsPath
+  const root = parent || ws.projectsRoot
   if (!root) return
   diskPath.value = n.trim() ? await (await getFs()).join(root, n.trim()) : ''
 })
@@ -125,7 +125,7 @@ async function submit() {
       <div>
         <label class="label" for="p-name">{{ common.name }}</label>
         <input id="p-name" v-model="name" class="field" :placeholder="m.namePlaceholder" data-autofocus />
-        <p class="mt-1 text-[12px] text-ink-3" data-name-hint>{{ ws.meta?.projectsPath ? m.nameHint(diskPath.trim()) : m.nameHintNoRoot }}</p>
+        <p class="mt-1 text-[12px] text-ink-3" data-name-hint>{{ ws.projectsRoot ? m.nameHint(diskPath.trim()) : m.nameHintNoRoot }}</p>
       </div>
       <div>
         <label class="label" for="p-disk">{{ m.diskPath }}</label>

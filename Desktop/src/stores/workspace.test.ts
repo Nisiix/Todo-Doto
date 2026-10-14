@@ -523,3 +523,20 @@ describe('workspace: aggiornamento in background e scritture locali', () => {
     expect(Object.values(ws.projects).map((p) => p.name).sort()).toEqual(['Primo', 'Secondo'])
   })
 })
+
+describe('workspace: cartella dei progetti nei workspace creati prima della 0.2.4', () => {
+  it('all’apertura la ricava dalle cartelle dei progetti e la memorizza', async () => {
+    await useSessionStore().init()
+    const ws = useWorkspaceStore()
+    await ws.create({ path: '/vecchio-dati', name: 'Vecchio', mode: 'local' }) // senza cartella dei progetti
+    expect(ws.meta!.projectsPath).toBe('')
+    for (const n of ['alfa', 'beta']) {
+      const p = (await ws.createProject({ name: n, description: '', folderId: null, members: [] }))!
+      await ws.setProjectSourcePath(p.id, `/progetti/${n}`)
+    }
+    expect(ws.projectsRoot).toBe('/progetti')
+    expect((await ws.open('/vecchio-dati')).ok).toBe(true)
+    expect(ws.meta!.projectsPath).toBe('/progetti')
+    expect(useSessionStore().config.recent[0]!.projectsPath).toBe('/progetti')
+  })
+})

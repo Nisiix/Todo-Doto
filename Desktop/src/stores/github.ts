@@ -110,7 +110,7 @@ export const useGitHubStore = defineStore('github', () => {
 
   /** Cartella proposta per il progetto: <cartella dei progetti del workspace>/<nome del repository>. */
   async function proposedPath(repo: string) {
-    const root = ws.meta?.projectsPath
+    const root = ws.projectsRoot
     return root ? (await getFs()).join(root, repo) : ''
   }
 
