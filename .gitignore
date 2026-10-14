@@ -7,3 +7,13 @@ Web/downloads/manifest.json
 
 # installer scaricati dalle Release (non versionati)
 installer/
+
+# workspace dell'app aperto nella cartella del repository (dati locali, mai versionati)
+/workspace.json
+/users.json
+/tree.json
+/audit.json
+/drive.json
+/projects/
+*.json.lock
+*.json.*.tmp
