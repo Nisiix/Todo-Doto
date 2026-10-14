@@ -8,7 +8,7 @@
 import { getFs } from './fs'
 import { newId } from './ids'
 import { compareText, defineMessages } from '@/i18n'
-import { KNOWN_PREREQUISITES, suggestPrerequisites } from './prerequisites'
+import { KNOWN_LANGUAGES, KNOWN_PREREQUISITES, suggestPrerequisites } from './prerequisites'
 import { editorStep, isEditorStep, isRunStep, mergeImportedStack, parseStackMarkdown, platformsFor } from './stackDoc'
 import { EMPTY_STACK, type SetupStep, type Stack } from '@/types'
 
@@ -82,11 +82,13 @@ export async function scanProjects(root: string): Promise<DetectedProject[]> {
 const M = defineMessages({
   it: {
     install: 'Installa le dipendenze',
+    clone: 'Clona il repository',
     restore: 'Ripristina i pacchetti NuGet',
     pipInstall: 'Installa i pacchetti Python',
   },
   en: {
     install: 'Install the dependencies',
+    clone: 'Clone the repository',
     restore: 'Restore the NuGet packages',
     pipInstall: 'Install the Python packages',
   },
@@ -135,24 +137,52 @@ export function repoFromGitConfig(config: string): string {
  */
 export async function detectStack(path: string): Promise<{ description: string; stack: Stack }> {
   const fs = await getFs()
-  const entries = await fs.listDir(path).catch(() => [])
+  const source: ProjectSource = {
+    list: () => fs.listDir(path).catch(() => []),
+    read: async (name) => fs.readText(await fs.join(path, name)).catch(() => null),
+    gitConfig: async () => fs.readText(await fs.join(path, '.git', 'config')).catch(() => ''),
+  }
+  return stackFromSource(source, { sourcePath: path })
+}
+
+/** Dove si leggono i file di un progetto: una cartella locale o un repository remoto (es. GitHub). */
+export interface ProjectSource {
+  /** File e cartelle della radice del progetto. */
+  list(): Promise<{ name: string; isDir: boolean }[]>
+  /** Contenuto di un file della radice (null se manca o non si legge). */
+  read(name: string): Promise<string | null>
+  /** Configurazione git locale (.git/config), per ricavare il repository. */
+  gitConfig?(): Promise<string>
+}
+
+/**
+ * Stack ricavato dai file di un progetto, da qualunque sorgente. `repoUrl` e
+ * `languages` (es. le statistiche dei linguaggi di GitHub) completano quanto
+ * si legge dai file.
+ */
+export async function stackFromSource(
+  src: ProjectSource,
+  info: { sourcePath?: string; repoUrl?: string; languages?: string[]; clone?: boolean } = {},
+): Promise<{ description: string; stack: Stack }> {
+  const entries = await src.list()
   const byName = new Map(entries.map((e) => [e.name.toLowerCase(), e]))
   const read = async (name: string) => {
     const e = byName.get(name.toLowerCase())
     if (!e || e.isDir) return null
-    return fs.readText(await fs.join(path, e.name)).catch(() => null)
+    return src.read(e.name)
   }
-  const s: Stack = { ...JSON.parse(JSON.stringify(EMPTY_STACK)), sourcePath: path }
+  const s: Stack = { ...JSON.parse(JSON.stringify(EMPTY_STACK)), sourcePath: info.sourcePath ?? '' }
   const lang = (l: string) => void (!s.languages.includes(l) && s.languages.push(l))
   const fw = (f: string) => void (!s.frameworks.includes(f) && s.frameworks.push(f))
   const step = (title: string, command: string, kind: SetupStep['kind'] = 'command') =>
     s.steps.push({ id: newId('stp'), title, kind, command, cwd: '', url: '', notes: '' })
 
   // Repository
-  if (byName.get('.git')?.isDir) {
-    const cfg = await fs.readText(await fs.join(path, byName.get('.git')!.name, 'config')).catch(() => '')
-    s.repoUrl = repoFromGitConfig(cfg)
-  }
+  if (info.repoUrl) s.repoUrl = info.repoUrl
+  else if (byName.get('.git')?.isDir && src.gitConfig) s.repoUrl = repoFromGitConfig(await src.gitConfig())
+
+  // Repository remoto: il primo passo è clonarlo nella cartella del progetto
+  if (info.clone && s.repoUrl) step(M.clone, `git clone ${s.repoUrl}.git .`)
 
   // JavaScript / TypeScript
   const pkgText = await read('package.json')
@@ -225,6 +255,9 @@ export async function detectStack(path: string): Promise<{ description: string; 
     lang('Ruby')
     if (/['"]rails['"]/.test(gemfile)) fw('Rails')
   }
+
+  // Linguaggi indicati dalla sorgente (es. statistiche di GitHub), se riconosciuti
+  for (const l of info.languages ?? []) if (KNOWN_LANGUAGES.includes(l)) lang(l)
 
   // README e documento di architettura: aggiungono note, prerequisiti, passi, variabili
   let description = ''

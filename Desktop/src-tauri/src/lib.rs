@@ -149,6 +149,197 @@ async fn oauth_wait(locale: Option<String>) -> Result<OAuthCallback, String> {
     .map_err(|e| e.to_string())?
 }
 
+// ---------------------------------------------------------------------------
+// Verifica dei prerequisiti (Stack › Configura sul tuo PC): esegue il comando di
+// verifica (es. `node -v`) senza finestre, con un tempo massimo, in una cartella
+// neutra e con il PATH aggiornato, così si vede anche ciò che è stato installato
+// dopo l'avvio dell'app. Quali comandi eseguire lo decide il frontend.
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct CheckOutput {
+    /// Codice d'uscita (None se il processo è stato interrotto).
+    code: Option<i32>,
+    stdout: String,
+    stderr: String,
+    timed_out: bool,
+    /// Il comando non è partito affatto (es. shell non disponibile).
+    spawn_error: Option<String>,
+}
+
+/// Espande le variabili `%NOME%` dei valori REG_EXPAND_SZ.
+#[cfg(windows)]
+fn expand_env(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(start) = rest.find('%') {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 1..];
+        match after.find('%') {
+            Some(end) => {
+                let name = &after[..end];
+                match std::env::var(name) {
+                    Ok(v) if !name.is_empty() => out.push_str(&v),
+                    _ => {
+                        out.push('%');
+                        out.push_str(name);
+                        out.push('%');
+                    }
+                }
+                rest = &after[end + 1..];
+            }
+            None => {
+                out.push('%');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// PATH come lo vedrebbe un nuovo prompt dei comandi: sistema + utente (dal
+/// registro) + quello del processo, senza duplicati.
+#[cfg(windows)]
+fn fresh_path() -> Option<String> {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
+    let read = |root: RegKey, key: &str| -> String {
+        root.open_subkey(key)
+            .and_then(|k| k.get_value::<String, _>("Path"))
+            .unwrap_or_default()
+    };
+    let system = read(
+        RegKey::predef(HKEY_LOCAL_MACHINE),
+        r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+    );
+    let user = read(RegKey::predef(HKEY_CURRENT_USER), "Environment");
+    let process = std::env::var("PATH").unwrap_or_default();
+    let mut seen = std::collections::HashSet::new();
+    let mut parts = Vec::new();
+    for part in [system, user, process].iter().flat_map(|p| p.split(';').map(expand_env).collect::<Vec<_>>()) {
+        let p = part.trim().to_string();
+        if !p.is_empty() && seen.insert(p.to_lowercase()) {
+            parts.push(p);
+        }
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(";"))
+    }
+}
+
+fn shell_command(command: &str) -> std::process::Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut c = std::process::Command::new("cmd");
+        // /S: cmd toglie solo le virgolette esterne ed esegue il resto così com'è
+        c.raw_arg(format!("/D /S /C \"{command}\""));
+        c.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        if let Some(path) = fresh_path() {
+            c.env("PATH", path);
+        }
+        c
+    }
+    #[cfg(not(windows))]
+    {
+        let mut c = std::process::Command::new("sh");
+        c.arg("-lc").arg(command);
+        c
+    }
+}
+
+fn kill_tree(child: &mut std::process::Child) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &child.id().to_string()])
+            .creation_flags(0x0800_0000)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+fn run_check_blocking(command: &str, timeout: std::time::Duration) -> CheckOutput {
+    use std::process::Stdio;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+
+    let mut cmd = shell_command(command);
+    cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.current_dir(std::env::temp_dir());
+    let mut child = match cmd.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            return CheckOutput {
+                spawn_error: Some(e.to_string()),
+                ..Default::default()
+            }
+        }
+    };
+
+    // Lettura dell'output in thread separati: un programma che scrive molto non si blocca
+    let pipe = |r: Option<Box<dyn Read + Send>>| {
+        let (tx, rx) = mpsc::channel::<String>();
+        if let Some(mut r) = r {
+            std::thread::spawn(move || {
+                let mut buf = Vec::new();
+                let _ = r.read_to_end(&mut buf);
+                let _ = tx.send(String::from_utf8_lossy(&buf).into_owned());
+            });
+        }
+        rx
+    };
+    let out_rx = pipe(child.stdout.take().map(|s| Box::new(s) as Box<dyn Read + Send>));
+    let err_rx = pipe(child.stderr.take().map(|s| Box::new(s) as Box<dyn Read + Send>));
+
+    let started = Instant::now();
+    let mut timed_out = false;
+    let code = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status.code(),
+            Ok(None) if started.elapsed() >= timeout => {
+                timed_out = true;
+                kill_tree(&mut child);
+                break None;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(40)),
+            Err(e) => {
+                kill_tree(&mut child);
+                return CheckOutput {
+                    spawn_error: Some(e.to_string()),
+                    ..Default::default()
+                };
+            }
+        }
+    };
+    let grace = Duration::from_millis(1500);
+    let limit = |s: String| s.chars().take(4000).collect::<String>();
+    CheckOutput {
+        code,
+        stdout: limit(out_rx.recv_timeout(grace).unwrap_or_default()),
+        stderr: limit(err_rx.recv_timeout(grace).unwrap_or_default()),
+        timed_out,
+        spawn_error: None,
+    }
+}
+
+/// Esegue un comando di verifica e ne restituisce codice d'uscita e output.
+#[tauri::command]
+async fn run_check(command: String, timeout_ms: Option<u64>) -> Result<CheckOutput, String> {
+    let timeout = std::time::Duration::from_millis(timeout_ms.unwrap_or(20_000).clamp(1_000, 120_000));
+    tauri::async_runtime::spawn_blocking(move || run_check_blocking(&command, timeout))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -158,7 +349,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![get_identity, oauth_start, oauth_wait])
+        .invoke_handler(tauri::generate_handler![get_identity, oauth_start, oauth_wait, run_check])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Project Goal Manager");
 }

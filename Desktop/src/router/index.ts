@@ -13,6 +13,7 @@ export const router = createRouter({
         { path: 'p/:id/:section?', name: 'project', component: () => import('@/views/ProjectView.vue'), props: true },
         { path: 'members', name: 'members', component: () => import('@/views/MembersView.vue') },
         { path: 'drive', name: 'drive', component: () => import('@/views/DriveView.vue') },
+        { path: 'github', name: 'github', component: () => import('@/views/GitHubView.vue') },
         // Pagine riservate agli amministratori (voci di menu visibili solo a loro)
         { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue'), meta: { admin: true } },
         { path: 'analytics', name: 'analytics', component: () => import('@/views/AnalyticsView.vue'), meta: { admin: true } },

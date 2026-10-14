@@ -84,6 +84,40 @@ export async function saveDriveAuth(data: DriveAuthFile | null, secret: string) 
   await fs.writeTextAtomic(p, await encryptLocal(JSON.stringify(data), secret))
 }
 
+// --- GitHub: token personale (sola lettura), cifrato con la chiave locale ----------
+
+const GITHUB_AUTH = 'github-auth.json'
+
+export interface GitHubAuthFile {
+  token: string
+  login: string
+  name: string
+  /** Sincronizza i progetti collegati all'apertura del workspace. */
+  autoSync: boolean
+}
+
+export async function loadGitHubAuth(secret: string): Promise<GitHubAuthFile | null> {
+  const fs = await getFs()
+  try {
+    const p = await appFile(GITHUB_AUTH)
+    if (!(await fs.exists(p))) return null
+    const plain = await decryptLocal(await fs.readText(p), secret)
+    return plain ? (JSON.parse(plain) as GitHubAuthFile) : null
+  } catch {
+    return null
+  }
+}
+
+export async function saveGitHubAuth(data: GitHubAuthFile | null, secret: string) {
+  const fs = await getFs()
+  const p = await appFile(GITHUB_AUTH)
+  if (!data) {
+    if (await fs.exists(p)) await fs.remove(p)
+    return
+  }
+  await fs.writeTextAtomic(p, await encryptLocal(JSON.stringify(data), secret))
+}
+
 export async function forgetPassword(workspaceId: string) {
   const creds = await loadCredentials()
   delete creds.entries[workspaceId]

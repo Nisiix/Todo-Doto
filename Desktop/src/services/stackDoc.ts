@@ -401,6 +401,26 @@ export function parseStackMarkdown(md: string): ImportedStack {
   return imp
 }
 
+/** Unisce uno Stack ricavato (es. da GitHub) a quello esistente, senza cancellare nulla. */
+export function mergeStack(current: Stack, incoming: Stack): { stack: Stack; added: ImportCounts } {
+  const strip = <T extends { id: string }>(xs: T[]) => xs.map(({ id: _id, ...rest }) => rest)
+  const imp: ImportedStack = {
+    title: '',
+    description: '',
+    platforms: incoming.platforms,
+    languages: incoming.languages,
+    frameworks: incoming.frameworks,
+    repoUrl: incoming.repoUrl,
+    notes: incoming.notes,
+    prerequisites: strip(incoming.prerequisites),
+    steps: strip(incoming.steps),
+    envVars: incoming.envVars,
+  }
+  const r = mergeImportedStack(current, imp, incoming.doc)
+  if (!r.stack.sourcePath && incoming.sourcePath) r.stack.sourcePath = incoming.sourcePath
+  return r
+}
+
 export interface ImportCounts {
   platforms: number
   languages: number

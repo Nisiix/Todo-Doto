@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import TopBar from '@/components/layout/TopBar.vue'
 import SideRail from '@/components/layout/SideRail.vue'
+import { onMounted } from 'vue'
+import { useGitHubStore } from '@/stores/github'
+
+// Progetti collegati a GitHub: lo stack si risincronizza da solo all'apertura (se attivo)
+const github = useGitHubStore()
+onMounted(() => void github.autoSyncOnOpen().catch(() => undefined))
 </script>
 
 <template>

@@ -17,6 +17,13 @@ export interface KnownPrerequisite {
   check: string
   /** Linguaggi, framework o piattaforme che lo richiedono. */
   neededBy: string[]
+  /** Sistemi su cui serve (se manca: tutti). */
+  os?: Array<'windows' | 'macos' | 'linux'>
+  /**
+   * Verifica dell'installazione per gli strumenti senza un comando di verifica
+   * (es. Visual Studio): solo Windows; uscita diversa da 0 o output vuoto = non installato.
+   */
+  probe?: { command: string; version?: RegExp }
 }
 
 export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
@@ -37,6 +44,8 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     url: 'https://visualstudio.microsoft.com/visual-cpp-build-tools/',
     check: '',
     neededBy: ['Rust', 'Tauri', 'C++'],
+    os: ['windows'],
+    probe: { command: '"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe" -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -latest -property catalog_productLineVersion' },
   },
   {
     name: '.NET SDK',
@@ -53,6 +62,8 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     url: 'https://visualstudio.microsoft.com/downloads/',
     check: '',
     neededBy: ['WPF', 'WinForms', 'Windows Forms', '.NET Framework', '.NET 4.0', 'VB.NET'],
+    os: ['windows'],
+    probe: { command: '"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe" -latest -property catalog_productLineVersion' },
   },
   { name: 'Python', aliases: ['python3', 'py'], version: '3.11+', url: 'https://www.python.org/downloads/', check: 'python --version', neededBy: ['Python', 'Django', 'Flask', 'FastAPI'] },
   { name: 'Java JDK', aliases: ['java', 'jdk', 'openjdk', 'temurin'], version: '17+', url: 'https://adoptium.net', check: 'java -version', neededBy: ['Java', 'Kotlin', 'Spring', 'Spring Boot', 'Android'] },
@@ -61,8 +72,16 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
   { name: 'Composer', aliases: ['php composer'], version: '', url: 'https://getcomposer.org/download/', check: 'composer --version', neededBy: ['Laravel', 'Symfony'] },
   { name: 'Ruby', aliases: ['rbenv'], version: '', url: 'https://www.ruby-lang.org/en/downloads/', check: 'ruby -v', neededBy: ['Ruby', 'Rails', 'Ruby on Rails'] },
   { name: 'Flutter SDK', aliases: ['flutter'], version: 'stable', url: 'https://docs.flutter.dev/get-started/install', check: 'flutter --version', neededBy: ['Flutter', 'Dart'] },
-  { name: 'Android Studio', aliases: ['android sdk'], version: '', url: 'https://developer.android.com/studio', check: '', neededBy: ['Android', 'Kotlin', 'Capacitor', 'Ionic', 'React Native', 'Flutter'] },
-  { name: 'Xcode', aliases: ['xcode command line tools'], version: '', url: 'https://developer.apple.com/xcode/', check: 'xcodebuild -version', neededBy: ['Swift', 'iOS', 'SwiftUI'] },
+  {
+    name: 'Android Studio',
+    aliases: ['android sdk'],
+    version: '',
+    url: 'https://developer.android.com/studio',
+    check: '',
+    neededBy: ['Android', 'Kotlin', 'Capacitor', 'Ionic', 'React Native', 'Flutter'],
+    probe: { command: 'type "%ProgramFiles%\\Android\\Android Studio\\product-info.json"', version: /"version"\s*:\s*"([\d.]+)"/ },
+  },
+  { name: 'Xcode', aliases: ['xcode command line tools'], version: '', url: 'https://developer.apple.com/xcode/', check: 'xcodebuild -version', neededBy: ['Swift', 'iOS', 'SwiftUI'], os: ['macos'] },
   { name: 'Docker Desktop', aliases: ['docker'], version: '', url: 'https://www.docker.com/products/docker-desktop/', check: 'docker --version', neededBy: ['Docker', 'Docker Compose', 'Kubernetes'] },
   { name: 'PostgreSQL', aliases: ['postgres', 'psql'], version: '', url: 'https://www.postgresql.org/download/', check: 'psql --version', neededBy: ['PostgreSQL'] },
   { name: 'MySQL', aliases: ['mariadb'], version: '', url: 'https://dev.mysql.com/downloads/', check: 'mysql --version', neededBy: ['MySQL'] },

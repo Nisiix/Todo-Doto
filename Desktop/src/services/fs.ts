@@ -47,6 +47,21 @@ export interface FsApi {
   /** Ricevitore OAuth su 127.0.0.1: apre una porta e attende il redirect. */
   oauthStart(): Promise<number>
   oauthWait(): Promise<{ code?: string; state?: string; error?: string }>
+  /**
+   * Esegue un comando di verifica di un prerequisito (es. `node -v`) senza
+   * finestre e con un tempo massimo. Solo nell'app desktop.
+   */
+  runCheck(command: string, timeoutMs?: number): Promise<CheckOutput>
+}
+
+export interface CheckOutput {
+  /** Codice d'uscita; null se il comando è stato interrotto. */
+  code: number | null
+  stdout: string
+  stderr: string
+  timedOut: boolean
+  /** Il comando non è nemmeno partito. */
+  spawnError?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +159,7 @@ async function tauriFs(): Promise<FsApi> {
     identity: () => invoke<Identity>('get_identity'),
     oauthStart: () => invoke<number>('oauth_start'),
     oauthWait: () => invoke('oauth_wait', { locale }),
+    runCheck: (command, timeoutMs) => invoke<CheckOutput>('run_check', { command, timeoutMs }),
   }
 }
 
@@ -244,6 +260,13 @@ function memoryFs(): FsApi {
       throw new Error(common.drive.desktopOnly)
     },
     async oauthWait() {
+      throw new Error(common.drive.desktopOnly)
+    },
+    async runCheck(command) {
+      // Nell'anteprima nel browser i comandi non si possono eseguire; i test
+      // end-to-end possono simulare i risultati con window.__pgmChecks.
+      const fake = (window as unknown as { __pgmChecks?: Record<string, CheckOutput> }).__pgmChecks?.[command]
+      if (fake) return fake
       throw new Error(common.drive.desktopOnly)
     },
   }

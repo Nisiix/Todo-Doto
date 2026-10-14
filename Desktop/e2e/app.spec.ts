@@ -30,11 +30,23 @@ async function createLocalWorkspace(page: Page, name = 'Roadmap Sviluppo') {
 }
 
 async function createProject(page: Page, name: string, folderLabel?: string) {
-  await page.getByRole('button', { name: 'Progetto' }).first().click()
+  if (folderLabel) {
+    // Nella cartella della barra laterale: dal menu della cartella
+    await page.locator('aside').first().getByText(folderLabel, { exact: true }).hover()
+    await page.locator('aside').first().getByLabel('Azioni cartella').click()
+    await page.getByText('Nuovo progetto qui').click()
+  } else await page.getByRole('button', { name: 'Progetto' }).first().click()
   await page.fill('#p-name', name)
-  if (folderLabel) await page.selectOption('#p-folder', { label: folderLabel })
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await expect(page.getByRole('heading', { name })).toBeVisible()
+}
+
+/** Esiti simulati dei comandi di verifica dei prerequisiti (nel browser i comandi non si eseguono). */
+async function fakeChecks(page: Page, results: Record<string, { code: number | null; stdout?: string; stderr?: string; timedOut?: boolean }>) {
+  await page.evaluate((r) => {
+    const all = Object.fromEntries(Object.entries(r).map(([k, v]) => [k, { stdout: '', stderr: '', timedOut: false, ...v }]))
+    Object.assign(window, { __pgmChecks: all })
+  }, results)
 }
 
 const newItemButton = (page: Page) => page.getByRole('button', { name: 'Nuovo task' })
@@ -85,6 +97,16 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await expect(page.getByRole('radio', { name: 'Tutti i membri del workspace' })).toHaveAttribute('aria-checked', 'true')
   await page.getByRole('radio', { name: 'Solo alcune persone' }).click()
   await expect(page.getByText('Nessun altro membro ancora')).toBeVisible()
+  await page.getByRole('radio', { name: 'Tutti i membri del workspace' }).click()
+  await page.fill('#p-name', 'Condiviso')
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'Condiviso' })).toBeVisible()
+  // Chi vede il progetto si gestisce con «Gestione utenti» in alto a destra
+  await page.getByRole('button', { name: 'Gestione utenti' }).click()
+  await expect(dialog(page)).toContainText('Condiviso')
+  await expect(dialog(page).getByRole('radio', { name: 'Tutti i membri del workspace' })).toHaveAttribute('aria-checked', 'true')
+  await dialog(page).getByRole('button', { name: 'Salva' }).click()
+  await expect(page.getByText('Utenti del progetto aggiornati')).toBeVisible()
 })
 
 test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async ({ page }) => {
@@ -340,7 +362,8 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await createProject(page, 'Stack test')
   await addItem(page, 'Elemento assegnato')
 
-  // Stack: compilazione (admin) e procedura guidata
+  // Stack: compilazione (admin) e procedura guidata. Node.js non è installato (comando non riconosciuto)
+  await fakeChecks(page, { 'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" } })
   await openSection(page, 'Stack')
   await page.getByRole('button', { name: 'Compila lo stack' }).click()
   await page.getByRole('button', { name: 'Desktop' }).click()
@@ -356,12 +379,46 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await expect(page.getByText('Stack salvato')).toBeVisible()
   await expect(page.getByText('TypeScript', { exact: true })).toBeVisible()
   await expect(page.getByText('0 di 2 completati')).toBeVisible()
-  await page.getByTitle('Segna come fatto').first().click()
+  // Verifica automatica: Node.js manca → segnalato, la configurazione automatica è bloccata
+  const node = page.locator('[data-prereq="Node.js"]')
+  await expect(node).toHaveAttribute('data-status', 'missing')
+  await expect(node).toContainText('Non trovato su questo PC: va installato')
+  await expect(page.locator('[data-prereq-summary]')).toHaveText('1 da installare o aggiornare')
+  await page.getByTitle('Segna come fatto').first().click() // il passo
   await expect(page.getByText('1 di 2 completati')).toBeVisible()
-  // Configurazione automatica: riepilogo di verifiche e passi, poi avvio (nel browser: solo app desktop)
   await page.getByRole('button', { name: 'Gestisci configurazione automatica' }).click()
   await expect(dialog(page)).toContainText('Configurazione automatica di Stack test')
   await expect(dialog(page)).toContainText('npm install')
+  await expect(dialog(page).locator('[data-auto-blocked]')).toContainText('Node.js')
+  await expect(dialog(page).getByRole('button', { name: 'Avvia configurazione' })).toBeDisabled()
+  await expect(dialog(page).getByRole('button', { name: 'Salva lo script…' })).toBeDisabled()
+  await page.keyboard.press('Escape')
+
+  // Esito incerto (errore senza versione): segnalato; si sblocca solo confermandolo a mano
+  await fakeChecks(page, { 'node -v': { code: 1, stderr: 'errore imprevisto' } })
+  await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
+  await expect(node).toHaveAttribute('data-status', 'failed')
+  await expect(node).toContainText('Verifica non riuscita: controlla a mano')
+  await expect(page.locator('[data-prereq-summary]')).toHaveText('1 da verificare a mano')
+  await page.getByTitle('Confermo che è installato e va bene').click()
+  await expect(page.getByText('2 di 2 completati')).toBeVisible()
+
+  // Versione vecchia: va aggiornato, la conferma a mano non basta
+  await fakeChecks(page, { 'node -v': { code: 0, stdout: 'v18.19.0' } })
+  await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
+  await expect(node).toContainText('Installata la 18.19.0, serve 20+: va aggiornato')
+  await expect(page.getByText('1 di 2 completati')).toBeVisible()
+
+  // Versione giusta: verificato e spuntato da solo
+  await fakeChecks(page, { 'node -v': { code: 0, stdout: 'v20.11.0' } })
+  await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
+  await expect(node).toContainText('Installato · 20.11.0')
+  await expect(page.getByText('2 di 2 completati')).toBeVisible()
+  await expect(page.locator('[data-prereq-summary]')).toHaveText('1 installato')
+
+  // Configurazione automatica: nessun blocco, avvio (nel browser: solo app desktop)
+  await page.getByRole('button', { name: 'Gestisci configurazione automatica' }).click()
+  await expect(dialog(page).locator('[data-auto-blocked]')).toHaveCount(0)
   await dialog(page).getByRole('button', { name: 'Avvia configurazione' }).click()
   await expect(page.getByText(/disponibile nell’app desktop/)).toBeVisible()
   await page.keyboard.press('Escape')
@@ -418,6 +475,9 @@ test('stack come modello: nuovo progetto con lo stack copiato e cartella del pro
   await expect(page.getByText(/Cartella del progetto creata \(3 file\)/)).toBeVisible()
   // La cartella creata è quella del progetto sul disco: <cartella dei progetti>/<nome>
   await expect(page.locator('code', { hasText: /Nuovo portale$/ })).toBeVisible()
+  // Ora il progetto è collegato alla sua cartella: niente più «Crea cartella» e il progetto non si modifica più
+  await expect(page.getByRole('button', { name: 'Crea cartella del progetto' })).toHaveCount(0)
+  await expect(page.locator('[data-edit-project]')).toHaveCount(0)
 
   // Importazione dello stack in un progetto esistente, durante la modifica
   await createProject(page, 'Altro')
@@ -428,7 +488,7 @@ test('stack come modello: nuovo progetto con lo stack copiato e cartella del pro
   await expect(page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)')).toHaveValue('git clone https://example.com/altro.git')
 })
 
-test('barra laterale: sottomenu del progetto; nessun cestino nelle sezioni; impostazioni con l’ingranaggio', async ({ page }) => {
+test('barra laterale: sottomenu del progetto; nessun cestino nelle sezioni; matita accanto al nome', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Uno')
   const submenu = sidebar(page).getByRole('list', { name: 'Sezioni di Uno' })
@@ -437,7 +497,9 @@ test('barra laterale: sottomenu del progetto; nessun cestino nelle sezioni; impo
     await openSection(page, s)
     // Il pulsante per cestinare il progetto non è più nell'intestazione delle sezioni
     await expect(page.getByRole('main').getByRole('button', { name: /nel cestino/i })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Impostazioni progetto' })).toBeVisible()
+    // Niente ingranaggio: si modifica dalla matita accanto al nome
+    await expect(page.getByRole('button', { name: 'Impostazioni progetto' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Modifica il nome del progetto' })).toBeVisible()
   }
   // Il vecchio indirizzo della sezione Strumenti AI porta allo Stack
   await page.goto(page.url().replace(/\/attachments$/, '/ai'))
@@ -540,6 +602,9 @@ test('workspace da una cartella di progetti: propone di crearli e chiede un’al
   await sidebar(page).getByRole('link', { name: 'alfa' }).click()
   await openSection(page, 'Stack')
   await expect(page.getByText('/progetti/alfa', { exact: true })).toBeVisible()
+  // Collegato a una cartella esistente: niente matita e niente «Crea cartella del progetto»
+  await expect(page.locator('[data-edit-project]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Crea cartella del progetto' })).toHaveCount(0)
   await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
   await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
 })
@@ -563,7 +628,8 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
   await page.getByRole('button', { name: 'Progetto', exact: true }).click()
   await page.fill('#p-name', 'Portale')
   await expect(page.locator('#p-disk')).toHaveValue('/sviluppo/Portale')
-  await expect(page.getByText('Serve solo a raggruppare i progetti nella barra laterale')).toBeVisible()
+  await expect(page.locator('#p-desc')).toHaveCount(0)
+  await expect(page.locator('#p-folder')).toHaveCount(0)
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await openSection(page, 'Stack')
   await page.getByRole('button', { name: 'Compila lo stack' }).click()
@@ -599,4 +665,96 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
     return { data: await fs.exists('/pgm/sviluppo/workspace.json'), project: await fs.exists('/sviluppo/Portale/README.md') }
   })
   expect(left).toEqual({ data: false, project: true })
+})
+
+test('nome del progetto: matita → salva/annulla nell’intestazione, finché non c’è la cartella sul disco', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Bozza')
+  // Niente dialog: la matita trasforma il titolo in un campo, con Salva e Annulla
+  await page.getByRole('button', { name: 'Modifica il nome del progetto' }).click()
+  await expect(dialog(page)).toHaveCount(0)
+  const input = page.getByLabel('Nome del progetto')
+  await expect(input).toHaveValue('Bozza')
+  await input.fill('Altro nome')
+  await page.getByRole('button', { name: 'Annulla (Esc)' }).click()
+  await expect(page.getByRole('heading', { name: 'Bozza' })).toBeVisible()
+  // Esc annulla, Invio salva
+  await page.getByRole('button', { name: 'Modifica il nome del progetto' }).click()
+  await input.fill('Altro nome')
+  await input.press('Escape')
+  await expect(page.getByRole('heading', { name: 'Bozza' })).toBeVisible()
+  await page.getByRole('button', { name: 'Modifica il nome del progetto' }).click()
+  await input.fill('Portale clienti')
+  await input.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Portale clienti' })).toBeVisible()
+  await expect(page.getByText('Nome del progetto aggiornato')).toBeVisible()
+  await expect(sidebar(page).getByRole('link', { name: 'Portale clienti' })).toBeVisible()
+
+  // La cartella proposta (non ancora creata) ha seguito il nome
+  await openSection(page, 'Stack')
+  const disk = (await page.locator('code', { hasText: /Portale clienti$/ }).textContent())!.trim()
+  // Ora la cartella esiste sul disco: il progetto è collegato e il nome non si modifica più
+  await page.evaluate(async (dir) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic(`${dir}/README.md`, '# Portale clienti')
+    window.dispatchEvent(new Event('focus'))
+  }, disk)
+  await expect(page.getByRole('button', { name: 'Modifica il nome del progetto' })).toHaveCount(0)
+  // Gestione utenti: solo nei workspace di rete
+  await expect(page.getByRole('button', { name: 'Gestione utenti' })).toHaveCount(0)
+})
+
+test('GitHub: collegamento con token, progetti creati dai repository e stack sincronizzato', async ({ page }) => {
+  // API di GitHub simulata
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
+  const repo = {
+    name: 'demo-app',
+    full_name: 'tester/demo-app',
+    owner: { login: 'tester' },
+    description: 'App di prova',
+    html_url: 'https://github.com/tester/demo-app',
+    default_branch: 'main',
+    private: false,
+    archived: false,
+    fork: false,
+    language: 'TypeScript',
+    pushed_at: '2026-10-01T10:00:00Z',
+  }
+  await page.route('https://api.github.com/**', async (route) => {
+    const req = route.request()
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
+    const url = new URL(req.url())
+    const json = (body: unknown, status = 200) => route.fulfill({ status, headers: { ...cors, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (req.headers()['authorization'] !== 'Bearer token-di-prova') return json({ message: 'Bad credentials' }, 401)
+    if (url.pathname === '/user') return json({ login: 'tester', name: 'Tester' })
+    if (url.pathname === '/user/repos') return json([repo])
+    if (url.pathname === '/repos/tester/demo-app') return json(repo)
+    if (url.pathname === '/repos/tester/demo-app/languages') return json({ TypeScript: 9000, Vue: 3000 })
+    if (url.pathname === '/repos/tester/demo-app/contents/') return json([{ name: 'package.json', type: 'file' }])
+    if (url.pathname === '/repos/tester/demo-app/contents/package.json')
+      return route.fulfill({ status: 200, headers: cors, body: JSON.stringify({ dependencies: { vue: '^3.5.0' }, devDependencies: { typescript: '^5' } }) })
+    return json({ message: 'Not Found' }, 404)
+  })
+
+  await createLocalWorkspace(page)
+  await page.getByRole('link', { name: 'GitHub' }).click()
+  await expect(page.getByRole('heading', { name: 'GitHub' })).toBeVisible()
+  // Token sbagliato: errore chiaro
+  await page.fill('#gh-token', 'token-sbagliato')
+  await page.getByRole('button', { name: '2. Collega GitHub' }).click()
+  await expect(page.getByText('Il token GitHub non è valido o è scaduto')).toBeVisible()
+  await page.fill('#gh-token', 'token-di-prova')
+  await page.getByRole('button', { name: '2. Collega GitHub' }).click()
+  await expect(page.getByText('GitHub collegato come tester')).toBeVisible()
+
+  // Repository → progetto collegato, con lo stack ricavato dai file
+  await page.getByRole('main').locator('ul input[type=checkbox]').last().check()
+  await page.getByRole('button', { name: 'Crea o collega 1 progetto' }).click()
+  await expect(page.getByText('1 progetto creato o collegato da GitHub')).toBeVisible()
+  await expect(page.getByText('collegato a «demo-app»')).toBeVisible()
+  await page.getByRole('main').getByRole('link', { name: 'demo-app' }).click()
+  await expect(page.getByRole('heading', { name: 'demo-app' })).toBeVisible()
+  await expect(page.locator('[data-github-link]')).toContainText('tester/demo-app')
+  await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
+  await expect(page.getByText('git clone https://github.com/tester/demo-app.git .')).toBeVisible()
 })

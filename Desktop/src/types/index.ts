@@ -253,6 +253,8 @@ export const ProjectSchema = z.object({
   attachments: z.array(AttachmentSchema).default([]),
   stack: StackSchema.default(EMPTY_STACK),
   aiTools: z.array(AiToolSchema).default([]),
+  /** Repository GitHub collegato: lo Stack si sincronizza dai suoi file. */
+  github: z.object({ owner: z.string(), repo: z.string(), syncedAt: iso.default('') }).nullable().default(null),
 })
 export type Project = z.infer<typeof ProjectSchema>
 

@@ -31,7 +31,8 @@
       "allow": [
         { "url": "https://*.googleapis.com/*" },
         { "url": "https://oauth2.googleapis.com/*" },
-        { "url": "https://accounts.google.com/*" }
+        { "url": "https://accounts.google.com/*" },
+        { "url": "https://api.github.com/*" }
       ]
     },
     "opener:allow-open-url",

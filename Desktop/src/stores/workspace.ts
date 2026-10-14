@@ -11,6 +11,7 @@ import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, type AiTool, type Stack } from '@/types'
 import { firstLine } from '@/services/items'
 import { detectStack } from '@/services/projectScan'
+import { mergeStack } from '@/services/stackDoc'
 import type {
   Attachment,
   AuditAction,
@@ -475,6 +476,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       attachments: [],
       stack: { ...EMPTY_STACK },
       aiTools: [],
+      github: null,
     }
     const ok = await guard(async () => {
       await s.writeProject(p)
@@ -886,6 +888,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
 
+  /**
+   * Collega il progetto a un repository GitHub e ne unisce lo Stack ricavato
+   * (senza cancellare nulla). Solo amministratori. Restituisce il progetto.
+   */
+  const applyRepoStack = (projectId: string, link: { owner: string; repo: string }, detected: { description: string; stack: Stack }) =>
+    isAdmin.value
+      ? mutateProject(projectId, (p) => {
+          p.github = { owner: link.owner, repo: link.repo, syncedAt: nowIso() }
+          if (!p.description.trim() && detected.description) p.description = detected.description
+          p.stack = mergeStack(p.stack, detected.stack).stack
+        })
+      : Promise.resolve(undefined)
+
+  /** Toglie il collegamento a GitHub (lo Stack resta). */
+  const unlinkGitHub = (projectId: string) => (isAdmin.value ? mutateProject(projectId, (p) => void (p.github = null)) : Promise.resolve(undefined))
+
   /** Cartella del progetto sul disco (Stack › Cartella del progetto). */
   const setProjectSourcePath = (projectId: string, path: string) =>
     mutateProject(projectId, (p) => {
@@ -972,6 +990,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     renameWorkspace,
     setProjectsPath,
     setProjectSourcePath,
+    applyRepoStack,
+    unlinkGitHub,
     forgetCredentials,
   }
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import GitHubMark from '@/components/ui/GitHubMark.vue'
 import { BarChart3, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
@@ -109,6 +110,15 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       title="Google Drive"
     >
       <Cloud :size="16" /> Drive
+    </RouterLink>
+
+    <RouterLink
+      :to="{ name: 'github' }"
+      class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
+      active-class="bg-accent-soft text-accent-ink"
+      title="GitHub"
+    >
+      <GitHubMark :size="15" /> GitHub
     </RouterLink>
 
     <RouterLink

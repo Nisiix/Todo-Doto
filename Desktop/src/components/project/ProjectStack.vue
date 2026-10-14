@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowDown, ArrowUp, Check, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderPlus, Import, Pencil, Play, Plus, Save, Trash2, Wand2 } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, CheckCircle2, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderPlus, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ChipsInput from '@/components/ui/ChipsInput.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
+import GitHubMark from '@/components/ui/GitHubMark.vue'
 import ProjectDialog from '@/components/dialogs/ProjectDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
+import { usePrereqChecks } from '@/composables/usePrereqChecks'
+import { useProjectFolder } from '@/composables/useProjectFolder'
+import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
+import { parseGitHubRepo } from '@/services/github'
+import { useGitHubStore } from '@/stores/github'
+import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { getFs, isTauri } from '@/services/fs'
@@ -150,6 +157,43 @@ const m = defineMessages({
     folderFailed: (err: string) => `Non riesco a creare la cartella: ${err}`,
     folderLinked: 'impostata come cartella del progetto',
     markDone: 'Segna come fatto',
+    chkChecking: 'Verifico…',
+    chkOk: (v: string) => (v ? `Installato · ${v}` : 'Installato'),
+    chkInstalled: 'Installato, ma la versione non si legge: controllala a mano',
+    chkOutdated: (v: string, req: string) => `Installata la ${v}, serve ${req}: va aggiornato`,
+    chkDifferent: (v: string, req: string) => `Installata la ${v}, indicata ${req}: verifica che vada bene`,
+    chkMissing: 'Non trovato su questo PC: va installato',
+    chkFailed: 'Verifica non riuscita: controlla a mano',
+    chkTimeout: 'Nessuna risposta entro 20 secondi: controlla a mano',
+    chkManual: 'Nessuna verifica automatica possibile: controlla a mano',
+    chkOtherOs: 'Non serve su questo sistema operativo',
+    chkConfirm: 'Comando di verifica personalizzato: non è partito da solo',
+    chkUnavailable: 'La verifica automatica è disponibile nell’app desktop',
+    recheck: 'Ricontrolla',
+    recheckHint: 'Verifica di nuovo sul tuo PC che i prerequisiti siano installati',
+    runCheck: 'Esegui verifica',
+    runCheckTitle: 'Eseguire il comando di verifica?',
+    runCheckMessage: (cmd: string) => `«${cmd}» non è una semplice richiesta di versione e verrà eseguito sul tuo PC. Eseguilo solo se sai cosa fa.`,
+    runCheckConfirm: 'Esegui',
+    details: 'Dettagli',
+    confirmInstalled: 'Confermo che è installato e va bene',
+    autoDetected: 'Verificato automaticamente',
+    installFirst: 'Installalo o aggiornalo, poi ricontrolla',
+    prereqSummary: (ok: number, action: number, uncertain: number) =>
+      [ok && `${ok} ${plural(ok, 'installato', 'installati')}`, action && `${action} da installare o aggiornare`, uncertain && `${uncertain} da verificare a mano`].filter(Boolean).join(' · '),
+    autoBlocked: 'Configurazione automatica bloccata',
+    autoBlockedLead: 'Prima di avviare lo script risolvi questi prerequisiti: installa quelli mancanti o da aggiornare e premi «Ricontrolla»; per quelli incerti controlla a mano e spunta il cerchio nella procedura.',
+    autoChecking: 'Verifica dei prerequisiti in corso…',
+    blockedHint: 'Risolvi prima i prerequisiti segnalati',
+    ghSynced: (when: string) => `sincronizzato ${when}`,
+    ghNever: 'mai sincronizzato',
+    ghSync: 'Sincronizza',
+    ghSyncHint: 'Aggiorna lo stack dai file del repository GitHub (senza cancellare nulla)',
+    ghLink: 'Collega a GitHub',
+    ghLinkHint: 'Collega il progetto al repository GitHub indicato e sincronizza lo stack dai suoi file',
+    ghNotConnected: 'Collega prima il tuo account GitHub',
+    ghSynced2: 'Stack sincronizzato da GitHub',
+    ghFailed: (err: string) => `Sincronizzazione non riuscita: ${err}`,
   },
   en: {
     saved: 'Stack saved',
@@ -279,6 +323,43 @@ const m = defineMessages({
     folderFailed: (err: string) => `Cannot create the folder: ${err}`,
     folderLinked: 'set as the project folder',
     markDone: 'Mark as done',
+    chkChecking: 'Checking…',
+    chkOk: (v: string) => (v ? `Installed · ${v}` : 'Installed'),
+    chkInstalled: 'Installed, but the version cannot be read: check it by hand',
+    chkOutdated: (v: string, req: string) => `${v} installed, ${req} required: it needs updating`,
+    chkDifferent: (v: string, req: string) => `${v} installed, ${req} specified: make sure it is fine`,
+    chkMissing: 'Not found on this PC: it needs installing',
+    chkFailed: 'Check failed: verify by hand',
+    chkTimeout: 'No answer within 20 seconds: verify by hand',
+    chkManual: 'No automatic check possible: verify by hand',
+    chkOtherOs: 'Not needed on this operating system',
+    chkConfirm: 'Custom check command: it did not start on its own',
+    chkUnavailable: 'The automatic check is available in the desktop app',
+    recheck: 'Check again',
+    recheckHint: 'Check again on your PC that the prerequisites are installed',
+    runCheck: 'Run check',
+    runCheckTitle: 'Run the check command?',
+    runCheckMessage: (cmd: string) => `“${cmd}” is not a simple version query and will run on your PC. Run it only if you know what it does.`,
+    runCheckConfirm: 'Run',
+    details: 'Details',
+    confirmInstalled: 'I confirm it is installed and fine',
+    autoDetected: 'Checked automatically',
+    installFirst: 'Install or update it, then check again',
+    prereqSummary: (ok: number, action: number, uncertain: number) =>
+      [ok && `${ok} installed`, action && `${action} to install or update`, uncertain && `${uncertain} to verify by hand`].filter(Boolean).join(' · '),
+    autoBlocked: 'Automatic setup blocked',
+    autoBlockedLead: 'Before running the script, sort out these prerequisites: install the missing or outdated ones and press “Check again”; for the uncertain ones verify by hand and tick the circle in the procedure.',
+    autoChecking: 'Checking the prerequisites…',
+    blockedHint: 'Sort out the flagged prerequisites first',
+    ghSynced: (when: string) => `synced ${when}`,
+    ghNever: 'never synced',
+    ghSync: 'Sync',
+    ghSyncHint: 'Update the stack from the GitHub repository files (nothing is deleted)',
+    ghLink: 'Link to GitHub',
+    ghLinkHint: 'Link the project to the GitHub repository above and sync the stack from its files',
+    ghNotConnected: 'Connect your GitHub account first',
+    ghSynced2: 'Stack synced from GitHub',
+    ghFailed: (err: string) => `Sync failed: ${err}`,
   },
 })
 
@@ -417,6 +498,8 @@ async function importFrom(source: Project) {
 
 // --- nuovo progetto da questo stack e cartella del progetto ---------------------
 const showNewProject = ref(false)
+/** Il progetto ha già la sua cartella sul disco? Allora «Crea cartella del progetto» non serve. */
+const { linked: folderLinked, refresh: refreshFolder } = useProjectFolder(computed(() => props.project))
 /**
  * Cartella del progetto sul disco: quella indicata nello stack, altrimenti
  * <cartella dei progetti del workspace>/<nome del progetto>; vuota se nessuna delle due è nota.
@@ -449,6 +532,7 @@ async function createFolder() {
     const link = canEdit.value && !stack.value.sourcePath
     if (link) await ws.updateStack(props.project.id, { ...stack.value, sourcePath: root })
     ui.toast(`${m.folderCreated(files.length)}${link ? ` · ${m.folderLinked}` : ''}`, 'success', { label: m.openFolder, run: () => open(root, 'file') }, 6000)
+    await refreshFolder()
   } catch (e) {
     ui.toast(m.folderFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
   }
@@ -480,7 +564,70 @@ function toggleDone(id: string) {
   }
 }
 const totalSteps = computed(() => stack.value.prerequisites.length + stack.value.steps.length)
-const doneCount = computed(() => [...stack.value.prerequisites, ...stack.value.steps].filter((x) => done.value.has(x.id)).length)
+
+// --- verifica automatica dei prerequisiti sul PC -------------------------------------
+const checks = usePrereqChecks(computed(() => view.value.prerequisites))
+const statusOf = (id: string): CheckStatus | undefined => (checks.checking.value.has(id) ? undefined : checks.results.value[id]?.status)
+/** Prerequisito fatto: verificato in automatico, oppure confermato a mano se la verifica non dice che manca. */
+const prereqDone = (id: string) => isSatisfied(statusOf(id)) || (done.value.has(id) && !needsAction(statusOf(id)))
+/** Il cerchio si spunta a mano solo quando l'esito è incerto (verificato o mancante decide la verifica). */
+const prereqLocked = (id: string) => isSatisfied(statusOf(id)) || needsAction(statusOf(id))
+const prereqStats = computed(() => {
+  const r = { ok: 0, action: 0, uncertain: 0 }
+  for (const p of view.value.prerequisites) {
+    const st = statusOf(p.id)
+    if (needsAction(st)) r.action++
+    else if (prereqDone(p.id)) r.ok++
+    else r.uncertain++
+  }
+  return r
+})
+/** Prerequisiti che impediscono la configurazione automatica: mancanti, da aggiornare o incerti non confermati. */
+const blockers = computed(() => view.value.prerequisites.filter((p) => blocksAutoSetup(statusOf(p.id), done.value.has(p.id))))
+const autoBlocked = computed(() => checks.busy.value || blockers.value.length > 0)
+function statusText(p: Prerequisite): string {
+  const r = checks.results.value[p.id]
+  if (!r || checks.checking.value.has(p.id)) return m.chkChecking
+  const req = p.version.trim()
+  switch (r.status) {
+    case 'ok':
+      return m.chkOk(r.version)
+    case 'installed':
+      return m.chkInstalled
+    case 'outdated':
+      return m.chkOutdated(r.version, req)
+    case 'different':
+      return m.chkDifferent(r.version, req)
+    case 'missing':
+      return m.chkMissing
+    case 'failed':
+      return m.chkFailed
+    case 'timeout':
+      return m.chkTimeout
+    case 'manual':
+      return m.chkManual
+    case 'otherOs':
+      return m.chkOtherOs
+    case 'confirm':
+      return m.chkConfirm
+    case 'unavailable':
+      return m.chkUnavailable
+  }
+}
+const statusTone = (id: string) => {
+  const st = statusOf(id)
+  if (!st) return 'text-ink-3'
+  if (isSatisfied(st)) return 'text-ok'
+  if (needsAction(st)) return 'text-danger'
+  if (st === 'unavailable') return 'text-ink-3'
+  return 'text-p-alta'
+}
+async function runCustomCheck(p: Prerequisite) {
+  const command = planCheck(p, checks.os).command
+  if (await confirm({ title: m.runCheckTitle, message: m.runCheckMessage(command), confirmLabel: m.runCheckConfirm, danger: true })) await checks.confirmAndCheck(p)
+}
+
+const doneCount = computed(() => view.value.prerequisites.filter((p) => prereqDone(p.id)).length + stack.value.steps.filter((x) => done.value.has(x.id)).length)
 function resetProgress() {
   done.value = new Set()
   try {
@@ -511,10 +658,13 @@ const autoDir = ref('')
 async function openAuto() {
   autoDir.value = await projectDir()
   showAuto.value = true
+  // Esiti freschi prima di decidere se lo script può partire
+  void checks.checkAll(true)
 }
 const script = () => setupScriptWindows(props.project.name, view.value, { baseDir: autoDir.value })
 /** Scrive lo script nella cartella dati dell'app e lo apre: Windows lo esegue nel prompt dei comandi. */
 async function runAuto() {
+  if (autoBlocked.value) return
   if (!isTauri) return ui.toast(m.autoDesktopOnly, 'info', undefined, 6000)
   try {
     const fs = await getFs()
@@ -530,12 +680,34 @@ async function runAuto() {
   }
 }
 async function downloadScript() {
+  if (autoBlocked.value) return
   const fs = await getFs()
   const name = `setup-${slugify(props.project.name)}.cmd`
   const path = await fs.saveFile(name, m.saveScript)
   if (!path) return
   await fs.writeTextAtomic(path, script())
   ui.toast(m.scriptSaved, 'success', { label: m.openFolder, run: () => open(path.replace(/[\\/][^\\/]+$/, ''), 'file') }, 6000)
+}
+
+// --- GitHub: sincronizzazione dello stack dal repository ---------------------------
+const gh = useGitHubStore()
+const router = useRouter()
+void gh.init()
+/** Repository GitHub indicato nello stack ma non ancora collegato. */
+const ghRepo = computed(() => (!props.project.github && /github\.com/i.test(stack.value.repoUrl) ? parseGitHubRepo(stack.value.repoUrl) : null))
+const ghBusy = ref(false)
+async function ghSync() {
+  if (!gh.connected) return ui.toast(m.ghNotConnected, 'info', { label: 'GitHub', run: () => router.push({ name: 'github' }) }, 6000)
+  ghBusy.value = true
+  try {
+    const link = props.project.github ?? ghRepo.value
+    if (link) await gh.linkProject(props.project, link.owner, link.repo)
+    ui.toast(m.ghSynced2, 'success', undefined, 2500)
+  } catch (e) {
+    ui.toast(m.ghFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
+  } finally {
+    ghBusy.value = false
+  }
 }
 </script>
 
@@ -548,7 +720,7 @@ async function downloadScript() {
     </div>
     <div v-if="canEdit || !isEmpty" class="!mt-3 flex flex-wrap items-center gap-1.5">
       <template v-if="!editing && !isEmpty">
-        <BaseButton size="sm" variant="ghost" :title="m.createFolderHint" @click="createFolder"><FolderPlus :size="14" /> {{ m.createFolder }}</BaseButton>
+        <BaseButton v-if="!folderLinked" size="sm" variant="ghost" :title="m.createFolderHint" @click="createFolder"><FolderPlus :size="14" /> {{ m.createFolder }}</BaseButton>
         <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.newFromStackHint" @click="showNewProject = true"><CopyPlus :size="14" /> {{ m.newFromStack }}</BaseButton>
       </template>
       <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
@@ -561,6 +733,19 @@ async function downloadScript() {
           <BaseButton size="sm" variant="ghost"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
         </BaseMenu>
       </template>
+    </div>
+
+    <!-- Repository GitHub collegato (o collegabile) -->
+    <div v-if="!editing && (project.github || (canEdit && ghRepo))" class="!mt-3 flex flex-wrap items-center gap-2 text-[13px]" data-github-link>
+      <GitHubMark :size="14" class="shrink-0" />
+      <template v-if="project.github">
+        <span class="font-mono text-[12.5px]">{{ project.github.owner }}/{{ project.github.repo }}</span>
+        <span class="text-[12px] text-ink-3">· {{ project.github.syncedAt ? m.ghSynced(dayjs(project.github.syncedAt).fromNow()) : m.ghNever }}</span>
+        <BaseButton v-if="canEdit" size="sm" variant="ghost" :disabled="ghBusy" :title="m.ghSyncHint" @click="ghSync"><RefreshCw :size="12" :class="{ 'animate-spin': ghBusy }" /> {{ m.ghSync }}</BaseButton>
+      </template>
+      <BaseButton v-else size="sm" variant="ghost" :disabled="ghBusy" :title="m.ghLinkHint" @click="ghSync">
+        <Loader2 v-if="ghBusy" :size="12" class="animate-spin" /> {{ m.ghLink }} <span class="font-mono text-[12px] text-ink-3">{{ ghRepo!.owner }}/{{ ghRepo!.repo }}</span>
+      </BaseButton>
     </div>
 
     <!-- Documento di architettura importato -->
@@ -741,22 +926,51 @@ async function downloadScript() {
             <div class="min-w-0 flex-1">
               <h3 class="text-[15px] font-bold">{{ m.setupTitle }}</h3>
               <p class="text-[12.5px] text-ink-2">{{ m.setupLead(doneCount, totalSteps) }}</p>
+              <p v-if="view.prerequisites.length && !checks.busy.value" class="mt-0.5 text-[12.5px] font-medium" :class="prereqStats.action ? 'text-danger' : prereqStats.uncertain ? 'text-p-alta' : 'text-ok'" data-prereq-summary>
+                {{ m.prereqSummary(prereqStats.ok, prereqStats.action, prereqStats.uncertain) }}
+              </p>
             </div>
+            <BaseButton v-if="view.prerequisites.length" size="sm" variant="ghost" :disabled="checks.busy.value" :title="m.recheckHint" @click="checks.checkAll(true)">
+              <RefreshCw :size="13" :class="{ 'animate-spin': checks.busy.value }" /> {{ m.recheck }}
+            </BaseButton>
             <BaseButton v-if="doneCount" size="sm" variant="ghost" @click="resetProgress">{{ m.restart }}</BaseButton>
             <BaseButton size="sm" variant="primary" :title="m.scriptHint" @click="openAuto"><Play :size="14" /> {{ m.genScript }}</BaseButton>
           </div>
           <div class="mt-3 h-1.5 rounded-full bg-surface-2"><div class="h-full rounded-full bg-ok transition-[width]" :style="{ width: (totalSteps ? (doneCount / totalSteps) * 100 : 0) + '%' }" /></div>
 
           <ol class="mt-4 space-y-2">
-            <li v-for="p in view.prerequisites" :key="p.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-surface-2" :class="{ 'opacity-60': done.has(p.id) }">
-              <button class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors" :class="done.has(p.id) ? 'border-ok bg-ok text-white' : 'border-line-strong text-transparent hover:border-ok hover:text-ok'" :aria-pressed="done.has(p.id)" :title="done.has(p.id) ? m.markTodo : m.markDone" @click="toggleDone(p.id)"><Check :size="12" stroke-width="3" /></button>
+            <li v-for="p in view.prerequisites" :key="p.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-surface-2" :class="{ 'opacity-60': prereqDone(p.id) }" :data-prereq="p.name" :data-status="statusOf(p.id) ?? 'checking'">
+              <button
+                class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors disabled:cursor-default"
+                :class="prereqDone(p.id) ? 'border-ok bg-ok text-white' : needsAction(statusOf(p.id)) ? 'border-danger text-transparent' : 'border-line-strong text-transparent hover:border-ok hover:text-ok'"
+                :aria-pressed="prereqDone(p.id)"
+                :disabled="prereqLocked(p.id)"
+                :title="isSatisfied(statusOf(p.id)) ? m.autoDetected : needsAction(statusOf(p.id)) ? m.installFirst : done.has(p.id) ? m.markTodo : m.confirmInstalled"
+                @click="toggleDone(p.id)"
+              >
+                <Check :size="12" stroke-width="3" />
+              </button>
               <div class="min-w-0 flex-1">
                 <div class="text-[13.5px] font-semibold">{{ m.prereqNamed(p.name) }} <span v-if="p.version" class="font-normal text-ink-2">{{ p.version }}</span></div>
+                <div class="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-medium" :class="statusTone(p.id)" data-check-status>
+                  <Loader2 v-if="!statusOf(p.id)" :size="13" class="shrink-0 animate-spin" />
+                  <CheckCircle2 v-else-if="isSatisfied(statusOf(p.id))" :size="13" class="shrink-0" />
+                  <XCircle v-else-if="needsAction(statusOf(p.id))" :size="13" class="shrink-0" />
+                  <MinusCircle v-else-if="statusOf(p.id) === 'unavailable'" :size="13" class="shrink-0" />
+                  <AlertTriangle v-else :size="13" class="shrink-0" />
+                  <span>{{ statusText(p) }}</span>
+                  <span v-if="done.has(p.id) && !prereqLocked(p.id)" class="font-normal text-ink-3">· {{ m.confirmInstalled }}</span>
+                </div>
                 <div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px]">
+                  <BaseButton v-if="statusOf(p.id) === 'confirm'" size="sm" variant="outline" @click="runCustomCheck(p)"><Play :size="12" /> {{ m.runCheck }}</BaseButton>
                   <code v-if="p.check" class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px]">{{ p.check }}</code>
                   <BaseButton v-if="p.check" size="sm" variant="ghost" @click="copy(p.check, m.cmdCopied)"><Copy :size="12" /> {{ m.copyCheck }}</BaseButton>
-                  <BaseButton v-if="p.url" size="sm" variant="ghost" @click="open(p.url, 'link')"><ExternalLink :size="12" /> {{ m.download }}</BaseButton>
+                  <BaseButton v-if="p.url" size="sm" :variant="needsAction(statusOf(p.id)) ? 'primary' : 'ghost'" @click="open(p.url, 'link')"><ExternalLink :size="12" /> {{ m.download }}</BaseButton>
                 </div>
+                <details v-if="checks.results.value[p.id]?.output && !isSatisfied(statusOf(p.id))" class="mt-1 text-[12px] text-ink-3">
+                  <summary class="cursor-pointer select-none">{{ m.details }}</summary>
+                  <pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface-2 px-2 py-1.5 font-mono text-[11.5px]">{{ checks.results.value[p.id]!.command }}&#10;{{ checks.results.value[p.id]!.output }}</pre>
+                </details>
               </div>
             </li>
             <li v-for="(st, i) in view.steps" :key="st.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-surface-2" :class="{ 'opacity-60': done.has(st.id) }">
@@ -790,7 +1004,7 @@ async function downloadScript() {
             <h4 class="text-[13px] font-semibold text-ink-2">{{ m.files }}</h4>
             <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
               <code v-for="f in view.files" :key="f.id" class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px]">{{ f.path }}</code>
-              <BaseButton size="sm" variant="ghost" @click="createFolder"><FolderPlus :size="12" /> {{ m.createFolder }}</BaseButton>
+              <BaseButton v-if="!folderLinked" size="sm" variant="ghost" @click="createFolder"><FolderPlus :size="12" /> {{ m.createFolder }}</BaseButton>
             </div>
           </div>
         </section>
@@ -805,12 +1019,25 @@ async function downloadScript() {
           <p v-if="autoDir" class="rounded-md bg-surface-2 px-3 py-2 font-mono text-[12.5px]" data-auto-dir>{{ autoDir }}</p>
           <p v-else class="text-ink-3">{{ m.autoNoWorkdir }}</p>
         </div>
+        <div v-if="checks.busy.value" class="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2 text-ink-2"><Loader2 :size="14" class="animate-spin" /> {{ m.autoChecking }}</div>
+        <div v-else-if="blockers.length" class="rounded-md border border-danger/40 bg-danger/5 px-3 py-2.5" data-auto-blocked>
+          <p class="flex items-center gap-1.5 font-semibold text-danger"><AlertTriangle :size="14" /> {{ m.autoBlocked }}</p>
+          <p class="mt-0.5 text-[12.5px] text-ink-2">{{ m.autoBlockedLead }}</p>
+          <ul class="mt-1.5 space-y-0.5 text-[12.5px]">
+            <li v-for="p in blockers" :key="p.id"><span class="font-semibold">{{ p.name }}</span> — <span :class="statusTone(p.id)">{{ statusText(p) }}</span></li>
+          </ul>
+        </div>
         <div v-if="view.prerequisites.length">
           <span class="label">{{ m.autoChecks }}</span>
           <ul class="space-y-1">
-            <li v-for="p in view.prerequisites" :key="p.id" class="flex items-center gap-2">
-              <Check :size="13" class="shrink-0 text-ok" /> {{ p.name }} <span v-if="p.version" class="text-ink-3">{{ p.version }}</span>
-              <code v-if="p.check" class="ml-auto rounded bg-surface-2 px-1.5 font-mono text-[11.5px]">{{ p.check }}</code>
+            <li v-for="p in view.prerequisites" :key="p.id" class="flex items-center gap-2" :class="statusTone(p.id)">
+              <Loader2 v-if="!statusOf(p.id)" :size="13" class="shrink-0 animate-spin" />
+              <CheckCircle2 v-else-if="prereqDone(p.id)" :size="13" class="shrink-0" />
+              <XCircle v-else-if="needsAction(statusOf(p.id))" :size="13" class="shrink-0" />
+              <AlertTriangle v-else :size="13" class="shrink-0" />
+              <span class="text-ink">{{ p.name }}</span> <span v-if="p.version" class="text-ink-3">{{ p.version }}</span>
+              <span class="truncate text-[12px]">· {{ statusText(p) }}</span>
+              <code v-if="p.check" class="ml-auto shrink-0 rounded bg-surface-2 px-1.5 font-mono text-[11.5px] text-ink">{{ p.check }}</code>
             </li>
           </ul>
         </div>
@@ -828,8 +1055,8 @@ async function downloadScript() {
       </div>
       <template #footer>
         <BaseButton variant="ghost" @click="showAuto = false">{{ common.actions.cancel }}</BaseButton>
-        <BaseButton variant="outline" @click="downloadScript"><FileDown :size="14" /> {{ m.autoSave }}</BaseButton>
-        <BaseButton variant="primary" data-autofocus @click="runAuto"><Play :size="14" /> {{ m.autoRun }}</BaseButton>
+        <BaseButton variant="outline" :disabled="autoBlocked" :title="autoBlocked ? m.blockedHint : undefined" @click="downloadScript"><FileDown :size="14" /> {{ m.autoSave }}</BaseButton>
+        <BaseButton variant="primary" data-autofocus :disabled="autoBlocked" :title="autoBlocked ? m.blockedHint : undefined" @click="runAuto"><Play :size="14" /> {{ m.autoRun }}</BaseButton>
       </template>
     </BaseDialog>
 
