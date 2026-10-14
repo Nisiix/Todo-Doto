@@ -11,6 +11,8 @@ import { useSessionStore } from '@/stores/session'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { getFs } from '@/services/fs'
+import { WorkspaceStorage } from '@/services/storage'
+import { scanProjects } from '@/services/projectScan'
 import { defineMessages } from '@/i18n'
 
 const m = defineMessages({
@@ -48,6 +50,8 @@ const ws = useWorkspaceStore()
 const ui = useUiStore()
 
 const showCreate = ref(false)
+/** Cartella di progetti scelta con "Apri cartella", passata alla creazione del workspace. */
+const presetFolder = ref<string | null>(null)
 const showPassword = ref(false)
 const error = ref('')
 const busyPath = ref<string | null>(null)
@@ -67,7 +71,19 @@ async function openPath(path: string) {
 async function browse() {
   const fs = await getFs()
   const p = await fs.pickFolder(m.pickExisting)
-  if (p) await openPath(p)
+  if (!p) return
+  // Una cartella di progetti che non è un workspace: si propone di crearne uno che li gestisca
+  if (!(await WorkspaceStorage.isWorkspace(p)) && (await scanProjects(p)).length) {
+    error.value = ''
+    presetFolder.value = p
+    showCreate.value = true
+    return
+  }
+  await openPath(p)
+}
+function newWorkspace() {
+  presetFolder.value = null
+  showCreate.value = true
 }
 </script>
 
@@ -87,7 +103,7 @@ async function browse() {
           {{ m.lead }}
         </p>
         <div class="mt-8 flex gap-2">
-          <BaseButton variant="primary" @click="showCreate = true"><Plus :size="16" /> {{ m.create }}</BaseButton>
+          <BaseButton variant="primary" @click="newWorkspace"><Plus :size="16" /> {{ m.create }}</BaseButton>
           <BaseButton @click="browse"><FolderOpen :size="16" /> {{ m.openFolder }}</BaseButton>
         </div>
         <p v-if="error" class="mt-3 text-[13px] text-danger">{{ error }}</p>
@@ -126,7 +142,7 @@ async function browse() {
       </div>
     </section>
 
-    <WorkspaceDialog v-model:open="showCreate" @opened="goIn" />
+    <WorkspaceDialog v-model:open="showCreate" :preset-folder="presetFolder" @opened="goIn" />
     <PasswordDialog v-model:open="showPassword" @unlocked="goIn" />
   </div>
 </template>

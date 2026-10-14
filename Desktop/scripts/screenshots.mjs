@@ -211,7 +211,7 @@ async function capture(lang) {
       await page.getByRole('button', { name: D.ws }).first().click()
       await page.getByRole('menuitem', { name: item }).click()
     }
-    const openSection = (name) => page.locator('aside').first().getByRole('link', { name: new RegExp(`^${name}( \d+)?$`) }).click()
+    const openSection = (name) => page.locator('aside').first().getByRole('link', { name: new RegExp(`^${name}( \\d+)?$`) }).click()
     const openProject = async (name) => {
       await page.locator('aside').first().getByRole('link', { name }).first().click()
       await page.getByRole('heading', { name, level: 1 }).waitFor()

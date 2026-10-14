@@ -16,6 +16,8 @@ import type { EnvVar, Platform, Prerequisite, SetupStep, Stack, StackDoc } from 
 
 export interface ImportedStack {
   title: string
+  /** Primo paragrafo del documento (prima delle sezioni): una descrizione breve. */
+  description: string
   platforms: Platform[]
   languages: string[]
   frameworks: string[]
@@ -270,6 +272,17 @@ function parseEnv(bs: Block[], all: boolean): EnvVar[] {
   return out
 }
 
+/** Tipo di applicazione deducibile dai framework (es. Tauri → desktop, Vue → web, Express → backend). */
+export function platformsFor(frameworks: string[]): Platform[] {
+  const t = new Set(frameworks.map(fold))
+  const out: Platform[] = []
+  if (['tauri', 'electron', 'wpf', 'winforms', '.net maui'].some((x) => t.has(x))) out.push('desktop')
+  if (['vue 3', 'vue', 'react', 'angular', 'svelte', 'next.js', 'nuxt', 'astro'].some((x) => t.has(x)) && !out.includes('desktop')) out.push('web')
+  if (['ionic', 'capacitor', 'react native', 'expo', 'flutter'].some((x) => t.has(x))) out.push('mobile')
+  if (['express', 'nestjs', 'django', 'flask', 'fastapi', 'spring boot', 'asp.net core', 'laravel', 'symfony'].some((x) => t.has(x))) out.push('backend')
+  return out
+}
+
 /** Ricava lo stack da un documento Markdown. */
 export function parseStackMarkdown(md: string): ImportedStack {
   const { title, preamble, list } = sections(md)
@@ -282,7 +295,7 @@ export function parseStackMarkdown(md: string): ImportedStack {
     .map((b) => (b.type === 'row' ? b.cells.join(' ') : b.text))
     .join('\n')
 
-  const imp: ImportedStack = { title, platforms: [], languages: [], frameworks: [], repoUrl: '', notes: '', prerequisites: [], steps: [], envVars: [] }
+  const imp: ImportedStack = { title, description: '', platforms: [], languages: [], frameworks: [], repoUrl: '', notes: '', prerequisites: [], steps: [], envVars: [] }
 
   // Tipo, linguaggi, framework: dalle righe "Chiave: valori", altrimenti dai nomi noti citati nel testo
   const typeLine = findKey(kv, /^(tipo|type|piattaform|platform)/)
@@ -291,13 +304,7 @@ export function parseStackMarkdown(md: string): ImportedStack {
   imp.languages = langLine ? splitValues(langLine) : scanKnown(proseText, KNOWN_LANGUAGES.filter((l) => !['HTML', 'CSS', 'Go'].includes(l)))
   const fwLine = findKey(kv, /^(framework|librer|librar)/)
   imp.frameworks = fwLine ? splitValues(fwLine) : scanKnown(proseText, KNOWN_FRAMEWORKS)
-  if (!typeLine) {
-    const t = new Set(imp.frameworks.map(fold))
-    if (['tauri', 'electron', 'wpf', 'winforms', '.net maui'].some((x) => t.has(x))) imp.platforms.push('desktop')
-    if (['vue 3', 'vue', 'react', 'angular', 'svelte', 'next.js', 'nuxt', 'astro'].some((x) => t.has(x)) && !imp.platforms.includes('desktop')) imp.platforms.push('web')
-    if (['ionic', 'capacitor', 'react native', 'expo', 'flutter'].some((x) => t.has(x))) imp.platforms.push('mobile')
-    if (['express', 'nestjs', 'django', 'flask', 'fastapi', 'spring boot', 'asp.net core', 'laravel', 'symfony'].some((x) => t.has(x))) imp.platforms.push('backend')
-  }
+  if (!typeLine) imp.platforms = platformsFor(imp.frameworks)
 
   // Repository: riga esplicita, poi un URL di hosting git, poi un "git clone"
   const repoLine = findKey(kv, /^(repository|repo\b|sorgent|source)/)
@@ -316,7 +323,9 @@ export function parseStackMarkdown(md: string): ImportedStack {
       .filter((b): b is { type: 'para'; text: string } => b.type === 'para' && !b.text.startsWith('  ') && !/^\s*\**[^:]{2,30}:\s/.test(b.text) && !/^_.*_$/.test(b.text))
       .map((b) => plain(b.text))
   const techParas = paras(list.filter((s) => s.kind === 'tech'))
-  imp.notes = (techParas.length ? techParas : paras([all[0]!]).slice(0, 1)).join('\n\n').slice(0, 1200)
+  const intro = paras([all[0]!])
+  imp.description = (intro[0] ?? '').slice(0, 300)
+  imp.notes = (techParas.length ? techParas : intro.slice(0, 1)).join('\n\n').slice(0, 1200)
 
   // Prerequisiti: elementi di elenco e righe di tabella delle sezioni dei prerequisiti
   for (const s of list.filter((x) => x.kind === 'prereq')) {
@@ -359,7 +368,7 @@ export interface ImportCounts {
  * ciò che manca (stessi nomi, titoli e chiavi non vengono duplicati) e
  * memorizza il documento. Restituisce il nuovo stack e cosa è stato aggiunto.
  */
-export function mergeImportedStack(stack: Stack, imp: ImportedStack, doc: StackDoc): { stack: Stack; added: ImportCounts } {
+export function mergeImportedStack(stack: Stack, imp: ImportedStack, doc: StackDoc | null): { stack: Stack; added: ImportCounts } {
   const s: Stack = JSON.parse(JSON.stringify(stack)) as Stack
   const added: ImportCounts = { platforms: 0, languages: 0, frameworks: 0, prerequisites: 0, steps: 0, envVars: 0, repo: false, notes: false }
   const union = <T extends string>(target: T[], values: T[], k: 'platforms' | 'languages' | 'frameworks') => {
@@ -376,6 +385,6 @@ export function mergeImportedStack(stack: Stack, imp: ImportedStack, doc: StackD
   for (const st of imp.steps)
     if (!s.steps.some((x) => fold(x.title) === fold(st.title))) (s.steps.push({ ...st, id: newId('stp') }), added.steps++)
   for (const e of imp.envVars) if (!s.envVars.some((x) => x.key === e.key)) (s.envVars.push(e), added.envVars++)
-  s.doc = doc
+  if (doc) s.doc = doc
   return { stack: s, added }
 }

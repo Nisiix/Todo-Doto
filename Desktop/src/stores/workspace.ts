@@ -10,6 +10,7 @@ import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, type AiTool, type Stack } from '@/types'
 import { firstLine } from '@/services/items'
+import { detectStack } from '@/services/projectScan'
 import type {
   Attachment,
   AuditAction,
@@ -483,6 +484,21 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return ok ? p : undefined
   }
 
+  /**
+   * Crea un progetto per ogni cartella di progetto trovata (nome = nome della
+   * cartella), con lo Stack ricavato dai suoi file. Restituisce quanti ne ha creati.
+   */
+  async function importProjects(found: { name: string; path: string }[], onProgress?: (done: number, total: number) => void) {
+    let created = 0
+    for (const [i, f] of found.entries()) {
+      const { description, stack } = await detectStack(f.path).catch(() => ({ description: '', stack: { ...EMPTY_STACK, sourcePath: f.path } }))
+      const p = await createProject({ name: f.name, description, folderId: null, members: [] })
+      if (p && (await mutateProject(p.id, (x) => void (x.stack = stack)))) created++
+      onProgress?.(i + 1, found.length)
+    }
+    return created
+  }
+
   const updateProject = (id: string, data: Partial<Pick<Project, 'name' | 'description' | 'folderId' | 'members'>>) =>
     mutateProject(id, (p) => void Object.assign(p, data))
 
@@ -895,6 +911,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     refresh,
     findItem,
     createProject,
+    importProjects,
     updateProject,
     trashProject,
     restoreProject,

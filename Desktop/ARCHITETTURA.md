@@ -54,6 +54,7 @@ src/
     prerequisites.ts       catalogo dei prerequisiti noti: completamento dei campi e prerequisiti dedotti da linguaggi/framework
     stackDoc.ts            import di un documento di architettura .md nello Stack (parser Markdown + unione senza perdite)
     sections.ts            sezioni del progetto (Todo, Stack, Allegati) e parametro di rotta
+    projectScan.ts         progetti già esistenti in una cartella: riconoscimento e Stack ricavato dai loro file
     drive.ts               client Google Drive: PKCE, token, elenco ricorsivo, download/esportazione
     http.ts                fetch per API esterne (plugin http in Tauri, window.fetch altrove)
     ids.ts                 generazione id con prefisso (prj_, itm_, …) e timestamp

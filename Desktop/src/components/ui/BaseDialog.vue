@@ -32,7 +32,7 @@ const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-6xl
       </Transition>
       <Transition name="pop">
         <DialogContent
-          class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-line bg-surface p-5 shadow-[var(--shadow)] outline-none"
+          class="fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-line bg-surface p-5 shadow-[var(--shadow)] outline-none"
           :class="widths[width]"
           @open-auto-focus="(e: Event) => { const el = (e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>('[data-autofocus]'); if (el) { e.preventDefault(); el.focus() } }"
         >

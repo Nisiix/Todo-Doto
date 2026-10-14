@@ -6,6 +6,14 @@ import { expect, test, type Page } from '@playwright/test'
  * l'interfaccia e la logica insieme, senza il backend Tauri.
  */
 
+// Qualsiasi errore JavaScript nella pagina fa fallire il test, anche se l'interfaccia sembra a posto
+let pageErrors: string[] = []
+test.beforeEach(({ page }) => {
+  pageErrors = []
+  page.on('pageerror', (e) => pageErrors.push(e.message))
+})
+test.afterEach(() => expect(pageErrors).toEqual([]))
+
 async function createLocalWorkspace(page: Page, name = 'Roadmap Sviluppo') {
   await page.goto('/')
   await page.getByRole('button', { name: 'Crea workspace' }).first().click()
@@ -26,7 +34,7 @@ async function createProject(page: Page, name: string, folderLabel?: string) {
 const newItemButton = (page: Page) => page.getByRole('button', { name: 'Nuovo task' })
 const sidebar = (page: Page) => page.locator('aside').first()
 /** Voce del sottomenu del progetto aperto nella barra laterale (Todo, Stack, Allegati). */
-const openSection = (page: Page, name: 'Todo' | 'Stack' | 'Allegati') => sidebar(page).getByRole('link', { name: new RegExp(`^${name}( \d+)?$`) }).click()
+const openSection = (page: Page, name: 'Todo' | 'Stack' | 'Allegati') => sidebar(page).getByRole('link', { name: new RegExp(`^${name}( \\d+)?$`) }).click()
 const openFilters = (page: Page) => page.getByRole('button', { name: /^Filtri/ }).click()
 const rows = (page: Page) => page.locator('[role=button][tabindex="0"]')
 const dialog = (page: Page) => page.getByRole('dialog')
@@ -478,4 +486,44 @@ test('stack: prerequisiti compilati in automatico, salvataggio e import di un do
   await expect(page.getByText('DATABASE_URL', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Vedi documento' }).click()
   await expect(dialog(page).locator('pre')).toContainText('Frontend Vue 3')
+})
+
+test('workspace da una cartella di progetti: propone di crearli e chiede un’altra cartella per il workspace', async ({ page }) => {
+  await page.goto('/')
+  // Una cartella con due progetti e una cartella qualunque (filesystem in memoria dell'anteprima)
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic('/progetti/alfa/package.json', JSON.stringify({ dependencies: { vue: '^3.5.0' }, devDependencies: { typescript: '^5' } }))
+    await fs.writeTextAtomic('/progetti/beta/Cargo.toml', '[package]\nname = "beta"')
+    await fs.writeTextAtomic('/progetti/documenti/appunti.txt', 'note')
+  })
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', 'Roadmap')
+  await page.fill('#ws-path', '/progetti')
+  const box = page.locator('[data-found-projects]')
+  await expect(box).toContainText('Questa cartella contiene 2 progetti')
+  await expect(box.getByRole('checkbox')).toHaveCount(3) // "crea i progetti" + alfa + beta
+  await expect(box).not.toContainText('documenti')
+  await expect(page.getByText('Cartella dei progetti')).toBeVisible()
+
+  // Il workspace va salvato in un'altra cartella, non dentro un progetto
+  const create = page.getByRole('button', { name: 'Crea workspace' }).last()
+  await create.click()
+  await expect(page.getByText('Scegli una cartella diversa da quella dei progetti in cui salvare il workspace.')).toBeVisible()
+  await page.fill('#ws-data', '/progetti')
+  await create.click()
+  await expect(page.getByText('La cartella del workspace deve essere diversa da quella dei progetti.')).toBeVisible()
+  await page.fill('#ws-data', '/progetti/alfa/roadmap')
+  await create.click()
+  await expect(page.getByText('La cartella del workspace non può stare dentro il progetto «alfa».')).toBeVisible()
+  await page.fill('#ws-data', '/dati/roadmap')
+  await create.click()
+
+  await expect(page.getByRole('heading', { name: 'Roadmap' })).toBeVisible()
+  await expect(page.getByText('2 progetti creati dalla cartella')).toBeVisible()
+  await sidebar(page).getByRole('link', { name: 'alfa' }).click()
+  await openSection(page, 'Stack')
+  await expect(page.getByText('/progetti/alfa', { exact: true })).toBeVisible()
+  await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
+  await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
 })

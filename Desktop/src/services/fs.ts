@@ -31,6 +31,8 @@ export interface FsApi {
   exists(path: string): Promise<boolean>
   mkdir(path: string): Promise<void>
   readDir(path: string): Promise<string[]>
+  /** File e sottocartelle (solo il primo livello). */
+  listDir(path: string): Promise<{ name: string; isDir: boolean }[]>
   remove(path: string): Promise<void>
   stat(path: string): Promise<FileStat | null>
   watchDir(path: string, onChange: () => void): Promise<() => void>
@@ -95,6 +97,10 @@ async function tauriFs(): Promise<FsApi> {
     },
     exists: (p) => fs.exists(p),
     mkdir: (p) => fs.mkdir(p, { recursive: true }),
+    async listDir(p) {
+      const entries = await fs.readDir(p)
+      return entries.map((e) => ({ name: e.name, isDir: e.isDirectory }))
+    },
     async readDir(p) {
       const entries = await fs.readDir(p)
       return entries.filter((e) => e.isFile).map((e) => e.name)
@@ -180,6 +186,17 @@ function memoryFs(): FsApi {
       return false
     },
     async mkdir() {},
+    async listDir(p) {
+      const n = norm(p) + '/'
+      const seen = new Map<string, boolean>()
+      for (const k of files.keys()) {
+        if (!k.startsWith(n)) continue
+        const rest = k.slice(n.length)
+        const i = rest.indexOf('/')
+        seen.set(i < 0 ? rest : rest.slice(0, i), i >= 0 || (seen.get(rest) ?? false))
+      }
+      return [...seen].map(([name, isDir]) => ({ name, isDir }))
+    },
     async readDir(p) {
       const n = norm(p) + '/'
       const out: string[] = []
@@ -237,6 +254,10 @@ export function getFs(): Promise<FsApi> {
   if (!apiPromise) apiPromise = isTauri ? tauriFs() : Promise.resolve(memoryFs())
   return apiPromise
 }
+
+// Anteprima nel browser e test end-to-end: accesso al filesystem in memoria per
+// preparare dati di prova (es. una cartella con dei progetti). Nell'app desktop non esiste.
+if (!isTauri && typeof window !== 'undefined') Object.assign(window, { __pgmFs: getFs })
 
 /** Solo per i test: ricrea il filesystem in memoria vuoto. */
 export function __resetMemoryFs() {
