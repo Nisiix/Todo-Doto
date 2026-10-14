@@ -59,16 +59,9 @@ async function deleteForever() {
 const menu = computed(() => {
   if (props.readOnly) return []
   const b = props.item.bucket
-  if (b === 'todo')
-    return [
-      { label: 'Segna come completato', icon: Check, onSelect: complete },
-      { label: 'Sposta nel cestino', icon: Trash2, danger: true, onSelect: trash },
-    ]
-  if (b === 'done')
-    return [
-      { label: 'Riapri', icon: Undo2, onSelect: reopen },
-      { label: 'Sposta nel cestino', icon: Trash2, danger: true, onSelect: trash },
-    ]
+  const trashEntry = ws.canTrashItem(props.item) ? [{ label: 'Sposta nel cestino', icon: Trash2, danger: true, onSelect: trash }] : []
+  if (b === 'todo') return [{ label: 'Segna come completato', icon: Check, onSelect: complete }, ...trashEntry]
+  if (b === 'done') return [{ label: 'Riapri', icon: Undo2, onSelect: reopen }, ...trashEntry]
   return [
     { label: 'Ripristina in Da fare', icon: RotateCcw, onSelect: reopen },
     ...(ws.canPurge ? [{ label: 'Elimina definitivamente', icon: X, danger: true, onSelect: deleteForever }] : []),

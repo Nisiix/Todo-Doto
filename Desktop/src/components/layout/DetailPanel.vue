@@ -87,7 +87,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
       <template v-if="!readOnly">
         <template v-if="item.bucket === 'todo'">
           <BaseButton size="sm" variant="ghost" title="Segna come completato" @click="ws.moveItem(project.id, item.id, 'done')"><Check :size="14" /> Completa</BaseButton>
-          <BaseButton size="icon-sm" variant="ghost" title="Sposta nel cestino" @click="ws.moveItem(project.id, item.id, 'trash')"><Trash2 :size="14" /></BaseButton>
+          <BaseButton v-if="ws.canTrashItem(item)" size="icon-sm" variant="ghost" title="Sposta nel cestino" @click="ws.moveItem(project.id, item.id, 'trash')"><Trash2 :size="14" /></BaseButton>
         </template>
         <BaseButton v-else size="sm" variant="ghost" @click="ws.moveItem(project.id, item.id, 'todo')">
           <RotateCcw :size="14" /> {{ item.bucket === 'done' ? 'Riapri' : 'Ripristina' }}

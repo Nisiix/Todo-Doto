@@ -68,8 +68,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   )
   const isAdmin = computed(() => meta.value?.mode === 'local' || currentUser.value?.role === 'admin')
   const isNetwork = computed(() => meta.value?.mode === 'network')
-  /** Solo amministratori e Cleaner possono eliminare definitivamente (elementi e progetti nel cestino). */
-  const canPurge = computed(() => isAdmin.value || currentUser.value?.role === 'cleaner')
+  /** Solo gli amministratori eliminano definitivamente (elementi e progetti nel cestino, svuota cestino). */
+  const canPurge = computed(() => isAdmin.value)
+  const isCleaner = computed(() => currentUser.value?.role === 'cleaner')
+  /**
+   * Chi può spostare nel cestino un elemento da fare: l'assegnatario, il
+   * creatore se non è assegnato a nessuno, i Cleaner e gli amministratori.
+   */
+  function canTrashItem(item: Pick<Item, 'assigneeId' | 'createdBy' | 'bucket'>) {
+    if (isAdmin.value || isCleaner.value) return true
+    const me = currentUser.value?.id
+    if (!me) return false
+    return item.assigneeId ? item.assigneeId === me : item.createdBy === me
+  }
   const usersById = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])))
   const userName = (id: string | null | undefined) => (id ? (usersById.value[id]?.displayName ?? 'Utente rimosso') : '—')
 
@@ -481,7 +492,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const p = projects.value[id]
     if (!s || !p) return
     if (!canPurge.value) {
-      ui.toast('Solo amministratori e Cleaner possono eliminare definitivamente.', 'warning')
+      ui.toast('Solo gli amministratori possono eliminare definitivamente.', 'warning')
       return
     }
     const ok = await guard(async () => {
@@ -536,6 +547,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     mutateItem(projectId, itemId, (it) => void Object.assign(it, data))
 
   async function moveItem(projectId: string, itemId: string, bucket: Bucket) {
+    if (bucket === 'trash') {
+      const found = projects.value[projectId]?.items.find((i) => i.id === itemId)
+      if (found && !canTrashItem(found)) {
+        ui.toast('Puoi cestinare solo gli elementi assegnati a te (o creati da te se non assegnati).', 'warning', undefined, 5000)
+        return
+      }
+    }
     let from: Bucket | null = null
     const r = await mutateItem(projectId, itemId, (it) => {
       if (it.bucket === bucket) return false
@@ -555,7 +573,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function deleteItemForever(projectId: string, itemId: string) {
     if (!canPurge.value) {
-      ui.toast('Solo amministratori e Cleaner possono eliminare definitivamente.', 'warning')
+      ui.toast('Solo gli amministratori possono eliminare definitivamente.', 'warning')
       return
     }
     let removed: Item | undefined
@@ -571,7 +589,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function emptyTrash(projectId: string) {
     if (!canPurge.value) {
-      ui.toast('Solo amministratori e Cleaner possono eliminare definitivamente.', 'warning')
+      ui.toast('Solo gli amministratori possono eliminare definitivamente.', 'warning')
       return
     }
     let count = 0
@@ -838,6 +856,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     isAdmin,
     isNetwork,
     canPurge,
+    isCleaner,
+    canTrashItem,
     audit,
     usersById,
     userName,

@@ -341,7 +341,7 @@ describe('workspace: cronologia e permessi di eliminazione', () => {
     expect(ws.audit.at(-1)).toMatchObject({ action: 'trash_emptied', count: 2 })
   })
 
-  it('solo admin e Cleaner eliminano definitivamente; i membri no', async () => {
+  it('solo l’admin elimina definitivamente; Cleaner e membri no', async () => {
     const ws = useWorkspaceStore()
     expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
     const me = ws.currentUser!
@@ -353,26 +353,59 @@ describe('workspace: cronologia e permessi di eliminazione', () => {
       await ws.storage!.mutateUsers((f) => void (f.users.find((u) => u.id === me.id)!.role = role))
       await ws.refresh()
     }
-    await setRole('member')
-    expect(ws.canPurge).toBe(false)
-    await ws.deleteItemForever(p.id, it.id)
-    expect(ws.findItem(it.id)).not.toBeNull() // rifiutato
-    await ws.emptyTrash(p.id)
-    expect(ws.findItem(it.id)).not.toBeNull()
-    await ws.trashProject(p.id)
-    await ws.deleteProject(p.id)
-    expect(ws.projects[p.id]).toBeDefined() // rifiutato
-    await ws.restoreProject(p.id)
-
-    await setRole('cleaner')
+    for (const role of ['member', 'cleaner'] as const) {
+      await setRole(role)
+      expect(ws.canPurge).toBe(false)
+      await ws.deleteItemForever(p.id, it.id)
+      expect(ws.findItem(it.id)).not.toBeNull() // rifiutato
+      await ws.emptyTrash(p.id)
+      expect(ws.findItem(it.id)).not.toBeNull()
+    }
+    await setRole('admin')
     expect(ws.canPurge).toBe(true)
-    expect(ws.isAdmin).toBe(false)
     await ws.deleteItemForever(p.id, it.id)
     expect(ws.findItem(it.id)).toBeNull()
     await ws.trashProject(p.id)
     await ws.deleteProject(p.id)
     expect(ws.projects[p.id]).toBeUndefined()
-    expect(ws.audit.filter((e) => e.action === 'item_deleted' || e.action === 'project_deleted')).toHaveLength(2)
+  })
+
+  it('cestinare un elemento: assegnatario, creatore se non assegnato, Cleaner e admin', async () => {
+    const ws = useWorkspaceStore()
+    expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
+    const me = ws.currentUser!
+    await ws.storage!.mutateUsers((f) =>
+      f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' }),
+    )
+    await ws.refresh()
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    // In rete si può assegnare a un'altra persona
+    const forBea = await ws.addItem(p.id, { title: 'per Bea', assigneeId: 'usr_b' })
+    const mine = await ws.addItem(p.id, { title: 'mio', assigneeId: me.id })
+    const unassignedByMe = await ws.addItem(p.id, { title: 'nessuno' })
+    expect(ws.findItem(forBea.id)!.item.assigneeId).toBe('usr_b')
+
+    const setRole = async (role: 'admin' | 'cleaner' | 'member') => {
+      await ws.storage!.mutateUsers((f) => void (f.users.find((u) => u.id === me.id)!.role = role))
+      await ws.refresh()
+    }
+    await setRole('member')
+    expect(ws.canTrashItem(ws.findItem(forBea.id)!.item)).toBe(false)
+    expect(ws.canTrashItem(ws.findItem(mine.id)!.item)).toBe(true)
+    expect(ws.canTrashItem(ws.findItem(unassignedByMe.id)!.item)).toBe(true)
+    await ws.moveItem(p.id, forBea.id, 'trash')
+    expect(ws.findItem(forBea.id)!.item.bucket).toBe('todo') // rifiutato
+    await ws.moveItem(p.id, mine.id, 'trash')
+    expect(ws.findItem(mine.id)!.item.bucket).toBe('trash')
+    // Un elemento creato da me ma assegnato a Bea non è più mio
+    await ws.updateItem(p.id, unassignedByMe.id, { assigneeId: 'usr_b' })
+    expect(ws.canTrashItem(ws.findItem(unassignedByMe.id)!.item)).toBe(false)
+
+    await setRole('cleaner')
+    expect(ws.canTrashItem(ws.findItem(forBea.id)!.item)).toBe(true)
+    await ws.moveItem(p.id, forBea.id, 'trash')
+    expect(ws.findItem(forBea.id)!.item.bucket).toBe('trash')
+    expect(ws.canPurge).toBe(false)
   })
 })
 

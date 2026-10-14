@@ -40,8 +40,8 @@ const menu = (u: User) => [
     <p class="mt-1 max-w-xl text-[13.5px] leading-relaxed text-ink-2">
       <template v-if="ws.isNetwork">
         Chi apre questa cartella di rete e inserisce la password compare qui. Gli amministratori gestiscono password,
-        ruoli e chi partecipa a ciascun progetto. I <b>Cleaner</b> possono, come gli amministratori, eliminare definitivamente
-        elementi e progetti dal cestino; i membri possono solo cestinare e ripristinare.
+        ruoli e chi partecipa a ciascun progetto. Un elemento da fare può essere cestinato da chi ne è assegnatario, dai
+        <b>Cleaner</b> e dagli amministratori; l'eliminazione definitiva di elementi e progetti spetta solo agli amministratori.
       </template>
       <template v-else>Workspace locale: sei l'unico utente. Per lavorare con i colleghi crea un workspace condiviso in rete.</template>
     </p>
@@ -54,7 +54,7 @@ const menu = (u: User) => [
             <span class="font-semibold">{{ u.displayName }}</span>
             <span v-if="u.id === ws.currentUser?.id" class="text-[12px] text-ink-3">(tu)</span>
             <span v-if="u.role === 'admin'" class="flex items-center gap-1 rounded-full bg-accent-soft px-1.5 py-px text-[11px] font-semibold text-accent-ink"><Shield :size="11" /> {{ ROLE_LABEL.admin }}</span>
-            <span v-else-if="u.role === 'cleaner'" class="flex items-center gap-1 rounded-full bg-p-media/20 px-1.5 py-px text-[11px] font-semibold text-ink-2" title="Può eliminare definitivamente elementi e progetti dal cestino"><Eraser :size="11" /> {{ ROLE_LABEL.cleaner }}</span>
+            <span v-else-if="u.role === 'cleaner'" class="flex items-center gap-1 rounded-full bg-p-media/20 px-1.5 py-px text-[11px] font-semibold text-ink-2" title="Può spostare nel cestino qualsiasi elemento, anche non assegnato a lui"><Eraser :size="11" /> {{ ROLE_LABEL.cleaner }}</span>
           </div>
           <span class="block text-[12px] text-ink-3">{{ u.username }} su {{ u.hostname }} · dal {{ dayjs(u.createdAt).format('D MMM YYYY') }}</span>
         </div>
