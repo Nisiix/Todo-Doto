@@ -1,6 +1,6 @@
 [package]
 name = "project-goal-manager"
-version = "0.2.8"
+version = "0.2.9"
 description = "Roadmap e todo di progetto, in locale o su cartella di rete"
 authors = ["nisos"]
 edition = "2021"

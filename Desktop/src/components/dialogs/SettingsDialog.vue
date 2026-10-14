@@ -5,6 +5,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import { FolderOpen } from 'lucide-vue-next'
 import { getFs } from '@/services/fs'
 import { samePath } from '@/services/projectScan'
+import { checkFolder } from '@/services/fsErrors'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore, type Theme } from '@/stores/ui'
@@ -79,7 +80,9 @@ const projectsPath = ref('')
 const folderMsg = ref('')
 async function pickProjects() {
   const p = await (await getFs()).pickFolder(m.pickProjects)
-  if (p) projectsPath.value = p
+  if (!p) return
+  projectsPath.value = p
+  folderMsg.value = (await checkFolder(await getFs(), p)) ?? ''
 }
 const displayName = ref('')
 const pw1 = ref('')
@@ -102,6 +105,8 @@ async function save() {
   if (ws.isAdmin && wsName.value.trim() && wsName.value.trim() !== ws.meta?.name) await ws.renameWorkspace(wsName.value)
   if (ws.isAdmin && projectsPath.value.trim() !== (ws.meta?.projectsPath ?? '')) {
     if (projectsPath.value.trim() && ws.storage && samePath(projectsPath.value, ws.storage.root)) return (folderMsg.value = m.errSame)
+    const problem = await checkFolder(await getFs(), projectsPath.value)
+    if (problem) return (folderMsg.value = problem)
     await ws.setProjectsPath(projectsPath.value)
   }
   if (displayName.value.trim() && displayName.value.trim() !== ws.currentUser?.displayName) await ws.renameSelf(displayName.value)

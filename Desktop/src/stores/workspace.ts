@@ -11,6 +11,7 @@ import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, type AiTool, type Stack } from '@/types'
 import { firstLine } from '@/services/items'
 import { detectStack, inferProjectsPath } from '@/services/projectScan'
+import { explainFsError } from '@/services/fsErrors'
 import { mergeStack } from '@/services/stackDoc'
 import type {
   Attachment,
@@ -388,8 +389,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   // --- mutazioni: helper -------------------------------------------------------------
+  /** Errori leggibili: i codici del sistema (rete, permessi…) diventano spiegazioni. */
   function describe(e: unknown) {
-    return e instanceof Error ? e.message : String(e)
+    return explainFsError(e, storage.value?.root ?? '')
   }
 
   async function guard<T>(fn: () => Promise<T>): Promise<T | undefined> {

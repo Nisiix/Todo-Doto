@@ -9,6 +9,7 @@ import { useUiStore } from '@/stores/ui'
 import type { WorkspaceMode } from '@/types'
 import { Database, FolderGit2, FolderOpen, HardDrive, Loader2, Network } from 'lucide-vue-next'
 import { isInside, samePath, scanProjects, type DetectedProject } from '@/services/projectScan'
+import { checkFolder, explainFsError } from '@/services/fsErrors'
 import { defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -123,17 +124,27 @@ const found = ref<DetectedProject[]>([])
 const selected = ref(new Set<string>())
 const importEnabled = ref(true)
 const suggested = ref('')
+/** Problema della cartella dei progetti (rete non raggiungibile, permessi…). */
+const pathError = ref('')
+/** Problema della cartella Dati (anche di scrittura). */
+const dataError = ref('')
 let scanSeq = 0
 async function scan(folder: string) {
   const seq = ++scanSeq
   found.value = []
   scanned.value = false
   suggested.value = ''
+  pathError.value = ''
   const clean = folder.trim().replace(/[\\/]+$/, '')
   if (!clean) return
   scanning.value = true
   try {
     const fs = await getFs()
+    const problem = await checkFolder(fs, clean)
+    if (problem) {
+      if (seq === scanSeq) pathError.value = problem
+      return
+    }
     const list = await scanProjects(clean)
     // Suggerimento per i dati: accanto alla cartella dei progetti, con un nome riconoscibile
     const parent = clean.replace(/[\\/][^\\/]*$/, '')
@@ -144,8 +155,11 @@ async function scan(folder: string) {
     selected.value = new Set(list.map((p) => p.path))
     suggested.value = sugg
     scanned.value = true
-  } catch {
-    if (seq === scanSeq) found.value = []
+  } catch (e) {
+    if (seq === scanSeq) {
+      found.value = []
+      pathError.value = explainFsError(e, clean)
+    }
   } finally {
     if (seq === scanSeq) scanning.value = false
   }
@@ -186,6 +200,16 @@ async function pickData() {
   const p = await (await getFs()).pickFolder(m.pickData)
   if (p) dataPath.value = p
 }
+// La cartella Dati deve essere raggiungibile e scrivibile (anche se non esiste ancora)
+watchDebounced(
+  () => [open.value, dataPath.value] as const,
+  async ([o, d]) => {
+    if (!o) return
+    const problem = d.trim() ? await checkFolder(await getFs(), d, { write: true }) : null
+    if (d === dataPath.value) dataError.value = problem ?? ''
+  },
+  { debounce: 350 },
+)
 
 async function submit() {
   error.value = ''
@@ -195,6 +219,12 @@ async function submit() {
   if (samePath(dataPath.value, path.value)) return (error.value = m.errSame)
   const inside = found.value.find((p) => isInside(dataPath.value, p.path))
   if (inside) return (error.value = m.errInside(inside.name))
+  // Cartelle di rete: prima di creare, si controlla che siano raggiungibili (e i Dati scrivibili)
+  const fs = await getFs()
+  const pathProblem = await checkFolder(fs, path.value)
+  if (pathProblem) return (error.value = `${m.projectsFolder}: ${pathProblem}`)
+  const dataProblem = await checkFolder(fs, dataPath.value, { write: true })
+  if (dataProblem) return (error.value = `${m.dataFolder}: ${dataProblem}`)
   if (mode.value === 'network') {
     if (password.value.length < 6) return (error.value = common.password.tooShort)
     if (password.value !== password2.value) return (error.value = common.password.mismatch)
@@ -231,7 +261,8 @@ async function submit() {
           <BaseButton :aria-label="m.pickProjects" @click="pickProjects"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
         </div>
         <p class="mt-1 text-[12px] text-ink-3">{{ m.projectsHint }}</p>
-        <p v-if="scanning" class="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-3"><Loader2 :size="12" class="animate-spin" /> {{ m.scanning }}</p>
+        <p v-if="pathError" class="mt-1.5 text-[12px] text-danger" data-path-error>{{ pathError }}</p>
+        <p v-else-if="scanning" class="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink-3"><Loader2 :size="12" class="animate-spin" /> {{ m.scanning }}</p>
         <p v-else-if="scanned && !hasProjects" class="mt-1.5 text-[12px] text-ink-2">{{ m.noneFound }}</p>
       </div>
 
@@ -267,6 +298,7 @@ async function submit() {
           <BaseButton :aria-label="m.pickData" @click="pickData"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
         </div>
         <p class="mt-1 text-[12px] text-ink-3">{{ m.dataHint }}</p>
+        <p v-if="dataError" class="mt-1 text-[12px] text-danger" data-data-error>{{ dataError }}</p>
         <button v-if="suggested && !samePath(suggested, dataPath)" type="button" class="mt-1 max-w-full truncate text-left font-mono text-[12px] text-accent-ink hover:underline" @click="dataPath = suggested">
           {{ m.useSuggested(suggested) }}
         </button>

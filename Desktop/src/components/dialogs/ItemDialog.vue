@@ -44,8 +44,13 @@ const m = defineMessages({
 const props = defineProps<{ projectId: string }>()
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ manageLabels: [] }>()
-/** "Gestisci etichette…": chiude il nuovo task e apre la finestra delle etichette. */
+/**
+ * "Gestisci etichette…": il nuovo task lascia il posto alla finestra delle
+ * etichette e, alla sua chiusura, si riapre con quanto già inserito.
+ */
+let keepDraft = false
 function openLabels() {
+  keepDraft = true
   open.value = false
   emit('manageLabels')
 }
@@ -63,6 +68,12 @@ const error = ref('')
 
 watch(open, (o) => {
   if (!o) return
+  if (keepDraft) {
+    // Di ritorno dalle etichette: si tiene tutto, salvo un'etichetta nel frattempo eliminata
+    keepDraft = false
+    if (labelId.value && !ws.labelsById[labelId.value]) labelId.value = null
+    return
+  }
   title.value = ''
   notes.value = ''
   priority.value = 'media'

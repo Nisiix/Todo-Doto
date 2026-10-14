@@ -340,6 +340,20 @@ async fn run_check(command: String, timeout_ms: Option<u64>) -> Result<CheckOutp
         .map_err(|e| e.to_string())
 }
 
+/// Aggiunge cartelle (con tutto il contenuto) ai percorsi consentiti del plugin
+/// fs. Serve ai percorsi di rete (\\server\condivisione) e alle unità mappate
+/// riaperti dopo un riavvio, che non passano dalla finestra "Sfoglia" (la quale
+/// li consente da sola) e che i modelli statici potrebbero non riconoscere.
+#[tauri::command]
+fn allow_paths(app: tauri::AppHandle, paths: Vec<String>) {
+    use tauri_plugin_fs::FsExt;
+    if let Some(scope) = app.try_fs_scope() {
+        for p in paths {
+            let _ = scope.allow_directory(&p, true);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -349,7 +363,7 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![get_identity, oauth_start, oauth_wait, run_check])
+        .invoke_handler(tauri::generate_handler![get_identity, oauth_start, oauth_wait, run_check, allow_paths])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Project Goal Manager");
 }

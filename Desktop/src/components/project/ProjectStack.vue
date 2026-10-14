@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertTriangle, ArrowDown, ArrowUp, Check, CheckCircle2, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderPlus, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ChipsInput from '@/components/ui/ChipsInput.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
-import ProjectDialog from '@/components/dialogs/ProjectDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePrereqChecks } from '@/composables/usePrereqChecks'
-import { useProjectFolder } from '@/composables/useProjectFolder'
 import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
 import { parseGitHubRepo } from '@/services/github'
+import { checkFolder } from '@/services/fsErrors'
 import { useGitHubStore } from '@/stores/github'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -22,7 +21,7 @@ import { autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, suggestP
 import { mergeImportedStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
-import { copyStack, hasStack, resolveStack, scaffoldFiles, slugify, varsFor, writeProjectFolderAt } from '@/services/scaffold'
+import { copyStack, hasStack, resolveStack, slugify, varsFor } from '@/services/scaffold'
 import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Prerequisite, type Project, type Stack } from '@/types'
 import { DATE, defineMessages, plural } from '@/i18n'
 import dayjs from 'dayjs'
@@ -39,7 +38,7 @@ const m = defineMessages({
     openFolder: 'Apri cartella',
     title: 'Stack e configurazione',
     lead: 'Con cosa è fatto il progetto e come metterlo in piedi sul proprio PC, passo per passo.',
-    fill: 'Compila lo stack',
+    fill: 'Aggiungi stack tecnologico',
     appType: 'Tipo di applicazione',
     type: 'Tipo',
     languages: 'Linguaggi',
@@ -78,7 +77,7 @@ const m = defineMessages({
     varName: 'NOME_VARIABILE',
     varExample: 'valore di esempio',
     varNotes: 'A cosa serve / dove si prende',
-    emptyAdmin: 'Nessuna informazione ancora. Compila lo stack: linguaggi, framework, repository, prerequisiti e i passi per configurare il progetto. Gli altri utenti troveranno qui una procedura guidata.',
+    emptyAdmin: 'Nessuna informazione ancora. Aggiungi lo stack tecnologico (o importalo da un altro progetto): linguaggi, framework, repository, prerequisiti e i passi per configurare il progetto. Gli altri utenti troveranno qui una procedura guidata.',
     emptyMember: 'L’amministratore non ha ancora descritto lo stack di questo progetto.',
     setupTitle: 'Configura sul tuo PC',
     setupLead: (done: number, total: number) => `Segui i passi nell’ordine e spunta quelli fatti: il progresso è tuo, non si vede agli altri. ${done} di ${total} completati.`,
@@ -97,7 +96,6 @@ const m = defineMessages({
     autoStarted: 'Configurazione avviata in una finestra del prompt dei comandi',
     autoFailed: (err: string) => `Non riesco ad avviare la configurazione: ${err}`,
     autoDesktopOnly: 'L’esecuzione della configurazione è disponibile nell’app desktop: salva lo script e avvialo con doppio click.',
-    folderNoRoot: 'Scegli dove creare la cartella del progetto',
     cmdCopied: 'Comando copiato',
     copyCheck: 'Copia verifica',
     download: 'Scarica',
@@ -131,31 +129,18 @@ const m = defineMessages({
     docImported: (d: string) => `importato il ${d}`,
     viewDoc: 'Vedi documento',
     removeDoc: 'Togli il documento',
-    importFrom: 'Importa da…',
+    importFrom: 'Importa stack da altro progetto',
+    importFromHint: 'Copia stack e configurazione di un altro progetto esistente in questo (poi controlli e salvi)',
     importTitle: (n: string) => `Sostituire lo stack con quello di «${n}»?`,
     importMessage: 'Le modifiche non salvate vanno perse. Il nome dell’altro progetto viene sostituito con quello di questo progetto; la cartella locale resta.',
     importConfirm: 'Importa',
     imported: (n: string) => `Stack importato da «${n}»: controlla e salva`,
     files: 'File iniziali',
-    filesHint: 'File creati nella cartella del progetto con «Crea cartella del progetto». In percorsi e contenuti puoi usare {{name}} (nome del progetto) e {{slug}} (nome per cartelle e URL); vale anche per comandi e link dei passi.',
+    filesHint: 'File scritti nella cartella del progetto quando la si crea, alla creazione del progetto. In percorsi e contenuti puoi usare {{name}} (nome del progetto) e {{slug}} (nome per cartelle e URL); vale anche per comandi e link dei passi.',
     file: 'File',
     filePath: 'Percorso, es. package.json o src/main.ts',
     fileContent: 'Contenuto del file',
     filesEmpty: 'Es. package.json, .gitignore, .editorconfig, src/main.ts… README.md, .env.example e lo script di configurazione vengono generati in automatico.',
-    newFromStack: 'Nuovo progetto con questo stack',
-    newFromStackHint: 'Crea un progetto che parte da questa configurazione: ti verrà chiesto il nome',
-    createFolder: 'Crea cartella del progetto',
-    createFolderHint: 'Crea sul tuo PC la cartella del progetto con README, .env.example, script di configurazione e file iniziali',
-    pickDest: 'Dove creare la cartella del progetto',
-    folderTitle: (path: string) => `Creare la cartella ${path}?`,
-    folderExists: (path: string) => `La cartella ${path} esiste già: aggiornare i file?`,
-    folderMessage: (files: string) => `Verranno scritti: ${files}.`,
-    folderExistsMessage: (files: string) => `I file con lo stesso nome vengono sovrascritti, gli altri restano: ${files}.`,
-    folderConfirm: 'Crea cartella',
-    folderOverwrite: 'Aggiorna i file',
-    folderCreated: (n: number) => `Cartella del progetto creata (${n} file)`,
-    folderFailed: (err: string) => `Non riesco a creare la cartella: ${err}`,
-    folderLinked: 'impostata come cartella del progetto',
     markDone: 'Segna come fatto',
     chkChecking: 'Verifico…',
     chkOk: (v: string) => (v ? `Installato · ${v}` : 'Installato'),
@@ -205,7 +190,7 @@ const m = defineMessages({
     openFolder: 'Open folder',
     title: 'Stack and setup',
     lead: 'What the project is built with and how to get it running on your own PC, step by step.',
-    fill: 'Fill in the stack',
+    fill: 'Add technology stack',
     appType: 'Application type',
     type: 'Type',
     languages: 'Languages',
@@ -244,7 +229,7 @@ const m = defineMessages({
     varName: 'VARIABLE_NAME',
     varExample: 'example value',
     varNotes: 'What it is for / where to get it',
-    emptyAdmin: 'No information yet. Fill in the stack: languages, frameworks, repository, prerequisites and the steps to set up the project. Other users will find a guided procedure here.',
+    emptyAdmin: 'No information yet. Add the technology stack (or import it from another project): languages, frameworks, repository, prerequisites and the steps to set up the project. Other users will find a guided procedure here.',
     emptyMember: 'The administrator has not described this project’s stack yet.',
     setupTitle: 'Set up on your PC',
     setupLead: (done: number, total: number) => `Follow the steps in order and tick the ones you have done: your progress is yours only, others cannot see it. ${done} of ${total} completed.`,
@@ -263,7 +248,6 @@ const m = defineMessages({
     autoStarted: 'Setup started in a command prompt window',
     autoFailed: (err: string) => `Cannot start the setup: ${err}`,
     autoDesktopOnly: 'Running the setup is available in the desktop app: save the script and double-click it.',
-    folderNoRoot: 'Choose where to create the project folder',
     cmdCopied: 'Command copied',
     copyCheck: 'Copy check',
     download: 'Download',
@@ -297,31 +281,18 @@ const m = defineMessages({
     docImported: (d: string) => `imported on ${d}`,
     viewDoc: 'View document',
     removeDoc: 'Remove the document',
-    importFrom: 'Import from…',
+    importFrom: 'Import stack from another project',
+    importFromHint: 'Copy the stack and setup of another existing project into this one (then review and save)',
     importTitle: (n: string) => `Replace the stack with the one from “${n}”?`,
     importMessage: 'Unsaved changes are lost. The other project’s name is replaced with this project’s name; the local folder is kept.',
     importConfirm: 'Import',
     imported: (n: string) => `Stack imported from “${n}”: review it and save`,
     files: 'Initial files',
-    filesHint: 'Files created in the project folder by “Create project folder”. Paths and contents can use {{name}} (project name) and {{slug}} (name for folders and URLs); this also works in step commands and links.',
+    filesHint: 'Files written to the project folder when it is created, together with the project. Paths and contents can use {{name}} (project name) and {{slug}} (name for folders and URLs); this also works in step commands and links.',
     file: 'File',
     filePath: 'Path, e.g. package.json or src/main.ts',
     fileContent: 'File content',
     filesEmpty: 'E.g. package.json, .gitignore, .editorconfig, src/main.ts… README.md, .env.example and the setup script are generated automatically.',
-    newFromStack: 'New project with this stack',
-    newFromStackHint: 'Create a project that starts from this setup: you will be asked for its name',
-    createFolder: 'Create project folder',
-    createFolderHint: 'Create the project folder on your PC with README, .env.example, setup script and initial files',
-    pickDest: 'Where to create the project folder',
-    folderTitle: (path: string) => `Create the folder ${path}?`,
-    folderExists: (path: string) => `The folder ${path} already exists: update the files?`,
-    folderMessage: (files: string) => `These files will be written: ${files}.`,
-    folderExistsMessage: (files: string) => `Files with the same name are overwritten, the others are kept: ${files}.`,
-    folderConfirm: 'Create folder',
-    folderOverwrite: 'Update files',
-    folderCreated: (n: number) => `Project folder created (${n} files)`,
-    folderFailed: (err: string) => `Cannot create the folder: ${err}`,
-    folderLinked: 'set as the project folder',
     markDone: 'Mark as done',
     chkChecking: 'Checking…',
     chkOk: (v: string) => (v ? `Installed · ${v}` : 'Installed'),
@@ -484,22 +455,20 @@ function applyMarkdown(fileName: string, content: string) {
 }
 const showDoc = ref(false)
 
-// --- importazione da un altro progetto (modifica, admin) -----------------------------
+// --- importazione dello stack da un altro progetto (admin): si controlla e si salva ---
 const importMenu = computed(() =>
   ws.visibleProjects
     .filter((p) => p.id !== props.project.id && hasStack(p.stack))
     .map((p) => ({ label: p.name, onSelect: () => importFrom(p) })),
 )
 async function importFrom(source: Project) {
+  if (!editing.value) startEdit()
   if (hasStack(draft.value) && !(await confirm({ title: m.importTitle(source.name), message: m.importMessage, confirmLabel: m.importConfirm }))) return
   draft.value = { ...copyStack(source.stack, source.name, props.project.name), sourcePath: draft.value.sourcePath }
   ui.toast(m.imported(source.name), 'info', undefined, 4000)
 }
 
-// --- nuovo progetto da questo stack e cartella del progetto ---------------------
-const showNewProject = ref(false)
-/** Il progetto ha già la sua cartella sul disco? Allora «Crea cartella del progetto» non serve. */
-const { linked: folderLinked, refresh: refreshFolder } = useProjectFolder(computed(() => props.project))
+// --- cartella del progetto (creata insieme al progetto) ----------------------------
 /**
  * Cartella del progetto sul disco: quella indicata nello stack, altrimenti
  * <cartella dei progetti del workspace>/<nome del progetto>; vuota se nessuna delle due è nota.
@@ -509,38 +478,14 @@ async function projectDir(): Promise<string> {
   const root = ws.projectsRoot
   return root ? (await getFs()).join(root, props.project.name) : ''
 }
-async function createFolder() {
-  const fs = await getFs()
-  let target = await projectDir()
-  if (!target) {
-    const dest = await fs.pickFolder(m.folderNoRoot)
-    if (!dest) return
-    target = await fs.join(dest, slugify(props.project.name))
-  }
-  const files = scaffoldFiles(props.project.name, props.project.description, stack.value)
-  const names = files.map((f) => f.path).join(', ')
-  const exists = await fs.exists(target)
-  const ok = await confirm(
-    exists
-      ? { title: m.folderExists(target), message: m.folderExistsMessage(names), confirmLabel: m.folderOverwrite, danger: true }
-      : { title: m.folderTitle(target), message: m.folderMessage(names), confirmLabel: m.folderConfirm },
-  )
-  if (!ok) return
-  try {
-    const root = await writeProjectFolderAt(target, files)
-    // La prima cartella creata dall'admin diventa la cartella del progetto
-    const link = canEdit.value && !stack.value.sourcePath
-    if (link) await ws.updateStack(props.project.id, { ...stack.value, sourcePath: root })
-    ui.toast(`${m.folderCreated(files.length)}${link ? ` · ${m.folderLinked}` : ''}`, 'success', { label: m.openFolder, run: () => open(root, 'file') }, 6000)
-    await refreshFolder()
-  } catch (e) {
-    ui.toast(m.folderFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
-  }
-}
 
 async function pickSource() {
-  const p = await (await getFs()).pickFolder(m.sourcePath)
-  if (p) draft.value.sourcePath = p
+  const fs = await getFs()
+  const p = await fs.pickFolder(m.sourcePath)
+  if (!p) return
+  draft.value.sourcePath = p
+  const problem = await checkFolder(fs, p)
+  if (problem) ui.toast(problem, 'warning', undefined, 8000)
 }
 
 // --- procedura guidata (stato per utente, sul PC) ---------------------------------
@@ -719,20 +664,12 @@ async function ghSync() {
       <p class="mt-0.5 text-[13px] text-ink-2">{{ m.lead }}</p>
     </div>
     <div v-if="canEdit || !isEmpty" class="!mt-3 flex flex-wrap items-center gap-1.5">
-      <template v-if="!editing && !isEmpty">
-        <BaseButton v-if="!folderLinked" size="sm" variant="ghost" :title="m.createFolderHint" @click="createFolder"><FolderPlus :size="14" /> {{ m.createFolder }}</BaseButton>
-        <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.newFromStackHint" @click="showNewProject = true"><CopyPlus :size="14" /> {{ m.newFromStack }}</BaseButton>
-      </template>
+      <BaseMenu v-if="canEdit && importMenu.length" :items="importMenu">
+        <BaseButton size="sm" variant="ghost" :title="m.importFromHint"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
+      </BaseMenu>
       <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
       <input ref="mdInput" type="file" accept=".md,.markdown,.txt,text/markdown" class="hidden" data-md-input @change="onMdFile" />
-      <template v-if="canEdit && !editing">
-        <BaseButton size="sm" @click="startEdit"><Pencil :size="14" /> {{ hasStack(stack) ? common.actions.edit : m.fill }}</BaseButton>
-      </template>
-      <template v-else-if="editing">
-        <BaseMenu v-if="importMenu.length" :items="importMenu">
-          <BaseButton size="sm" variant="ghost"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
-        </BaseMenu>
-      </template>
+      <BaseButton v-if="canEdit && !editing" size="sm" @click="startEdit"><Pencil :size="14" /> {{ hasStack(stack) ? common.actions.edit : m.fill }}</BaseButton>
     </div>
 
     <!-- Repository GitHub collegato (o collegabile) -->
@@ -1004,7 +941,6 @@ async function ghSync() {
             <h4 class="text-[13px] font-semibold text-ink-2">{{ m.files }}</h4>
             <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
               <code v-for="f in view.files" :key="f.id" class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px]">{{ f.path }}</code>
-              <BaseButton v-if="!folderLinked" size="sm" variant="ghost" @click="createFolder"><FolderPlus :size="12" /> {{ m.createFolder }}</BaseButton>
             </div>
           </div>
         </section>
@@ -1060,6 +996,5 @@ async function ghSync() {
       </template>
     </BaseDialog>
 
-    <ProjectDialog v-model:open="showNewProject" :default-folder-id="project.folderId" :stack-from="project.id" />
   </div>
 </template>

@@ -235,21 +235,31 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Etichette')
   await newItemButton(page).click()
+  // Dati inseriti prima di passare alle etichette
+  await page.fill('#i-title', 'Crash all’avvio')
+  await page.fill('#i-notes', 'Succede solo al primo avvio')
+  await dialog(page).locator('select[title^="Priorità"]').selectOption('alta')
   await dialog(page).getByRole('button', { name: 'Gestisci etichette…' }).click()
   const labels = page.getByRole('dialog').filter({ hasText: 'Badge da assegnare' })
   await expect(labels).toBeVisible()
   await labels.getByPlaceholder('Nuova etichetta').fill('Bug')
   await labels.getByRole('button', { name: 'Aggiungi', exact: true }).click()
   await expect(labels.locator('input[aria-label="Nome etichetta Bug"]')).toBeVisible()
-  // Il nuovo task si è chiuso per lasciare spazio alle etichette
+  // Il nuovo task lascia spazio alle etichette…
   await expect(page.locator('#i-title')).toHaveCount(0)
   await labels.getByRole('button', { name: 'Chiudi', exact: true }).last().click()
   await expect(labels).toBeHidden()
-  await newItemButton(page).click()
-  await page.fill('#i-title', 'Crash all’avvio')
+  // …e alla chiusura torna con quanto già inserito
+  await expect(page.locator('#i-title')).toHaveValue('Crash all’avvio')
+  await expect(page.locator('#i-notes')).toHaveValue('Succede solo al primo avvio')
+  await expect(dialog(page).locator('select[title^="Priorità"]')).toHaveValue('alta')
   await dialog(page).getByLabel('Etichetta').selectOption({ label: 'Bug' })
   await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(rows(page).first().getByTitle('Etichetta: Bug').first()).toBeVisible()
+  // Un nuovo task successivo riparte vuoto
+  await newItemButton(page).click()
+  await expect(page.locator('#i-title')).toHaveValue('')
+  await page.keyboard.press('Escape')
   // Le etichette si gestiscono anche dal menu del workspace
   await page.getByRole('button', { name: /Roadmap Sviluppo/ }).first().click()
   await page.getByRole('menuitem', { name: 'Etichette' }).click()
@@ -371,7 +381,7 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   // Stack: compilazione (admin) e procedura guidata. Node.js non è installato (comando non riconosciuto)
   await fakeChecks(page, { 'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" } })
   await openSection(page, 'Stack')
-  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
   await page.getByRole('button', { name: 'Desktop' }).click()
   await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
   await page.keyboard.press('Enter')
@@ -449,11 +459,11 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await expect(page.getByRole('main').getByText('Stack test')).toBeVisible()
 })
 
-test('stack come modello: nuovo progetto con lo stack copiato e cartella del progetto', async ({ page }) => {
+test('stack come modello: cartella creata con il progetto, import dello stack da un altro progetto', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Modello web')
   await openSection(page, 'Stack')
-  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
   await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
   await page.keyboard.press('Enter')
   await page.getByRole('button', { name: 'Passo', exact: true }).click()
@@ -465,33 +475,37 @@ test('stack come modello: nuovo progetto con lo stack copiato e cartella del pro
   await page.getByRole('button', { name: 'Salva', exact: true }).click()
   await expect(page.getByText('Stack salvato')).toBeVisible()
 
-  // Nuovo progetto da questo stack: si chiede solo il nome, lo stack è preselezionato
-  await page.getByRole('button', { name: 'Nuovo progetto con questo stack' }).click()
-  await expect(page.locator('#p-stack')).toHaveValue(/.+/)
+  // Nuovo progetto con lo stack copiato: la cartella del progetto viene creata subito,
+  // con README, script di configurazione e file iniziali dello stack
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
   await page.fill('#p-name', 'Nuovo portale')
+  await page.locator('#p-stack').selectOption({ label: 'Copia da «Modello web»' })
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await expect(page.getByRole('heading', { name: 'Nuovo portale' })).toBeVisible()
+  await expect(page.getByText('Cartella del progetto creata (3 file)')).toBeVisible()
   await expect(page.getByText('git clone https://example.com/nuovo-portale.git')).toBeVisible()
-  await expect(page.getByText('package.json', { exact: true })).toBeVisible()
-
-  // Cartella del progetto: README, script e file iniziali; diventa la cartella del progetto
-  await page.getByRole('button', { name: 'Crea cartella del progetto' }).first().click()
-  await expect(dialog(page)).toContainText('README.md, setup-nuovo-portale.cmd, package.json')
-  await dialog(page).getByRole('button', { name: 'Crea cartella' }).click()
-  await expect(page.getByText(/Cartella del progetto creata \(3 file\)/)).toBeVisible()
-  // La cartella creata è quella del progetto sul disco: <cartella dei progetti>/<nome>
   await expect(page.locator('code', { hasText: /Nuovo portale$/ })).toBeVisible()
-  // Ora il progetto è collegato alla sua cartella: niente più «Crea cartella» e il progetto non si modifica più
+  const pkg = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()
+    const dir = document.querySelector('code')?.textContent?.trim() ?? ''
+    return fs.readText(`${dir}/package.json`).catch(() => '')
+  })
+  expect(pkg).toContain('nuovo-portale')
+  // Nello Stack non c'è più «Crea cartella del progetto» né «Nuovo progetto con questo stack»
   await expect(page.getByRole('button', { name: 'Crea cartella del progetto' })).toHaveCount(0)
-  await expect(page.locator('[data-edit-project]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Nuovo progetto con questo stack' })).toHaveCount(0)
 
-  // Importazione dello stack in un progetto esistente, durante la modifica
+  // Importazione dello stack da un altro progetto esistente: si entra in modifica con i dati importati
   await createProject(page, 'Altro')
   await openSection(page, 'Stack')
-  await page.getByRole('button', { name: 'Compila lo stack' }).click()
-  await page.getByRole('button', { name: 'Importa da…' }).click()
+  await expect(page.getByRole('button', { name: 'Aggiungi stack tecnologico' })).toBeVisible()
+  await page.getByRole('button', { name: 'Importa stack da altro progetto' }).click()
   await page.getByRole('menuitem', { name: 'Modello web' }).click()
   await expect(page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)')).toHaveValue('git clone https://example.com/altro.git')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText('Stack salvato').last()).toBeVisible()
+  // Stack presente: il pulsante torna «Modifica»
+  await expect(page.getByRole('button', { name: 'Aggiungi stack tecnologico' })).toHaveCount(0)
 })
 
 test('barra laterale: sottomenu del progetto; nessun cestino né modifica del nome nelle sezioni', async ({ page }) => {
@@ -521,7 +535,7 @@ test('stack: prerequisiti compilati in automatico, salvataggio e import di un do
   await createLocalWorkspace(page)
   await createProject(page, 'Portale')
   await openSection(page, 'Stack')
-  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
   await expect(page.getByText('Nessuna modifica')).toBeVisible()
 
   // Un linguaggio che richiede strumenti: i prerequisiti si aggiungono da soli
@@ -608,7 +622,7 @@ test('workspace da una cartella di progetti: propone di crearli e chiede un’al
   await sidebar(page).getByRole('link', { name: 'alfa' }).click()
   await openSection(page, 'Stack')
   await expect(page.getByText('/progetti/alfa', { exact: true })).toBeVisible()
-  // Collegato a una cartella esistente: niente matita e niente «Crea cartella del progetto»
+  // Collegato a una cartella esistente: niente matita
   await expect(page.locator('[data-edit-project]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Crea cartella del progetto' })).toHaveCount(0)
   await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
@@ -638,7 +652,7 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
   await expect(page.locator('#p-folder')).toHaveCount(0)
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await openSection(page, 'Stack')
-  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
   await expect(page.locator('#st-src')).toHaveValue('/sviluppo/Portale')
   await page.getByRole('button', { name: 'Annulla', exact: true }).click()
 

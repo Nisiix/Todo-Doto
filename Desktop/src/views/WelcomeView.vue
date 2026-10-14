@@ -19,6 +19,7 @@ import { useUiStore } from '@/stores/ui'
 import { getFs } from '@/services/fs'
 import { WorkspaceStorage } from '@/services/storage'
 import { scanProjects } from '@/services/projectScan'
+import { checkFolder, explainFsError } from '@/services/fsErrors'
 import { defineMessages } from '@/i18n'
 
 const m = defineMessages({
@@ -103,6 +104,17 @@ async function browse() {
   const fs = await getFs()
   const p = await fs.pickFolder(m.pickExisting)
   if (!p) return
+  error.value = ''
+  // Cartella non raggiungibile o non leggibile (rete, permessi…): lo si dice subito
+  const problem = await checkFolder(fs, p)
+  if (problem) return (error.value = problem)
+  try {
+    await openOrPropose(p)
+  } catch (e) {
+    error.value = explainFsError(e, p)
+  }
+}
+async function openOrPropose(p: string) {
   // La cartella dei progetti di un workspace già noto apre quel workspace
   const known = session.config.recent.find((r) => r.projectsPath && samePath(r.projectsPath, p))
   if (known && !(await WorkspaceStorage.isWorkspace(p))) return openPath(known.path)

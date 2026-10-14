@@ -7,7 +7,9 @@ import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ProjectAccessFields, { resolveMembers, type ProjectAccess } from '@/components/project/ProjectAccessFields.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { copyStack, hasStack } from '@/services/scaffold'
+import { copyStack, hasStack, scaffoldFiles, writeProjectFolderAt } from '@/services/scaffold'
+import { checkFolder, explainFsError } from '@/services/fsErrors'
+import { useUiStore } from '@/stores/ui'
 import { defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -20,7 +22,9 @@ const m = defineMessages({
     nameHint: (folder: string) => `Il nome del progetto è il nome della sua cartella sul disco${folder ? ` (${folder})` : ''} e dopo la creazione non si cambia più.`,
     nameHintNoRoot: 'Il nome del progetto è il nome della sua cartella sul disco e dopo la creazione non si cambia più.',
     diskPath: 'Cartella del progetto sul disco',
-    diskHint: 'Dove si trovano (o verranno creati) i file del progetto. Scegliendo una cartella esistente il progetto ne prende il nome; se non esiste ancora, la crei dalla sezione Stack con «Crea cartella del progetto».',
+    diskHint: 'Dove si trovano i file del progetto. Scegliendo una cartella esistente il progetto ne prende il nome e la usa così com’è; se non esiste, viene creata insieme al progetto, con README, .env.example, script di configurazione e i file iniziali dello stack.',
+    folderCreated: (n: number) => `Cartella del progetto creata (${n} file)`,
+    folderFailed: (err: string) => `Progetto creato, ma la cartella non è stata creata: ${err}`,
     pickDisk: 'Scegli la cartella del progetto',
     create: 'Crea progetto',
     stackFrom: 'Stack e configurazione iniziale',
@@ -36,7 +40,9 @@ const m = defineMessages({
     nameHint: (folder: string) => `The project name is the name of its folder on disk${folder ? ` (${folder})` : ''} and cannot be changed after creation.`,
     nameHintNoRoot: 'The project name is the name of its folder on disk and cannot be changed after creation.',
     diskPath: 'Project folder on disk',
-    diskHint: 'Where the project files are (or will be created). Choosing an existing folder gives the project its name; if it does not exist yet, create it from the Stack section with “Create project folder”.',
+    diskHint: 'Where the project files are. Choosing an existing folder gives the project its name and uses it as it is; if it does not exist, it is created together with the project, with README, .env.example, setup script and the stack’s initial files.',
+    folderCreated: (n: number) => `Project folder created (${n} files)`,
+    folderFailed: (err: string) => `Project created, but the folder was not created: ${err}`,
     pickDisk: 'Choose the project folder',
     create: 'Create project',
     stackFrom: 'Stack and initial setup',
@@ -51,12 +57,13 @@ const m = defineMessages({
  * disco (e non si cambia più): scrivendo il nome si propone
  * <cartella dei progetti>/<nome>, scegliendo una cartella se ne prende il nome.
  * Chi vede il progetto si cambia poi da Membri › Gestione permessi.
- * `stackFrom`: id del progetto da cui copiare lo stack (preselezionato).
+ * La cartella, se non esiste, viene creata con i file iniziali.
  */
-const props = defineProps<{ defaultFolderId?: string | null; stackFrom?: string | null }>()
+const props = defineProps<{ defaultFolderId?: string | null }>()
 const open = defineModel<boolean>('open', { default: false })
 const ws = useWorkspaceStore()
 const router = useRouter()
+const ui = useUiStore()
 
 const name = ref('')
 const access = ref<ProjectAccess>('all')
@@ -99,7 +106,7 @@ watch(open, (o) => {
   members.value = []
   access.value = 'all'
   error.value = ''
-  stackSource.value = props.stackFrom ?? null
+  stackSource.value = null
 })
 
 async function submit() {
@@ -109,11 +116,30 @@ async function submit() {
   if (!name.value.trim()) return (error.value = m.errName)
   const memberIds = ws.isNetwork ? resolveMembers(ws.users, access.value, members.value) : []
   if (!memberIds) return (error.value = m.errMembers)
+  // Cartella del progetto: raggiungibile (rete, permessi) e, se va creata, scrivibile
+  const dir = diskPath.value.trim()
+  const fs = await getFs()
+  if (dir) {
+    const problem = await checkFolder(fs, dir, { write: true })
+    if (problem) return (error.value = `${m.diskPath}: ${problem}`)
+  }
   // Il progetto nasce nella cartella della barra laterale da cui lo si crea (o alla radice)
   const p = await ws.createProject({ name: name.value, description: '', folderId: props.defaultFolderId ?? null, members: memberIds })
   const source = stackSource.value ? ws.projects[stackSource.value] : null
   if (p && source) await ws.updateStack(p.id, copyStack(source.stack, source.name, p.name))
-  if (p && diskPath.value.trim()) await ws.setProjectSourcePath(p.id, diskPath.value)
+  if (p && dir) {
+    await ws.setProjectSourcePath(p.id, dir)
+    // Cartella nuova: la si crea subito con README, script di configurazione e file iniziali
+    if (!(await fs.exists(dir).catch(() => true))) {
+      const files = scaffoldFiles(p.name, p.description, ws.projects[p.id]?.stack ?? p.stack)
+      try {
+        await writeProjectFolderAt(dir, files)
+        ui.toast(m.folderCreated(files.length), 'success', undefined, 3000)
+      } catch (e) {
+        ui.toast(m.folderFailed(explainFsError(e, dir)), 'error', undefined, 8000)
+      }
+    }
+  }
   if (p) router.push({ name: 'project', params: { id: p.id, section: source ? 'stack' : '' } })
   open.value = false
 }

@@ -8,6 +8,7 @@
 import type { Identity } from '@/types'
 import { common } from '@/i18n/common'
 import { locale } from '@/i18n'
+import { pathRoot } from './fsErrors'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -75,7 +76,7 @@ async function tauriFs(): Promise<FsApi> {
   const path = await import('@tauri-apps/api/path')
   const { invoke } = await import('@tauri-apps/api/core')
 
-  return {
+  const api: FsApi = {
     readText: (p) => fs.readTextFile(p),
     readBinary: (p) => fs.readFile(p),
     async writeTextAtomic(p, text) {
@@ -161,6 +162,26 @@ async function tauriFs(): Promise<FsApi> {
     oauthWait: () => invoke('oauth_wait', { locale }),
     runCheck: (command, timeoutMs) => invoke<CheckOutput>('run_check', { command, timeoutMs }),
   }
+
+  // Percorsi di rete (\\server\condivisione) e unità mappate: la radice di ogni
+  // percorso usato viene consentita esplicitamente, una volta sola (allow_paths
+  // in lib.rs), così funzionano anche i percorsi riaperti dopo un riavvio.
+  const allowed = new Set<string>()
+  async function allow(p: string) {
+    const root = pathRoot(p)
+    if (!root || root === '/' || allowed.has(root.toLowerCase())) return
+    allowed.add(root.toLowerCase())
+    await invoke('allow_paths', { paths: [root] }).catch(() => {})
+  }
+  const PATH_METHODS = ['readText', 'readBinary', 'writeTextAtomic', 'createExclusive', 'exists', 'mkdir', 'listDir', 'readDir', 'remove', 'stat', 'watchDir'] as const
+  for (const name of PATH_METHODS) {
+    const original = api[name] as (p: string, ...rest: unknown[]) => Promise<unknown>
+    ;(api as unknown as Record<string, unknown>)[name] = async (p: string, ...rest: unknown[]) => {
+      await allow(p)
+      return original(p, ...rest)
+    }
+  }
+  return api
 }
 
 // ---------------------------------------------------------------------------

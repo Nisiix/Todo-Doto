@@ -130,6 +130,17 @@ const favorite = computed(() => ws.isFavorite(props.id))
 
 const showLabels = ref(false)
 const showNewItem = ref(false)
+/** Etichette aperte dal nuovo task: alla chiusura si torna al nuovo task (con i dati già inseriti). */
+let backToNewItem = false
+function labelsFromNewItem() {
+  backToNewItem = true
+  showLabels.value = true
+}
+watch(showLabels, (o) => {
+  if (o || !backToNewItem) return
+  backToNewItem = false
+  showNewItem.value = true
+})
 async function deleteForever() {
   if (!project.value) return
   const ok = await confirm({
@@ -265,6 +276,6 @@ const tabs: { id: Bucket; label: string }[] = [
     </Transition>
 
     <LabelsDialog v-model:open="showLabels" />
-    <ItemDialog v-model:open="showNewItem" :project-id="project.id" @manage-labels="showLabels = true" />
+    <ItemDialog v-model:open="showNewItem" :project-id="project.id" @manage-labels="labelsFromNewItem" />
   </template>
 </template>
