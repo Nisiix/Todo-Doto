@@ -97,6 +97,12 @@ export const common = defineMessages({
       cannotTrash: 'Puoi cestinare solo gli elementi assegnati a te (o creati da te se non assegnati).',
       removedUser: 'Utente rimosso',
     },
+    projectFiles: {
+      /** Ripetuto ovunque un progetto viene cestinato o eliminato: l'app non tocca mai i file del progetto. */
+      untouched: 'La cartella del progetto e i suoi file sul disco non vengono toccati: il progetto viene tolto solo dal workspace di Project Goal Manager.',
+      untouchedShort: 'La cartella del progetto sul disco non viene toccata.',
+      trashedProject: 'Progetto spostato nel cestino del workspace. La sua cartella sul disco non viene toccata.',
+    },
     drive: {
       notLinked: 'Account Google non collegato.',
       sessionExpired: 'Sessione Google scaduta: collega di nuovo l’account.',
@@ -113,7 +119,7 @@ export const common = defineMessages({
       pasteFolder: 'Incolla il link di una cartella di Google Drive (…/folders/ID) o il suo id.',
       linkFirst: 'Collega prima l’account Google.',
       notAFolder: 'Il link non è una cartella.',
-      synced: (n: number) => `Drive sincronizzato: ${n} elementi`,
+      synced: (n: number) => `Drive sincronizzato: ${n} ${n === 1 ? 'elemento' : 'elementi'}`,
       syncFailed: (err: string) => `Sincronizzazione non riuscita: ${err}`,
       linkToView: 'Collega l’account Google per vedere i documenti di Drive.',
     },
@@ -228,6 +234,11 @@ export const common = defineMessages({
       cannotTrash: 'You can only trash items assigned to you (or created by you if unassigned).',
       removedUser: 'Removed user',
     },
+    projectFiles: {
+      untouched: 'The project folder and its files on disk are not touched: the project is only removed from the Project Goal Manager workspace.',
+      untouchedShort: 'The project folder on disk is not touched.',
+      trashedProject: 'Project moved to the workspace trash. Its folder on disk is not touched.',
+    },
     drive: {
       notLinked: 'Google account not connected.',
       sessionExpired: 'Google session expired: connect the account again.',
@@ -244,7 +255,7 @@ export const common = defineMessages({
       pasteFolder: 'Paste the link of a Google Drive folder (…/folders/ID) or its id.',
       linkFirst: 'Connect the Google account first.',
       notAFolder: 'The link is not a folder.',
-      synced: (n: number) => `Drive synced: ${n} items`,
+      synced: (n: number) => `Drive synced: ${n} ${n === 1 ? 'item' : 'items'}`,
       syncFailed: (err: string) => `Sync failed: ${err}`,
       linkToView: 'Connect the Google account to view Drive documents.',
     },

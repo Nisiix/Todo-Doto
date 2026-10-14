@@ -112,6 +112,20 @@ describe('workspace: apertura e accesso', () => {
     expect((await ws.unlock('segreto1')).ok).toBe(false) // la vecchia non vale più
   })
 
+  it('workspace locale: nessuna password, nessuna richiesta di accesso, niente da ricordare', async () => {
+    const ws = useWorkspaceStore()
+    // Anche passando una password (es. scelta "rete" e poi tornati a "locale"), non viene usata
+    expect((await ws.create({ path: '/loc', name: 'Locale', mode: 'local', password: 'segreto1', rememberPassword: true })).ok).toBe(true)
+    expect(ws.meta!.auth).toBeNull()
+    expect(ws.passwordRemembered).toBe(false)
+    await ws.changePassword('altra') // ignorato: niente password in locale
+    expect(ws.meta!.auth).toBeNull()
+    await ws.close()
+    const r = await ws.open('/loc')
+    expect(r.ok).toBe(true)
+    expect((await ws.unlock('qualsiasi')).ok).toBe(false)
+  })
+
   it('solo l’admin può cambiare la password del workspace', async () => {
     const ws = useWorkspaceStore()
     expect((await ws.create({ path: '/net3', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
@@ -672,5 +686,64 @@ describe('workspace: progetti e cartelle solo dagli amministratori', () => {
     await ws.renameFolder(folder.id, 'Rinominata')
     await ws.deleteFolder(folder.id)
     expect(ws.tree.folders.map((f) => f.name)).toEqual(['Clienti'])
+  })
+})
+
+describe('workspace: i file dei progetti non vengono mai toccati', () => {
+  it('cestino, ripristino, cartelle a cascata, eliminazione definitiva e svuota cestino agiscono solo sul workspace', async () => {
+    const ws = await openLocal('/dati-ws')
+    const fs = await getFs()
+    // Due progetti collegati alle loro cartelle sul disco, con file dentro
+    const files = { '/progetti/app/package.json': '{"name":"app"}', '/progetti/app/src/main.ts': 'codice', '/progetti/sito/index.html': '<h1>sito</h1>' }
+    for (const [p, t] of Object.entries(files)) await fs.writeTextAtomic(p, t)
+    await ws.importProjects([
+      { name: 'App', path: '/progetti/app' },
+      { name: 'Sito', path: '/progetti/sito' },
+    ])
+    const app = Object.values(ws.projects).find((p) => p.name === 'App')!
+    const sito = Object.values(ws.projects).find((p) => p.name === 'Sito')!
+    expect(app.stack.sourcePath).toBe('/progetti/app')
+    await ws.addItem(app.id, { title: 'Un task' })
+    // Un file dell'utente nella cartella Dati, non creato dall'app
+    await fs.writeTextAtomic('/dati-ws/appunti.txt', 'mio')
+
+    // Cestino e ripristino
+    await ws.trashProject(app.id)
+    await ws.restoreProject(app.id)
+    // Cartella del workspace eliminata: il progetto contenuto va nel cestino
+    await ws.addFolder('Clienti', null)
+    const folder = ws.tree.folders.find((f) => f.name === 'Clienti')!
+    await ws.updateProject(sito.id, { folderId: folder.id })
+    await ws.deleteFolder(folder.id)
+    expect(ws.projects[sito.id]!.trashedAt).not.toBeNull()
+    // Eliminazione definitiva di uno, svuota cestino per l'altro
+    await ws.deleteProject(sito.id)
+    await ws.trashProject(app.id)
+    await ws.emptyProjectTrash()
+    expect(Object.keys(ws.projects)).toHaveLength(0)
+
+    // Sul disco: i file dei progetti sono tutti lì, intatti
+    for (const [p, t] of Object.entries(files)) expect(await fs.readText(p)).toBe(t)
+    // Nella cartella Dati sono spariti solo i file dei progetti; il resto resta
+    expect(await fs.exists(`/dati-ws/projects/${app.id}.json`)).toBe(false)
+    expect(await fs.exists(`/dati-ws/projects/${sito.id}.json`)).toBe(false)
+    expect(await fs.readText('/dati-ws/appunti.txt')).toBe('mio')
+    expect(await WorkspaceStorage.isWorkspace('/dati-ws')).toBe(true)
+  })
+
+  it('eliminare elementi e svuotare il cestino degli elementi non tocca i file', async () => {
+    const ws = await openLocal('/dati-ws2')
+    const fs = await getFs()
+    await fs.writeTextAtomic('/progetti/x/README.md', '# x')
+    await ws.importProjects([{ name: 'X', path: '/progetti/x' }])
+    const p = Object.values(ws.projects)[0]!
+    const a = await ws.addItem(p.id, { title: 'A' })
+    const b = await ws.addItem(p.id, { title: 'B' })
+    await ws.moveItem(p.id, a.id, 'trash')
+    await ws.deleteItemForever(p.id, a.id)
+    await ws.moveItem(p.id, b.id, 'trash')
+    await ws.emptyTrash(p.id)
+    expect(ws.projects[p.id]!.items).toHaveLength(0)
+    expect(await fs.readText('/progetti/x/README.md')).toBe('# x')
   })
 })

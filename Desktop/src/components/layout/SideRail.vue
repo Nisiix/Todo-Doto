@@ -13,22 +13,23 @@ import NameDialog from '@/components/dialogs/NameDialog.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useConfirm } from '@/composables/useConfirm'
 import type { Folder, Project } from '@/types'
-import { defineMessages } from '@/i18n'
+import { defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
 
 const m = defineMessages({
   it: {
     deleteFolderTitle: (n: string) => `Eliminare la cartella «${n}»?`,
     deleteFolderMessage: (inside: number) =>
-      'Verranno eliminate anche tutte le sottocartelle. ' +
-      (inside ? `${inside === 1 ? 'Il progetto contenuto finisce' : `I ${inside} progetti contenuti finiscono`} nel Cestino, da dove puoi ripristinarli.` : 'Non contiene progetti.'),
+      'È una cartella del workspace (solo organizzazione): verranno eliminate anche tutte le sottocartelle. ' +
+      (inside ? `${inside === 1 ? 'Il progetto contenuto finisce' : `I ${inside} progetti contenuti finiscono`} nel Cestino, da dove puoi ripristinarli. ` : 'Non contiene progetti. ') +
+      'Nessuna cartella o file sul disco viene toccato.',
     deleteFolder: 'Elimina cartella',
-    deleteProjectMessage: (items: number, atts: number) => `${items} elementi e ${atts} allegati verranno eliminati per tutti. Non si può annullare.`,
+    deleteProjectMessage: (items: number, atts: number) => `${items} ${plural(items, 'elemento', 'elementi')} e ${atts} ${plural(atts, 'allegato', 'allegati')} verranno eliminati dal workspace per tutti. Non si può annullare. ${common.projectFiles.untouched}`,
     emptyTrashTitle: 'Svuotare il cestino dei progetti?',
     emptyTrashMessage: (n: number) =>
-      `${n} ${n === 1 ? 'progetto verrà eliminato' : 'progetti verranno eliminati'} definitivamente, con tutti gli elementi e gli allegati. Non si può annullare.`,
+      `${n} ${n === 1 ? 'progetto verrà eliminato' : 'progetti verranno eliminati'} definitivamente dal workspace, con tutti gli elementi e gli allegati. Non si può annullare. Le cartelle dei progetti e i loro file sul disco non vengono toccati.`,
     emptyTrash: 'Svuota cestino',
-    emptyTrashHint: 'Svuota il cestino: elimina definitivamente tutti i progetti cestinati',
+    emptyTrashHint: 'Svuota il cestino: elimina definitivamente dal workspace tutti i progetti cestinati (le loro cartelle sul disco restano)',
     restore: 'Ripristina',
     project: 'Progetto',
     newFolder: 'Nuova cartella',
@@ -46,15 +47,16 @@ const m = defineMessages({
   en: {
     deleteFolderTitle: (n: string) => `Delete the folder “${n}”?`,
     deleteFolderMessage: (inside: number) =>
-      'All its subfolders will be deleted too. ' +
-      (inside ? `${inside === 1 ? 'The project inside goes' : `The ${inside} projects inside go`} to the Trash, where you can restore them.` : 'It contains no projects.'),
+      'It is a workspace folder (for organizing only): all its subfolders will be deleted too. ' +
+      (inside ? `${inside === 1 ? 'The project inside goes' : `The ${inside} projects inside go`} to the Trash, where you can restore them. ` : 'It contains no projects. ') +
+      'No folder or file on disk is touched.',
     deleteFolder: 'Delete folder',
-    deleteProjectMessage: (items: number, atts: number) => `${items} items and ${atts} attachments will be deleted for everyone. This cannot be undone.`,
+    deleteProjectMessage: (items: number, atts: number) => `${items} ${plural(items, 'item', 'items')} and ${atts} ${plural(atts, 'attachment', 'attachments')} will be deleted from the workspace for everyone. This cannot be undone. ${common.projectFiles.untouched}`,
     emptyTrashTitle: 'Empty the projects trash?',
     emptyTrashMessage: (n: number) =>
-      `${n} ${n === 1 ? 'project will be' : 'projects will be'} permanently deleted, with all their items and attachments. This cannot be undone.`,
+      `${n} ${n === 1 ? 'project will be' : 'projects will be'} permanently deleted from the workspace, with all their items and attachments. This cannot be undone. The project folders and their files on disk are not touched.`,
     emptyTrash: 'Empty trash',
-    emptyTrashHint: 'Empty the trash: permanently delete every trashed project',
+    emptyTrashHint: 'Empty the trash: permanently delete every trashed project from the workspace (their folders on disk stay)',
     restore: 'Restore',
     project: 'Project',
     newFolder: 'New folder',

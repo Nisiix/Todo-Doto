@@ -26,12 +26,12 @@ import { common } from '@/i18n/common'
 
 const m = defineMessages({
   it: {
-    deleteMessage: (items: number, atts: number) => `${items} elementi e ${atts} allegati verranno eliminati per tutti. Non si può annullare.`,
+    deleteMessage: (items: number, atts: number) => `${items} ${plural(items, 'elemento', 'elementi')} e ${atts} ${plural(atts, 'allegato', 'allegati')} verranno eliminati dal workspace per tutti. Non si può annullare. ${common.projectFiles.untouched}`,
     emptyTrashTitle: 'Svuotare il cestino?',
     emptyTrashMessage: (n: number) => `${n} ${plural(n, 'elemento verrà eliminato', 'elementi verranno eliminati')} definitivamente.`,
     emptyTrash: 'Svuota cestino',
     attachments: 'Allegati',
-    trashedBanner: (d: string) => `Questo progetto è nel cestino dal ${d}: è in sola lettura.`,
+    trashedBanner: (d: string) => `Questo progetto è nel cestino del workspace dal ${d}: è in sola lettura. ${common.projectFiles.untouchedShort}`,
     visPublic: 'Pubblica',
     visRestricted: 'Limitata',
     visTitle: 'Visibilità del progetto',
@@ -53,12 +53,12 @@ const m = defineMessages({
     emptyTrashList: 'Il cestino è vuoto. Gli elementi cestinati restano qui finché non li elimini definitivamente.',
   },
   en: {
-    deleteMessage: (items: number, atts: number) => `${items} items and ${atts} attachments will be deleted for everyone. This cannot be undone.`,
+    deleteMessage: (items: number, atts: number) => `${items} ${plural(items, 'item', 'items')} and ${atts} ${plural(atts, 'attachment', 'attachments')} will be deleted from the workspace for everyone. This cannot be undone. ${common.projectFiles.untouched}`,
     emptyTrashTitle: 'Empty the trash?',
     emptyTrashMessage: (n: number) => `${n} ${plural(n, 'item', 'items')} will be permanently deleted.`,
     emptyTrash: 'Empty trash',
     attachments: 'Attachments',
-    trashedBanner: (d: string) => `This project has been in the trash since ${d}: it is read-only.`,
+    trashedBanner: (d: string) => `This project has been in the workspace trash since ${d}: it is read-only. ${common.projectFiles.untouchedShort}`,
     visPublic: 'Public',
     visRestricted: 'Restricted',
     visTitle: 'Project visibility',

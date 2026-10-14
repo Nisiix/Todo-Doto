@@ -10,7 +10,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { getFs, isTauri } from '@/services/fs'
 import { formatBytes } from '@/services/preview'
 import type { DriveNode } from '@/types'
-import { DATE, defineMessages } from '@/i18n'
+import { DATE, defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
 
 const m = defineMessages({
@@ -23,7 +23,7 @@ const m = defineMessages({
     forgetTitle: 'Rimuovere la cartella sincronizzata?',
     forgetMessage: 'Viene tolta solo la copia della struttura nel workspace: su Google Drive non cambia nulla.',
     forget: 'Rimuovi cartella sincronizzata',
-    folderSummary: (name: string, n: number) => `Cartella «${name}» · ${n} elementi`,
+    folderSummary: (name: string, n: number) => `Cartella «${name}» · ${n} ${plural(n, 'elemento', 'elementi')}`,
     syncedBy: (when: string, who: string) => `sincronizzata ${when} da ${who}`,
     lead: 'Replica la struttura di una cartella di Drive nel workspace e apri i documenti direttamente qui.',
     syncing: (p: string | number) => `Sincronizzo… ${p}`,
@@ -61,7 +61,7 @@ const m = defineMessages({
     forgetTitle: 'Remove the synced folder?',
     forgetMessage: 'Only the copy of the structure in the workspace is removed: nothing changes on Google Drive.',
     forget: 'Remove synced folder',
-    folderSummary: (name: string, n: number) => `Folder “${name}” · ${n} items`,
+    folderSummary: (name: string, n: number) => `Folder “${name}” · ${n} ${plural(n, 'item', 'items')}`,
     syncedBy: (when: string, who: string) => `synced ${when} by ${who}`,
     lead: 'Mirror the structure of a Drive folder in the workspace and open the documents right here.',
     syncing: (p: string | number) => `Syncing… ${p}`,

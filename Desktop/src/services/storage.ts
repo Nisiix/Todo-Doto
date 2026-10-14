@@ -77,6 +77,21 @@ export const FILES = {
 
 export type Signature = Record<string, string> // path relativo -> "mtime:size"
 
+/** Id ammessi per i file dei progetti: niente punti né separatori di percorso. */
+const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/
+export const isSafeId = (id: string) => SAFE_ID.test(id)
+
+/** Un file di `projects/` è davvero un progetto dell'app: nome `<id>.json` e contenuto con lo stesso id. */
+async function isProjectFile(fs: FsApi, path: string, name: string) {
+  if (!/\.json$/i.test(name) || !isSafeId(name.slice(0, -5))) return false
+  try {
+    const raw = JSON.parse(await fs.readText(path)) as { id?: unknown }
+    return raw.id === name.slice(0, -5)
+  } catch {
+    return false
+  }
+}
+
 export class WorkspaceStorage {
   private fs!: FsApi
   private paths = { workspace: '', users: '', tree: '', drive: '', audit: '', projectsDir: '' }
@@ -113,7 +128,9 @@ export class WorkspaceStorage {
     const own = (name: string) => /\.json\.lock$|\.json\.[a-z0-9]+\.tmp$/i.test(name)
     const projectsDir = await fs.join(root, FILES.projectsDir)
     for (const e of await fs.listDir(projectsDir).catch(() => [])) {
-      if (!e.isDir && (/\.json$/i.test(e.name) || own(e.name))) await fs.remove(await fs.join(projectsDir, e.name))
+      if (e.isDir) continue
+      const path = await fs.join(projectsDir, e.name)
+      if (own(e.name) || (await isProjectFile(fs, path, e.name))) await fs.remove(path)
     }
     await fs.remove(projectsDir).catch(() => {}) // solo se vuota
     const files: string[] = [FILES.users, FILES.tree, FILES.drive, FILES.audit, FILES.workspace]
@@ -140,7 +157,12 @@ export class WorkspaceStorage {
     return this.fs.writeTextAtomic(path, JSON.stringify(data))
   }
 
+  /**
+   * File del progetto nella cartella Dati (`projects/<id>.json`). L'id viene
+   * validato: un id manomesso (es. "../..") non può portare fuori dalla cartella.
+   */
   projectPath(id: string) {
+    if (!isSafeId(id)) throw new Error(`Id di progetto non valido: ${id}`)
     return this.fs.join(this.paths.projectsDir, `${id}.json`)
   }
 
@@ -250,7 +272,7 @@ export class WorkspaceStorage {
   async listProjectIds(): Promise<string[]> {
     if (!(await this.fs.exists(this.paths.projectsDir))) return []
     const names = await this.fs.readDir(this.paths.projectsDir)
-    return names.filter((n) => n.endsWith('.json')).map((n) => n.slice(0, -5))
+    return names.filter((n) => n.endsWith('.json')).map((n) => n.slice(0, -5)).filter(isSafeId)
   }
 
   // --- scrittura -----------------------------------------------------------
@@ -263,6 +285,11 @@ export class WorkspaceStorage {
     await this.writeJson(await this.projectPath(p.id), p)
   }
 
+  /**
+   * Elimina dal workspace SOLO il file del progetto nella cartella Dati
+   * (`projects/<id>.json`). La cartella del progetto sul disco (stack.sourcePath)
+   * e i suoi file non vengono mai toccati.
+   */
   async deleteProject(id: string) {
     const path = await this.projectPath(id)
     await this.withLock(path, () => this.fs.remove(path))

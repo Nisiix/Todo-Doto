@@ -176,6 +176,12 @@ Le notifiche ricevute restano in localStorage, per workspace e utente.
 - **Apri**: se `mode = network` chiede la password (a meno che non sia ricordata e ancora valida); al primo accesso l'utente viene aggiunto come `member`. Sotto la password c'è **"Ricorda la password su questo PC"** (non spuntata di default, come nella creazione del workspace): se scelta, la password viene salvata cifrata con **Windows DPAPI** per l'account Windows corrente, quindi illeggibile da altri utenti del PC o copiando il file su un'altra macchina, e i prossimi accessi non la chiedono; se non scelta, non resta nulla sul PC e viene chiesta a ogni apertura.
 - **Impostazioni → Password del workspace**: mostra se la password è ricordata su questo PC, con "Dimentica su questo PC". L'**admin** può **cambiare la password** del workspace: vale per tutti, gli altri utenti la reinseriscono al prossimo accesso; la sua copia ricordata (se c'è) si aggiorna. Solo gli admin possono farlo, anche a livello di store.
 
+### Cancellazioni: cosa tocca l'app sul disco
+- Spostare un progetto nel cestino, ripristinarlo, eliminarlo definitivamente, svuotare il cestino o eliminare una cartella del workspace agisce **solo sul workspace**: l'unico file che sparisce è `projects/<id>.json` nella cartella Dati. **La cartella del progetto e i suoi file non vengono mai toccati**, e ogni messaggio di conferma, toast e banner lo dice.
+- Le cartelle della barra laterale sono solo organizzazione: eliminarle non tocca nessuna cartella sul disco.
+- "Elimina i dati di Project Goal Manager" (workspace locali) cancella solo i file dell'app nella cartella Dati; in `projects/` solo i file che sono davvero progetti (nome `<id>.json` con lo stesso id dentro). Tutto il resto resta.
+- Salvaguardie nel codice: `remove` non è mai ricorsiva (una cartella con contenuto non si elimina), gli id dei progetti sono validati (niente `..` o separatori) e la password esiste solo nei workspace di rete.
+
 ### 5.2 Cartelle, etichette, progetti
 - Albero cartelle a profondità libera nella rail sinistra (le categorie delle prime versioni sono state rimosse: le cartelle bastano).
 - Etichette: nome e colore, a livello di workspace; si gestiscono dal menu del workspace ("Etichette") o dal link "Gestisci etichette…" nei dialog.

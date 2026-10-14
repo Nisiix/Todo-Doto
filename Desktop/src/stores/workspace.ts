@@ -902,7 +902,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function changePassword(newPassword: string) {
     const s = storage.value
-    if (!s || !meta.value || !isAdmin.value) return
+    // La password esiste solo nei workspace di rete, e la cambia solo un admin
+    if (!s || !meta.value || !isNetwork.value || !isAdmin.value) return
     await guard(async () => {
       const auth = await hashPassword(newPassword)
       const m = await s.mutateMeta((x) => void (x.auth = auth))

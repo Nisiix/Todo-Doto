@@ -46,6 +46,12 @@ export interface FsApi {
   readDir(path: string): Promise<string[]>
   /** File e sottocartelle (solo il primo livello). */
   listDir(path: string): Promise<{ name: string; isDir: boolean }[]>
+  /**
+   * Elimina UN file, o una cartella solo se è vuota: MAI ricorsiva. L'app non
+   * cancella mai alberi di cartelle, così un percorso sbagliato non può far
+   * perdere i file di un progetto (vedi storage.ts: cancellazioni confinate
+   * alla cartella Dati).
+   */
   remove(path: string): Promise<void>
   stat(path: string): Promise<FileStat | null>
   watchDir(path: string, onChange: () => void): Promise<() => void>
@@ -140,7 +146,7 @@ async function tauriFs(): Promise<FsApi> {
       const entries = await fs.readDir(p)
       return entries.filter((e) => e.isFile).map((e) => e.name)
     },
-    remove: (p) => fs.remove(p),
+    remove: (p) => fs.remove(p, { recursive: false }),
     async stat(p) {
       try {
         const s = await fs.stat(p)
@@ -276,8 +282,14 @@ function memoryFs(): FsApi {
       return out
     },
     async remove(p) {
-      files.delete(norm(p))
-      notify(norm(p))
+      // Come su disco: una cartella con contenuto non si elimina (mai ricorsiva)
+      const n = norm(p)
+      if (!files.has(n)) {
+        for (const k of files.keys()) if (k.startsWith(n + '/')) throw new Error(`Directory not empty: ${p}`)
+        return
+      }
+      files.delete(n)
+      notify(n)
     },
     async stat(p) {
       const f = files.get(norm(p))

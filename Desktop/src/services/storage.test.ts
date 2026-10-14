@@ -253,6 +253,20 @@ describe('WorkspaceStorage: eliminazione dei dati', () => {
     expect(await fs.exists('/progetti/app/package.json')).toBe(true)
   })
 
+  it('in projects/ cancella solo i file che sono davvero progetti dell’app', async () => {
+    const s = await freshWorkspace('/dati2')
+    await s.writeProject(project('prj_a'))
+    const fs = await getFs()
+    await fs.writeTextAtomic('/dati2/projects/mio.json', '{"nota":"mia"}') // json non dell'app
+    await fs.writeTextAtomic('/dati2/projects/altro.json', '{"id":"diverso"}') // id che non corrisponde
+    await fs.writeTextAtomic('/dati2/projects/sotto/file.txt', 'x') // sottocartella
+    await WorkspaceStorage.deleteData('/dati2')
+    expect(await fs.exists('/dati2/projects/prj_a.json')).toBe(false)
+    expect(await fs.readText('/dati2/projects/mio.json')).toBe('{"nota":"mia"}')
+    expect(await fs.exists('/dati2/projects/altro.json')).toBe(true)
+    expect(await fs.exists('/dati2/projects/sotto/file.txt')).toBe(true)
+  })
+
   it('su una cartella che non è un workspace non fa nulla', async () => {
     const fs = await getFs()
     await fs.writeTextAtomic('/altro/users.json', '{}')
@@ -299,5 +313,27 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
     expect(await fs.readText('/compatto/workspace.json')).not.toContain('\n')
     await fs.writeTextAtomic('/compatto/tree.json', JSON.stringify({ folders: [], labels: [] }, null, 2))
     expect(await s.readTree()).toEqual({ folders: [], labels: [] })
+  })
+})
+
+describe('WorkspaceStorage: le cancellazioni restano nella cartella Dati', () => {
+  it('un id di progetto manomesso non porta fuori dalla cartella projects', async () => {
+    const s = await freshWorkspace('/dati3')
+    const fs = await getFs()
+    await fs.writeTextAtomic('/dati3/workspace-esterno.json', 'non toccare')
+    for (const bad of ['../workspace-esterno', '..\\..\\x', 'a/b', 'a.b', '']) {
+      await expect(s.deleteProject(bad)).rejects.toThrow(/non valido/)
+    }
+    expect(await fs.readText('/dati3/workspace-esterno.json')).toBe('non toccare')
+    // e un file con nome non valido in projects/ non viene nemmeno elencato
+    await fs.writeTextAtomic('/dati3/projects/strano.nome.json', '{}')
+    expect(await s.listProjectIds()).not.toContain('strano.nome')
+  })
+
+  it('remove non è mai ricorsiva: una cartella con contenuto resta', async () => {
+    const fs = await getFs()
+    await fs.writeTextAtomic('/progetto/src/main.ts', 'codice')
+    await expect(fs.remove('/progetto')).rejects.toThrow()
+    expect(await fs.readText('/progetto/src/main.ts')).toBe('codice')
   })
 })

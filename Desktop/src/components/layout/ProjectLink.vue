@@ -13,8 +13,7 @@ import { common } from '@/i18n/common'
 const m = defineMessages({
   it: {
     urgent: 'Contiene elementi immediati',
-    trash: (n: string) => `Sposta «${n}» nel cestino`,
-    trashed: 'Progetto spostato nel cestino',
+    trash: (n: string) => `Sposta «${n}» nel cestino del workspace (la cartella sul disco non viene toccata)`,
     sections: (n: string) => `Sezioni di ${n}`,
     todo: 'Todo',
     stack: 'Stack',
@@ -22,8 +21,7 @@ const m = defineMessages({
   },
   en: {
     urgent: 'Contains urgent items',
-    trash: (n: string) => `Move “${n}” to the trash`,
-    trashed: 'Project moved to trash',
+    trash: (n: string) => `Move “${n}” to the workspace trash (the folder on disk is not touched)`,
     sections: (n: string) => `Sections of ${n}`,
     todo: 'To-do',
     stack: 'Stack',
@@ -56,7 +54,7 @@ const subItems = computed<{ id: ProjectSection; label: string; icon: unknown; co
 function trash() {
   const id = props.project.id
   ws.trashProject(id)
-  ui.toast(m.trashed, 'info', { label: common.actions.undo, run: () => ws.restoreProject(id) })
+  ui.toast(common.projectFiles.trashedProject, 'info', { label: common.actions.undo, run: () => ws.restoreProject(id) }, 5000)
 }
 </script>
 

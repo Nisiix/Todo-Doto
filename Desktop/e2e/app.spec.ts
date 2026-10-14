@@ -153,6 +153,9 @@ test('workspace di rete: “Ricorda la password” a scelta, cambio password del
   await page.getByRole('button', { name: 'Crea workspace' }).first().click()
   await page.fill('#ws-name', 'Rete2')
   await pickWorkspaceFolders(page)
+  // In locale non c'è nessuna password né opzione per ricordarla
+  await expect(page.locator('#ws-pw')).toHaveCount(0)
+  await expect(page.getByLabel(/Ricorda la password/)).toHaveCount(0)
   await page.getByText('Condiviso in rete').click()
   await page.fill('#ws-pw', 'segreto1')
   await page.fill('#ws-pw2', 'segreto1')
@@ -232,6 +235,9 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
   await aside.getByRole('link', { name: 'Beta' }).first().hover()
   await aside.getByRole('button', { name: 'Sposta «Beta» nel cestino' }).first().click()
   await expect(page.getByText('Questo progetto è nel cestino')).toBeVisible()
+  // Si dice chiaramente che la cartella del progetto sul disco non viene toccata
+  await expect(page.getByText('Progetto spostato nel cestino del workspace. La sua cartella sul disco non viene toccata.')).toBeVisible()
+  await expect(page.getByText(/nel cestino del workspace dal .*La cartella del progetto sul disco non viene toccata/)).toBeVisible()
   const cestino = aside.locator('section', { hasText: 'Cestino' })
   await expect(cestino.getByText('Beta')).toBeVisible()
   await expect(newItemButton(page)).toBeHidden() // sola lettura
@@ -243,10 +249,12 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
   await aside.getByText('Clienti').hover()
   await aside.getByLabel('Azioni cartella').click()
   await page.getByText('Elimina cartella').click()
+  await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toContainText('Nessuna cartella o file sul disco viene toccato.')
   await page.getByRole('button', { name: 'Elimina cartella' }).click()
   await expect(cestino.getByText('Alpha')).toBeVisible()
   await expect(aside.getByText('Clienti')).toBeHidden()
   await aside.getByLabel('Svuota cestino').click()
+  await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toContainText('Le cartelle dei progetti e i loro file sul disco non vengono toccati.')
   await page.getByRole('button', { name: 'Svuota cestino' }).click()
   // Vuoto: la sezione Cestino non compare più
   await expect(cestino).toHaveCount(0)
