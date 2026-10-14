@@ -188,7 +188,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const p = projects.value[pid]
       return !!p && canSee(p)
     })
-    await session.touchRecent({ id: meta.value!.id, name: meta.value!.name, path: s.root, mode: meta.value!.mode })
+    await session.touchRecent({ id: meta.value!.id, name: meta.value!.name, path: s.root, projectsPath: meta.value!.projectsPath, mode: meta.value!.mode })
     startWatching()
   }
 
@@ -220,7 +220,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     ui.selectedItemId = null
   }
 
-  async function create(opts: { path: string; name: string; mode: WorkspaceMode; password?: string }): Promise<OpenResult> {
+  /** `path`: cartella Dati Project Goal Manager; `projectsPath`: cartella dei progetti (deve essere diversa). */
+  async function create(opts: { path: string; projectsPath?: string; name: string; mode: WorkspaceMode; password?: string }): Promise<OpenResult> {
     try {
       const s = await openStorage(opts.path)
       if (await WorkspaceStorage.isWorkspace(opts.path)) {
@@ -242,6 +243,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         createdBy: admin.id,
         createdAt: nowIso(),
         auth: opts.mode === 'network' && opts.password ? await hashPassword(opts.password) : null,
+        projectsPath: opts.projectsPath?.trim() ?? '',
       }
       await s.create(m, { users: [admin] })
       if (m.auth && opts.password) await rememberPassword(m.id, opts.password, session.localSecret)
@@ -868,9 +870,28 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const m = await s.mutateMeta((x) => void (x.name = name.trim()))
       meta.value = m
       markLocalWrite('workspace.json')
-      await session.touchRecent({ id: m.id, name: m.name, path: s.root, mode: m.mode })
+      await session.touchRecent({ id: m.id, name: m.name, path: s.root, projectsPath: m.projectsPath, mode: m.mode })
     })
   }
+
+  /** Cambia la cartella dei progetti del workspace (admin). */
+  async function setProjectsPath(path: string) {
+    const s = storage.value
+    if (!s || !meta.value || !isAdmin.value) return
+    await guard(async () => {
+      const m = await s.mutateMeta((x) => void (x.projectsPath = path.trim()))
+      meta.value = m
+      markLocalWrite('workspace.json')
+      await session.touchRecent({ id: m.id, name: m.name, path: s.root, projectsPath: m.projectsPath, mode: m.mode })
+    })
+  }
+
+  /** Cartella del progetto sul disco (Stack › Cartella del progetto). */
+  const setProjectSourcePath = (projectId: string, path: string) =>
+    mutateProject(projectId, (p) => {
+      if (p.stack.sourcePath === path.trim()) return false
+      p.stack = { ...p.stack, sourcePath: path.trim() }
+    })
 
   async function forgetCredentials() {
     if (meta.value) await forgetPassword(meta.value.id)
@@ -949,6 +970,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     removeUser,
     changePassword,
     renameWorkspace,
+    setProjectsPath,
+    setProjectSourcePath,
     forgetCredentials,
   }
 })

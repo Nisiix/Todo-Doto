@@ -47,6 +47,8 @@ const LANGS = {
     },
     data: {
       ws: 'Roadmap di test',
+      projectsPath: 'D:/Progetti',
+      dataPath: 'D:/Project Goal Manager',
       user: 'Mario Rossi',
       labels: [['Bug', '#D64545'], ['Cliente', '#9B7BD6'], ['Interno', '#6B7280']],
       folder: 'Clienti',
@@ -81,7 +83,7 @@ const LANGS = {
         repo: 'https://github.com/example/progetto-di-test',
         notes: 'Frontend Vue con API Node.js. Per le domande sull’ambiente chiedi a Mario.',
         prereqs: [['Node.js', '20+', 'https://nodejs.org', 'node -v'], ['Git', '', 'https://git-scm.com', 'git --version']],
-        steps: [['Clona il repository', 'git clone https://github.com/example/progetto-di-test.git'], ['Installa le dipendenze', 'npm install'], ['Avvia in sviluppo', 'npm run dev']],
+        steps: [['Clona il repository', 'git clone https://github.com/example/progetto-di-test.git'], ['Installa le dipendenze', 'npm install'], ['Apri il progetto nell’editor', 'code .']],
         env: [['API_URL', 'http://localhost:3000', 'Indirizzo delle API in locale']],
         files: TEMPLATE_FILES,
       },
@@ -112,6 +114,8 @@ const LANGS = {
     },
     data: {
       ws: 'Test roadmap',
+      projectsPath: 'D:/Projects',
+      dataPath: 'D:/Project Goal Manager',
       user: 'John Smith',
       labels: [['Bug', '#D64545'], ['Customer', '#9B7BD6'], ['Internal', '#6B7280']],
       folder: 'Customers',
@@ -146,7 +150,7 @@ const LANGS = {
         repo: 'https://github.com/example/test-project',
         notes: 'Vue frontend with a Node.js API. For questions about the environment ask John.',
         prereqs: [['Node.js', '20+', 'https://nodejs.org', 'node -v'], ['Git', '', 'https://git-scm.com', 'git --version']],
-        steps: [['Clone the repository', 'git clone https://github.com/example/test-project.git'], ['Install the dependencies', 'npm install'], ['Start in development mode', 'npm run dev']],
+        steps: [['Clone the repository', 'git clone https://github.com/example/test-project.git'], ['Install the dependencies', 'npm install'], ['Open the project in the editor', 'code .']],
         env: [['API_URL', 'http://localhost:3000', 'Local API address']],
         files: TEMPLATE_FILES,
       },
@@ -221,7 +225,9 @@ async function capture(lang) {
     await page.goto(url)
     await page.getByRole('button', { name: T.createWs }).first().click()
     await page.fill('#ws-name', D.ws)
-    await page.getByRole('button', { name: T.browse }).click()
+    // Cartella dei progetti e cartella Dati Project Goal Manager (percorsi di esempio)
+    await page.fill('#ws-path', D.projectsPath)
+    await page.fill('#ws-data', D.dataPath)
     await page.getByRole('button', { name: T.createWs }).last().click()
     await page.getByRole('heading', { name: D.ws }).waitFor()
 

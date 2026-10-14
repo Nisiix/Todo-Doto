@@ -9,7 +9,7 @@ import { getFs } from './fs'
 import { newId } from './ids'
 import { compareText, defineMessages } from '@/i18n'
 import { KNOWN_PREREQUISITES, suggestPrerequisites } from './prerequisites'
-import { mergeImportedStack, parseStackMarkdown, platformsFor } from './stackDoc'
+import { editorStep, isEditorStep, isRunStep, mergeImportedStack, parseStackMarkdown, platformsFor } from './stackDoc'
 import { EMPTY_STACK, type SetupStep, type Stack } from '@/types'
 
 export interface DetectedProject {
@@ -82,16 +82,12 @@ export async function scanProjects(root: string): Promise<DetectedProject[]> {
 const M = defineMessages({
   it: {
     install: 'Installa le dipendenze',
-    dev: 'Avvia in sviluppo',
-    build: 'Compila',
-    openSolution: 'Apri la soluzione in Visual Studio',
+    restore: 'Ripristina i pacchetti NuGet',
     pipInstall: 'Installa i pacchetti Python',
   },
   en: {
     install: 'Install the dependencies',
-    dev: 'Start in development mode',
-    build: 'Build',
-    openSolution: 'Open the solution in Visual Studio',
+    restore: 'Restore the NuGet packages',
     pipInstall: 'Install the Python packages',
   },
 })
@@ -169,8 +165,6 @@ export async function detectStack(path: string): Promise<{ description: string; 
       for (const name of Object.keys(deps)) for (const [re, f] of NPM_FRAMEWORKS) if (re.test(name)) fw(f)
       const pm = byName.has('pnpm-lock.yaml') ? 'pnpm' : byName.has('yarn.lock') ? 'yarn' : 'npm'
       step(M.install, pm === 'yarn' ? 'yarn' : `${pm} install`)
-      if (pkg.scripts?.dev) step(M.dev, pm === 'npm' ? 'npm run dev' : `${pm} dev`)
-      else if (pkg.scripts?.start) step(M.dev, pm === 'npm' ? 'npm start' : `${pm} start`)
     } catch {
       /* package.json non valido: si ignora */
     }
@@ -180,10 +174,7 @@ export async function detectStack(path: string): Promise<{ description: string; 
     fw('Tauri')
     lang('Rust')
   }
-  if (byName.has('cargo.toml')) {
-    lang('Rust')
-    if (!pkgText) step(M.build, 'cargo build')
-  }
+  if (byName.has('cargo.toml')) lang('Rust')
   // .NET
   const projFile = entries.find((e) => !e.isDir && /\.(csproj|vbproj|fsproj)$/i.test(e.name))
   const slnFile = entries.find((e) => !e.isDir && /\.sln$/i.test(e.name))
@@ -196,8 +187,7 @@ export async function detectStack(path: string): Promise<{ description: string; 
     if (/Microsoft\.NET\.Sdk\.Web/i.test(proj)) fw('ASP.NET Core')
     if (/<TargetFrameworkVersion>\s*v[1-4]/i.test(proj)) fw('.NET Framework')
     else fw('.NET')
-    if (/<Project\s+Sdk=/i.test(proj)) step(M.build, 'dotnet build')
-    else if (slnFile) step(M.openSolution, '', 'manual')
+    if (/<Project\s+Sdk=/i.test(proj)) step(M.restore, 'dotnet restore')
   }
   // Python
   const pyproject = await read('pyproject.toml')
@@ -256,6 +246,11 @@ export async function detectStack(path: string): Promise<{ description: string; 
   }
 
   if (!merged.platforms.length) merged.platforms = platformsFor(merged.frameworks)
+  // Configurazione sul PC: solo la preparazione, e si finisce aprendo il progetto nell'editor
+  merged.steps = merged.steps.filter((x) => !isRunStep(x))
+  const cut = merged.steps.findIndex(isEditorStep)
+  if (cut >= 0) merged.steps = merged.steps.slice(0, cut + 1)
+  else merged.steps.push({ id: newId('stp'), ...editorStep((slnFile ?? projFile)?.name) })
   for (const k of suggestPrerequisites(merged)) {
     const known = KNOWN_PREREQUISITES.find((x) => x.name === k.name)!
     merged.prerequisites.push({ id: newId('pre'), name: known.name, version: known.version, url: known.url, check: known.check })

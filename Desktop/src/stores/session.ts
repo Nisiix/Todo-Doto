@@ -21,14 +21,21 @@ export const useSessionStore = defineStore('session', () => {
     ready.value = true
   }
 
-  async function touchRecent(entry: Omit<RecentWorkspace, 'lastOpened'>) {
+  async function touchRecent(entry: Omit<RecentWorkspace, 'lastOpened' | 'projectsPath'> & { projectsPath?: string }) {
     const rest = config.value.recent.filter((r) => r.path !== entry.path)
-    config.value.recent = [{ ...entry, lastOpened: new Date().toISOString() }, ...rest].slice(0, 12)
+    config.value.recent = [{ ...entry, projectsPath: entry.projectsPath ?? '', lastOpened: new Date().toISOString() }, ...rest].slice(0, 12)
     await saveConfig(config.value)
   }
 
   async function removeRecent(path: string) {
     config.value.recent = config.value.recent.filter((r) => r.path !== path)
+    await saveConfig(config.value)
+  }
+
+  /** Dimentica tutto ciò che questo PC ricorda di un workspace (recenti, preferiti). */
+  async function forgetWorkspace(workspaceId: string, path: string) {
+    config.value.recent = config.value.recent.filter((r) => r.path !== path && r.id !== workspaceId)
+    delete config.value.favorites[workspaceId]
     await saveConfig(config.value)
   }
 
@@ -41,5 +48,5 @@ export const useSessionStore = defineStore('session', () => {
     await saveConfig(config.value)
   }
 
-  return { identity, config, ready, localSecret, init, touchRecent, removeRecent, favoritesOf, toggleFavorite }
+  return { identity, config, ready, localSecret, init, touchRecent, removeRecent, forgetWorkspace, favoritesOf, toggleFavorite }
 })

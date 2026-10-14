@@ -69,4 +69,13 @@ describe('setupScriptWindows', () => {
     expect(script).toContain(':fail')
     expect(script.split('\r\n').length).toBeGreaterThan(20)
   })
+
+  it('con la cartella del progetto, la crea se manca e ci si sposta prima dei comandi', () => {
+    const script = setupScriptWindows('App', { prerequisites: [], steps: [{ title: 'Installa', kind: 'command', command: 'npm install', cwd: '', url: '', notes: '' }], envVars: [] }, { baseDir: 'D:\\Sviluppo\\App' })
+    const lines = script.split('\r\n')
+    const cd = lines.indexOf('cd /d "D:\\Sviluppo\\App" || goto fail')
+    expect(lines).toContain('if not exist "D:\\Sviluppo\\App" mkdir "D:\\Sviluppo\\App"')
+    expect(cd).toBeGreaterThan(0)
+    expect(cd).toBeLessThan(lines.indexOf('call npm install || goto fail'))
+  })
 })

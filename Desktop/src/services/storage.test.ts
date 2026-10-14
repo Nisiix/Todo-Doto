@@ -11,6 +11,7 @@ const meta: WorkspaceMeta = {
   createdBy: 'usr_1',
   createdAt: '2026-01-01T00:00:00.000Z',
   auth: null,
+  projectsPath: '',
 }
 const users: UsersFile = {
   users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt }],
@@ -232,5 +233,29 @@ describe('WorkspaceStorage: concorrenza e lock', () => {
       void fs.writeTextAtomic('/ws/projects/p1.json.lock', JSON.stringify({ token: 'altrui', owner: 'b@PC2', at: new Date().toISOString() }))
     })
     expect(JSON.parse(await fs.readText('/ws/projects/p1.json.lock')).token).toBe('altrui')
+  })
+})
+
+describe('WorkspaceStorage: eliminazione dei dati', () => {
+  it('cancella solo i file di Project Goal Manager e lascia il resto', async () => {
+    const s = await freshWorkspace('/dati')
+    await s.writeProject(project('p1'))
+    await s.appendAudit([])
+    const fs = await getFs()
+    await fs.writeTextAtomic('/dati/projects/p1.json.lock', '{}')
+    await fs.writeTextAtomic('/dati/appunti.txt', 'non toccare')
+    await fs.writeTextAtomic('/progetti/app/package.json', '{}')
+    await WorkspaceStorage.deleteData('/dati')
+    expect(await WorkspaceStorage.isWorkspace('/dati')).toBe(false)
+    for (const f of ['users.json', 'tree.json', 'audit.json', 'projects/p1.json', 'projects/p1.json.lock']) expect(await fs.exists(`/dati/${f}`)).toBe(false)
+    expect(await fs.readText('/dati/appunti.txt')).toBe('non toccare')
+    expect(await fs.exists('/progetti/app/package.json')).toBe(true)
+  })
+
+  it('su una cartella che non è un workspace non fa nulla', async () => {
+    const fs = await getFs()
+    await fs.writeTextAtomic('/altro/users.json', '{}')
+    await WorkspaceStorage.deleteData('/altro')
+    expect(await fs.exists('/altro/users.json')).toBe(true)
   })
 })

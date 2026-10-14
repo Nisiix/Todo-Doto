@@ -2,6 +2,9 @@
 import { ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import { FolderOpen } from 'lucide-vue-next'
+import { getFs } from '@/services/fs'
+import { samePath } from '@/services/projectScan'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore, type Theme } from '@/stores/ui'
@@ -23,6 +26,12 @@ const m = defineMessages({
     displayName: 'Il tuo nome visibile',
     userOn: (u: string, h: string) => `${u} su ${h}`,
     wsName: 'Nome workspace',
+    projectsFolder: 'Cartella dei progetti',
+    projectsHint: 'Dove si trovano (o verranno creati) i progetti: è quella proposta per i progetti nuovi e mostrata nei workspace recenti.',
+    pickProjects: 'Scegli la cartella dei progetti',
+    dataFolder: 'Cartella Dati Project Goal Manager',
+    dataHint: 'Qui l’app salva i propri dati; per spostarla, copia la cartella e riaprila da «Apri cartella».',
+    errSame: 'La cartella dei progetti deve essere diversa dalla cartella Dati Project Goal Manager.',
     reopenLast: 'All’avvio riapri l’ultimo workspace',
     notifications: 'Notifiche',
     notificationsHint: 'Novità sui progetti di cui fai parte, fatte da altri utenti. Scegli cosa ricevere.',
@@ -41,6 +50,12 @@ const m = defineMessages({
     displayName: 'Your display name',
     userOn: (u: string, h: string) => `${u} on ${h}`,
     wsName: 'Workspace name',
+    projectsFolder: 'Projects folder',
+    projectsHint: 'Where the projects are (or will be created): it is suggested for new projects and shown in the recent workspaces.',
+    pickProjects: 'Choose the projects folder',
+    dataFolder: 'Project Goal Manager data folder',
+    dataHint: 'This is where the app stores its data; to move it, copy the folder and reopen it with “Open folder”.',
+    errSame: 'The projects folder must be different from the Project Goal Manager data folder.',
     reopenLast: 'Reopen the last workspace on startup',
     notifications: 'Notifications',
     notificationsHint: 'Updates on the projects you belong to, made by other users. Choose what to receive.',
@@ -58,6 +73,12 @@ const session = useSessionStore()
 const notif = useNotificationsStore()
 
 const wsName = ref('')
+const projectsPath = ref('')
+const folderMsg = ref('')
+async function pickProjects() {
+  const p = await (await getFs()).pickFolder(m.pickProjects)
+  if (p) projectsPath.value = p
+}
 const displayName = ref('')
 const pw1 = ref('')
 const pw2 = ref('')
@@ -67,6 +88,8 @@ const reopenLast = ref(true)
 watch(open, (o) => {
   if (!o) return
   wsName.value = ws.meta?.name ?? ''
+  projectsPath.value = ws.meta?.projectsPath ?? ''
+  folderMsg.value = ''
   displayName.value = ws.currentUser?.displayName ?? ''
   pw1.value = pw2.value = pwMsg.value = ''
   reopenLast.value = session.config.reopenLast
@@ -74,6 +97,10 @@ watch(open, (o) => {
 
 async function save() {
   if (ws.isAdmin && wsName.value.trim() && wsName.value.trim() !== ws.meta?.name) await ws.renameWorkspace(wsName.value)
+  if (ws.isAdmin && projectsPath.value.trim() !== (ws.meta?.projectsPath ?? '')) {
+    if (projectsPath.value.trim() && ws.storage && samePath(projectsPath.value, ws.storage.root)) return (folderMsg.value = m.errSame)
+    await ws.setProjectsPath(projectsPath.value)
+  }
   if (displayName.value.trim() && displayName.value.trim() !== ws.currentUser?.displayName) await ws.renameSelf(displayName.value)
   if (reopenLast.value !== session.config.reopenLast) {
     session.config.reopenLast = reopenLast.value
@@ -112,7 +139,22 @@ const themes: { value: Theme; label: string }[] = [
         <div>
           <label class="label" for="s-ws">{{ m.wsName }}</label>
           <input id="s-ws" v-model="wsName" class="field" :disabled="!ws.isAdmin" />
-          <p class="mt-1 truncate font-mono text-[11.5px] text-ink-3" :title="ws.storage?.root">{{ ws.storage?.root }}</p>
+        </div>
+      </section>
+
+      <section class="space-y-3">
+        <div>
+          <label class="label" for="s-projects">{{ m.projectsFolder }}</label>
+          <div class="flex gap-2">
+            <input id="s-projects" v-model="projectsPath" class="field font-mono text-[12.5px]" :disabled="!ws.isAdmin" />
+            <BaseButton v-if="ws.isAdmin" :aria-label="m.pickProjects" @click="pickProjects"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
+          </div>
+          <p class="mt-1 text-[12px]" :class="folderMsg ? 'text-danger' : 'text-ink-3'">{{ folderMsg || m.projectsHint }}</p>
+        </div>
+        <div>
+          <span class="label">{{ m.dataFolder }}</span>
+          <p class="truncate rounded-md bg-surface-2 px-3 py-2 font-mono text-[12.5px]" :title="ws.storage?.root" data-data-folder>{{ ws.storage?.root }}</p>
+          <p class="mt-1 text-[12px] text-ink-3">{{ m.dataHint }}</p>
         </div>
       </section>
 

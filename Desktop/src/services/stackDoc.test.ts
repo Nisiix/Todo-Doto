@@ -55,10 +55,11 @@ describe('importazione di un documento .md nello Stack', () => {
     expect(imp.repoUrl).toBe('https://github.com/example/app-demo')
     expect(imp.notes).toBe('Frontend Vue con API Node.js.')
     expect(imp.prerequisites).toEqual([{ name: 'Node.js', version: '20+', url: 'https://nodejs.org', check: 'node -v' }])
+    // Solo la preparazione del PC: l'avvio del server non c'è, e si finisce aprendo l'editor
     expect(imp.steps).toEqual([
       { title: 'Installa le dipendenze', kind: 'command', command: 'npm install', cwd: '', url: '', notes: 'Serve la rete aziendale.' },
-      { title: 'Avvia il server', kind: 'command', command: 'npm run dev', cwd: 'server', url: '', notes: '' },
       { title: 'Apri la documentazione', kind: 'link', command: '', cwd: '', url: 'https://example.com/docs', notes: '' },
+      { title: 'Apri il progetto nell’editor', kind: 'manual', command: '', cwd: '', url: '', notes: 'Fine della configurazione: apri la cartella del progetto nel tuo editor (es. Visual Studio Code con «code .»).' },
     ])
     expect(imp.envVars).toEqual([{ key: 'API_URL', example: 'http://localhost:3000', notes: 'API locale' }])
   })
@@ -105,11 +106,8 @@ describe('importazione di un documento .md nello Stack', () => {
       ['.NET SDK', '8', 'dotnet --version'],
       ['Node.js', '20', 'node -v'],
     ])
-    expect(imp.steps).toEqual([
-      { title: 'Install the packages', kind: 'command', command: 'npm ci', cwd: 'web', url: '', notes: '' },
-      { title: 'Run dotnet run --project Api', kind: 'command', command: 'dotnet run --project Api', cwd: '', url: '', notes: '' },
-      { title: 'Ask the team lead for the VPN access', kind: 'manual', command: '', cwd: '', url: '', notes: '' },
-    ])
+    expect(imp.steps.map((s) => s.title)).toEqual(['Install the packages', 'Ask the team lead for the VPN access', 'Apri il progetto nell’editor'])
+    expect(imp.steps[0]).toEqual({ title: 'Install the packages', kind: 'command', command: 'npm ci', cwd: 'web', url: '', notes: '' })
     expect(imp.envVars).toEqual([{ key: 'DB_URL', example: 'postgres://localhost/portal', notes: 'Connection string' }])
   })
 
@@ -126,7 +124,7 @@ describe('importazione di un documento .md nello Stack', () => {
     expect(merged.notes).toBe('Note già scritte')
     expect(merged.prerequisites.map((p) => p.name)).toEqual(['Node.js', 'Rust'])
     expect(merged.prerequisites[0]!.version).toBe('22') // il valore esistente resta
-    expect(merged.steps.map((s) => s.title)).toEqual(['Installa le dipendenze', 'Compila'])
+    expect(merged.steps.map((s) => s.title)).toEqual(['Installa le dipendenze', 'Apri il progetto nell’editor']) // "Compila" non è preparazione
     expect(merged.doc?.fileName).toBe('ARCHITETTURA.md')
     expect(added).toMatchObject({ languages: 1, prerequisites: 1, steps: 1, notes: false })
   })
@@ -134,5 +132,30 @@ describe('importazione di un documento .md nello Stack', () => {
   it('il documento importato finisce nella cartella del progetto', () => {
     const files = scaffoldFiles('Demo', '', stack({ doc: doc('# Architettura') }))
     expect(files.find((f) => f.path === 'ARCHITETTURA.md')?.content).toBe('# Architettura')
+  })
+})
+
+describe('configurazione sul PC: solo preparazione, fino all’editor', () => {
+  it('toglie avvio, build, test e deploy e si ferma al passo che apre l’editor', () => {
+    const md = [
+      '# App',
+      '## Setup',
+      '1. Clona il repository',
+      '   ```',
+      '   git clone https://github.com/acme/app.git',
+      '   ```',
+      '2. Installa le dipendenze',
+      '   ```',
+      '   npm install',
+      '   ```',
+      '3. Apri la cartella in VS Code con `code .`',
+      '4. Avvia in sviluppo',
+      '   ```',
+      '   npm run dev',
+      '   ```',
+      '5. Esegui i test con `npm test`',
+    ].join('\n')
+    const steps = parseStackMarkdown(md).steps
+    expect(steps.map((s) => s.title)).toEqual(['Clona il repository', 'Installa le dipendenze', 'Apri la cartella in VS Code con code .'])
   })
 })

@@ -53,6 +53,8 @@ export const WorkspaceMetaSchema = z.object({
     .object({ salt: z.string(), hash: z.string(), iterations: z.number() })
     .nullable()
     .default(null),
+  /** Cartella in cui si trovano (o verranno creati) i progetti; i dati del workspace stanno altrove. */
+  projectsPath: z.string().default(''),
 })
 export type WorkspaceMeta = z.infer<typeof WorkspaceMetaSchema>
 
@@ -356,7 +358,8 @@ export type DriveFile = z.infer<typeof DriveFileSchema>
 export const RecentWorkspaceSchema = z.object({
   id: z.string(),
   name: z.string(),
-  path: z.string(),
+  path: z.string(), // cartella Dati Project Goal Manager (si apre da qui)
+  projectsPath: z.string().default(''), // cartella dei progetti (quella mostrata all'utente)
   mode: z.enum(['local', 'network']),
   lastOpened: iso,
 })

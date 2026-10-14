@@ -51,7 +51,9 @@ describe('progetti esistenti in una cartella', () => {
     expect(stack.languages).toEqual(['TypeScript'])
     expect(stack.frameworks).toEqual(['Vue 3', 'Pinia', 'Vite', 'Tailwind CSS'])
     expect(stack.platforms).toEqual(['web'])
-    expect(stack.steps.map((s) => s.command)).toEqual(['npm install', 'npm run dev'])
+    // Solo preparazione: installazione e poi l'editor, niente avvio
+    expect(stack.steps.map((s) => s.command)).toEqual(['npm install', ''])
+    expect(stack.steps.at(-1)!.title).toBe('Apri il progetto nell’editor')
     expect(stack.prerequisites.map((p) => p.name)).toEqual(['Node.js', 'Git'])
     expect(stack.envVars).toEqual([{ key: 'API_URL', example: 'http://localhost:3000', notes: '' }])
     expect(stack.doc).toBeNull() // il README non è un documento di architettura
@@ -60,13 +62,13 @@ describe('progetti esistenti in una cartella', () => {
     expect(tauri.languages).toEqual(['JavaScript', 'Rust'])
     expect(tauri.frameworks).toEqual(['Tauri', 'React']) // nell'ordine delle dipendenze
     expect(tauri.platforms).toEqual(['desktop'])
-    expect(tauri.steps.map((s) => s.command)).toEqual(['pnpm install', 'pnpm dev'])
+    expect(tauri.steps.map((s) => s.command)).toEqual(['pnpm install', ''])
     expect(tauri.prerequisites.map((p) => p.name)).toEqual(['Node.js', 'Rust', 'Visual Studio Build Tools'])
 
     const net = (await detectStack('/progetti/Gestionale')).stack
     expect(net.languages).toEqual(['C#', 'SQL']) // SQL citato nel documento di architettura (SQL Server)
     expect(net.frameworks).toEqual(expect.arrayContaining(['WPF', '.NET']))
-    expect(net.steps.map((s) => s.command)).toEqual(['dotnet build'])
+    expect(net.steps.map((s) => s.title)).toEqual(['Ripristina i pacchetti NuGet', 'Apri Gestionale.csproj in Visual Studio'])
     expect(net.prerequisites.map((p) => p.name)).toEqual(['SQL Server', '.NET SDK', 'Visual Studio'])
     expect(net.doc?.fileName).toBe('ARCHITETTURA.md')
   })
@@ -87,7 +89,10 @@ describe('progetti esistenti in una cartella', () => {
     await seed()
     await useSessionStore().init()
     const ws = useWorkspaceStore()
-    expect((await ws.create({ path: '/dati/roadmap', name: 'Roadmap', mode: 'local' })).ok).toBe(true)
+    expect((await ws.create({ path: '/dati/roadmap', projectsPath: '/progetti', name: 'Roadmap', mode: 'local' })).ok).toBe(true)
+    // I recenti ricordano la cartella dei progetti (mostrata) e quella dei dati (da cui si apre)
+    expect(ws.meta?.projectsPath).toBe('/progetti')
+    expect(useSessionStore().config.recent[0]).toMatchObject({ path: '/dati/roadmap', projectsPath: '/progetti' })
     const steps: string[] = []
     const n = await ws.importProjects(await scanProjects('/progetti'), (d, t) => steps.push(`${d}/${t}`))
     expect(n).toBe(3)

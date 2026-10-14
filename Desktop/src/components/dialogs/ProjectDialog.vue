@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Shield } from 'lucide-vue-next'
+import { FolderOpen, Shield } from 'lucide-vue-next'
+import { getFs } from '@/services/fs'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
@@ -21,8 +22,12 @@ const m = defineMessages({
     namePlaceholder: 'Es. Progetto di test',
     description: 'Descrizione',
     optional: 'Facoltativa',
-    folder: 'Cartella',
-    noFolder: 'Nessuna cartella',
+    folder: 'Cartella nella barra laterale',
+    folderHint: 'Serve solo a raggruppare i progetti nella barra laterale (es. «Clienti»): non è una cartella sul disco.',
+    noFolder: 'Nessuna (alla radice)',
+    diskPath: 'Cartella del progetto sul disco',
+    diskHint: 'Dove si trovano i file del progetto. Se la cartella non esiste ancora, la crei dalla sezione Stack con «Crea cartella del progetto».',
+    pickDisk: 'Scegli la cartella del progetto',
     whoCanSee: 'Chi può vedere e modificare il progetto',
     all: 'Tutti i membri del workspace',
     restricted: 'Solo alcune persone',
@@ -45,8 +50,12 @@ const m = defineMessages({
     namePlaceholder: 'E.g. Test project',
     description: 'Description',
     optional: 'Optional',
-    folder: 'Folder',
-    noFolder: 'No folder',
+    folder: 'Sidebar folder',
+    folderHint: 'Only used to group projects in the sidebar (e.g. “Customers”): it is not a folder on disk.',
+    noFolder: 'None (at the root)',
+    diskPath: 'Project folder on disk',
+    diskHint: 'Where the project files are. If the folder does not exist yet, create it from the Stack section with “Create project folder”.',
+    pickDisk: 'Choose the project folder',
     whoCanSee: 'Who can see and edit the project',
     all: 'All workspace members',
     restricted: 'Only some people',
@@ -85,9 +94,31 @@ const admins = computed(() => ws.users.filter((u) => u.role === 'admin'))
 const others = computed(() => ws.users.filter((u) => u.role !== 'admin'))
 const selectedCount = computed(() => members.value.filter((id) => others.value.some((u) => u.id === id)).length)
 
+// Cartella del progetto sul disco (Stack › Cartella del progetto). Per un
+// progetto nuovo si propone <cartella dei progetti del workspace>/<nome>.
+const diskPath = ref('')
+let diskTouched = false
+watch(name, async (n) => {
+  const root = ws.meta?.projectsPath
+  if (!open.value || isEdit.value || diskTouched || !root) return
+  diskPath.value = n.trim() ? await (await getFs()).join(root, n.trim()) : ''
+})
+function onDiskInput() {
+  diskTouched = true
+}
+async function pickDisk() {
+  const p = await (await getFs()).pickFolder(m.pickDisk)
+  if (p) {
+    diskPath.value = p
+    diskTouched = true
+  }
+}
+
 watch(open, (o) => {
   if (!o) return
   const p = props.project
+  diskPath.value = p?.stack.sourcePath ?? ''
+  diskTouched = !!p
   name.value = p?.name ?? ''
   description.value = p?.description ?? ''
   folderId.value = p?.folderId ?? props.defaultFolderId ?? null
@@ -129,10 +160,12 @@ async function submit() {
   }
   if (props.project) {
     await ws.updateProject(props.project.id, data)
+    if (diskPath.value.trim() !== props.project.stack.sourcePath) await ws.setProjectSourcePath(props.project.id, diskPath.value)
   } else {
     const p = await ws.createProject(data)
     const source = stackSource.value ? ws.projects[stackSource.value] : null
     if (p && source) await ws.updateStack(p.id, copyStack(source.stack, source.name, p.name))
+    if (p && diskPath.value.trim()) await ws.setProjectSourcePath(p.id, diskPath.value)
     if (p) router.push({ name: 'project', params: { id: p.id, section: source ? 'stack' : '' } })
   }
   open.value = false
@@ -151,11 +184,20 @@ async function submit() {
         <textarea id="p-desc" v-model="description" class="field min-h-16 resize-y" :placeholder="m.optional" />
       </div>
       <div>
+        <label class="label" for="p-disk">{{ m.diskPath }}</label>
+        <div class="flex gap-2">
+          <input id="p-disk" v-model="diskPath" class="field font-mono text-[12.5px]" @input="onDiskInput" />
+          <BaseButton :aria-label="m.pickDisk" @click="pickDisk"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
+        </div>
+        <p class="mt-1 text-[12px] text-ink-3">{{ m.diskHint }}</p>
+      </div>
+      <div>
         <label class="label" for="p-folder">{{ m.folder }}</label>
         <select id="p-folder" v-model="folderId" class="field">
           <option :value="null">{{ m.noFolder }}</option>
           <option v-for="f in folderOptions" :key="f.id" :value="f.id">{{ f.label }}</option>
         </select>
+        <p class="mt-1 text-[12px] text-ink-3">{{ m.folderHint }}</p>
       </div>
       <div v-if="!isEdit && templates.length">
         <label class="label" for="p-stack">{{ m.stackFrom }}</label>

@@ -2,7 +2,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { FolderOpen, HardDrive, Moon, Network, Plus, Sun, X } from 'lucide-vue-next'
+import { Database, FolderGit2, FolderOpen, HardDrive, Moon, Network, Plus, Sun, Trash2, X } from 'lucide-vue-next'
+import BaseMenu from '@/components/ui/BaseMenu.vue'
+import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
+import { useConfirm } from '@/composables/useConfirm'
+import { forgetPassword } from '@/services/config'
+import { samePath } from '@/services/projectScan'
+import type { RecentWorkspace } from '@/types'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import WorkspaceDialog from '@/components/dialogs/WorkspaceDialog.vue'
@@ -27,6 +33,18 @@ const m = defineMessages({
     darkTheme: 'Tema scuro',
     recent: 'Workspace recenti',
     removeRecent: 'Rimuovi dai recenti',
+    deleteData: 'Elimina i dati di Project Goal Manager',
+    deleteTitle: (n: string) => `Eliminare i dati del workspace «${n}»?`,
+    deleteMessage: (data: string, projects: string) =>
+      `Vengono cancellati i dati di Project Goal Manager in ${data}: elenco dei progetti, task, commenti, stack, cronologia. ` +
+      (projects ? `La cartella dei progetti (${projects}) e i loro file non vengono toccati. ` : 'I file dei progetti non vengono toccati. ') +
+      'Non si può annullare.',
+    deleteConfirm: 'Elimina i dati',
+    deleted: (n: string) => `Dati del workspace «${n}» eliminati`,
+    deleteFailed: (err: string) => `Non riesco a eliminare i dati: ${err}`,
+    projectsFolder: 'Cartella dei progetti',
+    dataFolder: (p: string) => `Dati Project Goal Manager: ${p}`,
+    actions: 'Azioni workspace',
     empty: 'Nessun workspace ancora. Creane uno nuovo oppure apri la cartella di un workspace condiviso dai colleghi.',
   },
   en: {
@@ -40,6 +58,18 @@ const m = defineMessages({
     darkTheme: 'Dark theme',
     recent: 'Recent workspaces',
     removeRecent: 'Remove from recent',
+    deleteData: 'Delete the Project Goal Manager data',
+    deleteTitle: (n: string) => `Delete the data of the workspace “${n}”?`,
+    deleteMessage: (data: string, projects: string) =>
+      `The Project Goal Manager data in ${data} is deleted: project list, tasks, comments, stack, activity log. ` +
+      (projects ? `The projects folder (${projects}) and its files are not touched. ` : 'The project files are not touched. ') +
+      'This cannot be undone.',
+    deleteConfirm: 'Delete data',
+    deleted: (n: string) => `Data of the workspace “${n}” deleted`,
+    deleteFailed: (err: string) => `Cannot delete the data: ${err}`,
+    projectsFolder: 'Projects folder',
+    dataFolder: (p: string) => `Project Goal Manager data: ${p}`,
+    actions: 'Workspace actions',
     empty: 'No workspaces yet. Create a new one or open the folder of a workspace shared by your colleagues.',
   },
 })
@@ -48,6 +78,7 @@ const router = useRouter()
 const session = useSessionStore()
 const ws = useWorkspaceStore()
 const ui = useUiStore()
+const confirm = useConfirm()
 
 const showCreate = ref(false)
 /** Cartella di progetti scelta con "Apri cartella", passata alla creazione del workspace. */
@@ -72,6 +103,9 @@ async function browse() {
   const fs = await getFs()
   const p = await fs.pickFolder(m.pickExisting)
   if (!p) return
+  // La cartella dei progetti di un workspace già noto apre quel workspace
+  const known = session.config.recent.find((r) => r.projectsPath && samePath(r.projectsPath, p))
+  if (known && !(await WorkspaceStorage.isWorkspace(p))) return openPath(known.path)
   // Una cartella di progetti che non è un workspace: si propone di crearne uno che li gestisca
   if (!(await WorkspaceStorage.isWorkspace(p)) && (await scanProjects(p)).length) {
     error.value = ''
@@ -81,6 +115,25 @@ async function browse() {
   }
   await openPath(p)
 }
+/** Elimina i dati di Project Goal Manager di un workspace locale (non i progetti). */
+async function deleteData(r: RecentWorkspace) {
+  const ok = await confirm({ title: m.deleteTitle(r.name), message: m.deleteMessage(r.path, r.projectsPath), confirmLabel: m.deleteConfirm, danger: true })
+  if (!ok) return
+  try {
+    if (ws.meta?.id === r.id) await ws.close()
+    await WorkspaceStorage.deleteData(r.path)
+    await forgetPassword(r.id).catch(() => {})
+    await session.forgetWorkspace(r.id, r.path)
+    ui.toast(m.deleted(r.name), 'success')
+  } catch (e) {
+    ui.toast(m.deleteFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
+  }
+}
+const recentMenu = (r: RecentWorkspace) => [
+  { label: m.removeRecent, icon: X, onSelect: () => session.removeRecent(r.path) },
+  ...(r.mode === 'local' ? [{ sep: true, label: '' }, { label: m.deleteData, icon: Trash2, danger: true, onSelect: () => deleteData(r) }] : []),
+]
+
 function newWorkspace() {
   presetFolder.value = null
   showCreate.value = true
@@ -123,18 +176,18 @@ function newWorkspace() {
       <ul v-if="session.config.recent.length" class="mt-3 divide-y divide-line">
         <li v-for="r in session.config.recent" :key="r.path" class="group flex items-center gap-3 py-3">
           <component :is="r.mode === 'network' ? Network : HardDrive" :size="18" class="shrink-0 text-accent" />
-          <button class="min-w-0 flex-1 text-left" :disabled="busyPath !== null" @click="openPath(r.path)">
+          <button class="min-w-0 flex-1 text-left" :disabled="busyPath !== null" :title="m.dataFolder(r.path)" @click="openPath(r.path)">
             <span class="block truncate font-semibold group-hover:text-accent-ink">{{ r.name }}</span>
-            <span class="block truncate font-mono text-[12px] text-ink-3">{{ r.path }}</span>
+            <!-- Il percorso mostrato è quello dei progetti; i dati dell'app sono nel suggerimento -->
+            <span class="flex items-center gap-1 truncate font-mono text-[12px] text-ink-3">
+              <component :is="r.projectsPath ? FolderGit2 : Database" :size="11" class="shrink-0" />
+              <span class="truncate" data-recent-path>{{ r.projectsPath || r.path }}</span>
+            </span>
           </button>
           <span class="shrink-0 text-[12px] text-ink-3">{{ dayjs(r.lastOpened).fromNow() }}</span>
-          <button
-            class="shrink-0 rounded-md p-1 text-ink-3 opacity-0 hover:bg-surface-2 hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
-            :title="m.removeRecent"
-            @click="session.removeRecent(r.path)"
-          >
-            <X :size="14" />
-          </button>
+          <BaseMenu :items="recentMenu(r)">
+            <MenuTriggerButton :label="m.actions" :size="15" />
+          </BaseMenu>
         </li>
       </ul>
       <div v-else class="mt-3 rounded-lg border border-dashed border-line-strong p-6 text-[13.5px] text-ink-2">

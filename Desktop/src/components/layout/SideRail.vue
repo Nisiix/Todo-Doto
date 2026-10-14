@@ -207,8 +207,8 @@ const trashMenu = (p: Project) => [
         </p>
       </section>
 
-      <!-- Cestino -->
-      <section>
+      <!-- Cestino: compare solo se contiene qualcosa -->
+      <section v-if="ws.trashedProjects.length">
         <div class="mb-1 flex items-center justify-between px-1">
           <h2 class="text-[11.5px] font-semibold text-ink-3">
             {{ m.trash }} <span class="tabular-nums">{{ ws.trashedProjects.length || '' }}</span>

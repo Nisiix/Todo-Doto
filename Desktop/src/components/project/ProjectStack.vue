@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowDown, ArrowUp, Check, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderPlus, Import, Pencil, Plus, Save, Trash2, Wand2 } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Check, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderPlus, Import, Pencil, Play, Plus, Save, Trash2, Wand2 } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -15,7 +15,7 @@ import { autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, suggestP
 import { mergeImportedStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
-import { copyStack, hasStack, projectFolderExists, resolveStack, scaffoldFiles, slugify, varsFor, writeProjectFolder } from '@/services/scaffold'
+import { copyStack, hasStack, resolveStack, scaffoldFiles, slugify, varsFor, writeProjectFolderAt } from '@/services/scaffold'
 import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Prerequisite, type Project, type Stack } from '@/types'
 import { DATE, defineMessages, plural } from '@/i18n'
 import dayjs from 'dayjs'
@@ -76,8 +76,21 @@ const m = defineMessages({
     setupTitle: 'Configura sul tuo PC',
     setupLead: (done: number, total: number) => `Segui i passi nell’ordine e spunta quelli fatti: il progresso è tuo, non si vede agli altri. ${done} di ${total} completati.`,
     restart: 'Ricomincia',
-    scriptHint: 'Script .cmd che esegue in sequenza verifiche e comandi',
-    genScript: 'Genera script Windows',
+    scriptHint: 'Esegue sul tuo PC, in sequenza, le verifiche dei prerequisiti e i comandi dei passi',
+    genScript: 'Gestisci configurazione automatica',
+    autoTitle: (n: string) => `Configurazione automatica di ${n}`,
+    autoLead: 'Lo script esegue sul tuo PC, in una finestra del prompt dei comandi, le verifiche e i comandi elencati qui sotto, uno dopo l’altro; si ferma al primo errore e sui passi da fare a mano.',
+    autoWorkdir: 'Cartella in cui si eseguono i comandi',
+    autoNoWorkdir: 'Nessuna cartella del progetto indicata: i comandi partono dalla cartella dello script. Puoi impostarla nelle impostazioni del progetto.',
+    autoChecks: 'Verifiche',
+    autoSteps: 'Passi',
+    autoManual: 'da fare a mano',
+    autoRun: 'Avvia configurazione',
+    autoSave: 'Salva lo script…',
+    autoStarted: 'Configurazione avviata in una finestra del prompt dei comandi',
+    autoFailed: (err: string) => `Non riesco ad avviare la configurazione: ${err}`,
+    autoDesktopOnly: 'L’esecuzione della configurazione è disponibile nell’app desktop: salva lo script e avvialo con doppio click.',
+    folderNoRoot: 'Scegli dove creare la cartella del progetto',
     cmdCopied: 'Comando copiato',
     copyCheck: 'Copia verifica',
     download: 'Scarica',
@@ -192,8 +205,21 @@ const m = defineMessages({
     setupTitle: 'Set up on your PC',
     setupLead: (done: number, total: number) => `Follow the steps in order and tick the ones you have done: your progress is yours only, others cannot see it. ${done} of ${total} completed.`,
     restart: 'Start over',
-    scriptHint: '.cmd script that runs checks and commands in sequence',
-    genScript: 'Generate Windows script',
+    scriptHint: 'Runs the prerequisite checks and step commands on your PC, in sequence',
+    genScript: 'Manage automatic setup',
+    autoTitle: (n: string) => `Automatic setup of ${n}`,
+    autoLead: 'The script runs on your PC, in a command prompt window, the checks and commands listed below, one after the other; it stops at the first error and at the manual steps.',
+    autoWorkdir: 'Folder where the commands run',
+    autoNoWorkdir: 'No project folder set: the commands start from the script folder. You can set it in the project settings.',
+    autoChecks: 'Checks',
+    autoSteps: 'Steps',
+    autoManual: 'manual',
+    autoRun: 'Start setup',
+    autoSave: 'Save the script…',
+    autoStarted: 'Setup started in a command prompt window',
+    autoFailed: (err: string) => `Cannot start the setup: ${err}`,
+    autoDesktopOnly: 'Running the setup is available in the desktop app: save the script and double-click it.',
+    folderNoRoot: 'Choose where to create the project folder',
     cmdCopied: 'Command copied',
     copyCheck: 'Copy check',
     download: 'Download',
@@ -391,14 +417,26 @@ async function importFrom(source: Project) {
 
 // --- nuovo progetto da questo stack e cartella del progetto ---------------------
 const showNewProject = ref(false)
+/**
+ * Cartella del progetto sul disco: quella indicata nello stack, altrimenti
+ * <cartella dei progetti del workspace>/<nome del progetto>; vuota se nessuna delle due è nota.
+ */
+async function projectDir(): Promise<string> {
+  if (stack.value.sourcePath) return view.value.sourcePath
+  const root = ws.meta?.projectsPath
+  return root ? (await getFs()).join(root, props.project.name) : ''
+}
 async function createFolder() {
   const fs = await getFs()
-  const dest = await fs.pickFolder(m.pickDest)
-  if (!dest) return
+  let target = await projectDir()
+  if (!target) {
+    const dest = await fs.pickFolder(m.folderNoRoot)
+    if (!dest) return
+    target = await fs.join(dest, slugify(props.project.name))
+  }
   const files = scaffoldFiles(props.project.name, props.project.description, stack.value)
-  const target = await fs.join(dest, slugify(props.project.name))
   const names = files.map((f) => f.path).join(', ')
-  const exists = await projectFolderExists(dest, props.project.name)
+  const exists = await fs.exists(target)
   const ok = await confirm(
     exists
       ? { title: m.folderExists(target), message: m.folderExistsMessage(names), confirmLabel: m.folderOverwrite, danger: true }
@@ -406,7 +444,7 @@ async function createFolder() {
   )
   if (!ok) return
   try {
-    const root = await writeProjectFolder(dest, props.project.name, files)
+    const root = await writeProjectFolderAt(target, files)
     // La prima cartella creata dall'admin diventa la cartella del progetto
     const link = canEdit.value && !stack.value.sourcePath
     if (link) await ws.updateStack(props.project.id, { ...stack.value, sourcePath: root })
@@ -467,12 +505,36 @@ const open = async (target: string, kind: 'file' | 'link') => {
     ui.toast(m.cannotOpen(e instanceof Error ? e.message : String(e)), 'error')
   }
 }
+// --- configurazione automatica: lo script eseguito dall'app ---------------------------
+const showAuto = ref(false)
+const autoDir = ref('')
+async function openAuto() {
+  autoDir.value = await projectDir()
+  showAuto.value = true
+}
+const script = () => setupScriptWindows(props.project.name, view.value, { baseDir: autoDir.value })
+/** Scrive lo script nella cartella dati dell'app e lo apre: Windows lo esegue nel prompt dei comandi. */
+async function runAuto() {
+  if (!isTauri) return ui.toast(m.autoDesktopOnly, 'info', undefined, 6000)
+  try {
+    const fs = await getFs()
+    const dir = await fs.join(await fs.appDataDir(), 'scripts')
+    await fs.mkdir(dir)
+    const path = await fs.join(dir, `setup-${slugify(props.project.name)}.cmd`)
+    await fs.writeTextAtomic(path, script())
+    await fs.openExternal(path, 'file')
+    showAuto.value = false
+    ui.toast(m.autoStarted, 'success', undefined, 5000)
+  } catch (e) {
+    ui.toast(m.autoFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
+  }
+}
 async function downloadScript() {
   const fs = await getFs()
   const name = `setup-${slugify(props.project.name)}.cmd`
   const path = await fs.saveFile(name, m.saveScript)
   if (!path) return
-  await fs.writeTextAtomic(path, setupScriptWindows(props.project.name, view.value))
+  await fs.writeTextAtomic(path, script())
   ui.toast(m.scriptSaved, 'success', { label: m.openFolder, run: () => open(path.replace(/[\\/][^\\/]+$/, ''), 'file') }, 6000)
 }
 </script>
@@ -492,7 +554,7 @@ async function downloadScript() {
       <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
       <input ref="mdInput" type="file" accept=".md,.markdown,.txt,text/markdown" class="hidden" data-md-input @change="onMdFile" />
       <template v-if="canEdit && !editing">
-        <BaseButton size="sm" @click="startEdit"><Pencil :size="14" /> {{ isEmpty ? m.fill : common.actions.edit }}</BaseButton>
+        <BaseButton size="sm" @click="startEdit"><Pencil :size="14" /> {{ hasStack(stack) ? common.actions.edit : m.fill }}</BaseButton>
       </template>
       <template v-else-if="editing">
         <BaseMenu v-if="importMenu.length" :items="importMenu">
@@ -681,7 +743,7 @@ async function downloadScript() {
               <p class="text-[12.5px] text-ink-2">{{ m.setupLead(doneCount, totalSteps) }}</p>
             </div>
             <BaseButton v-if="doneCount" size="sm" variant="ghost" @click="resetProgress">{{ m.restart }}</BaseButton>
-            <BaseButton size="sm" variant="primary" :title="m.scriptHint" @click="downloadScript"><FileDown :size="14" /> {{ m.genScript }}</BaseButton>
+            <BaseButton size="sm" variant="primary" :title="m.scriptHint" @click="openAuto"><Play :size="14" /> {{ m.genScript }}</BaseButton>
           </div>
           <div class="mt-3 h-1.5 rounded-full bg-surface-2"><div class="h-full rounded-full bg-ok transition-[width]" :style="{ width: (totalSteps ? (doneCount / totalSteps) * 100 : 0) + '%' }" /></div>
 
@@ -734,6 +796,42 @@ async function downloadScript() {
         </section>
       </template>
     </template>
+
+    <!-- Configurazione automatica: riepilogo e avvio dello script -->
+    <BaseDialog v-model:open="showAuto" :title="m.autoTitle(project.name)" :description="m.autoLead" width="lg">
+      <div class="space-y-4 text-[13px]">
+        <div>
+          <span class="label">{{ m.autoWorkdir }}</span>
+          <p v-if="autoDir" class="rounded-md bg-surface-2 px-3 py-2 font-mono text-[12.5px]" data-auto-dir>{{ autoDir }}</p>
+          <p v-else class="text-ink-3">{{ m.autoNoWorkdir }}</p>
+        </div>
+        <div v-if="view.prerequisites.length">
+          <span class="label">{{ m.autoChecks }}</span>
+          <ul class="space-y-1">
+            <li v-for="p in view.prerequisites" :key="p.id" class="flex items-center gap-2">
+              <Check :size="13" class="shrink-0 text-ok" /> {{ p.name }} <span v-if="p.version" class="text-ink-3">{{ p.version }}</span>
+              <code v-if="p.check" class="ml-auto rounded bg-surface-2 px-1.5 font-mono text-[11.5px]">{{ p.check }}</code>
+            </li>
+          </ul>
+        </div>
+        <div v-if="view.steps.length">
+          <span class="label">{{ m.autoSteps }}</span>
+          <ol class="space-y-1.5">
+            <li v-for="(st, i) in view.steps" :key="st.id">
+              <span class="font-semibold">{{ i + 1 }}. {{ st.title }}</span>
+              <span v-if="st.kind === 'manual'" class="ml-1.5 rounded-full bg-p-media/20 px-1.5 text-[11px] font-medium">{{ m.autoManual }}</span>
+              <pre v-if="st.kind === 'command' && st.command" class="mt-0.5 overflow-x-auto rounded bg-surface-2 px-2 py-1 font-mono text-[12px]">{{ st.cwd ? `cd ${st.cwd}\n` : '' }}{{ st.command }}</pre>
+              <span v-else-if="st.kind === 'link'" class="ml-1.5 font-mono text-[12px] text-accent-ink">{{ st.url }}</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+      <template #footer>
+        <BaseButton variant="ghost" @click="showAuto = false">{{ common.actions.cancel }}</BaseButton>
+        <BaseButton variant="outline" @click="downloadScript"><FileDown :size="14" /> {{ m.autoSave }}</BaseButton>
+        <BaseButton variant="primary" data-autofocus @click="runAuto"><Play :size="14" /> {{ m.autoRun }}</BaseButton>
+      </template>
+    </BaseDialog>
 
     <ProjectDialog v-model:open="showNewProject" :default-folder-id="project.folderId" :stack-from="project.id" />
   </div>

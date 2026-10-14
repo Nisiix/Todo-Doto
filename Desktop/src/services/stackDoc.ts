@@ -11,6 +11,7 @@
  * reimporta senza perdite.
  */
 import { newId } from './ids'
+import { defineMessages } from '@/i18n'
 import { autofillPrerequisite, KNOWN_FRAMEWORKS, KNOWN_LANGUAGES, lookupPrerequisite } from './prerequisites'
 import type { EnvVar, Platform, Prerequisite, SetupStep, Stack, StackDoc } from '@/types'
 
@@ -272,6 +273,53 @@ function parseEnv(bs: Block[], all: boolean): EnvVar[] {
   return out
 }
 
+const EDITOR = defineMessages({
+  it: {
+    title: 'Apri il progetto nell’editor',
+    notes: 'Fine della configurazione: apri la cartella del progetto nel tuo editor (es. Visual Studio Code con «code .»).',
+    solution: (file: string) => `Apri ${file} in Visual Studio`,
+  },
+  en: {
+    title: 'Open the project in the editor',
+    notes: 'End of the setup: open the project folder in your editor (e.g. Visual Studio Code with “code .”).',
+    solution: (file: string) => `Open ${file} in Visual Studio`,
+  },
+})
+
+type StepLike = Pick<SetupStep, 'title' | 'kind' | 'command' | 'cwd' | 'url' | 'notes'>
+/** Passo che apre un editor o un IDE: la configurazione sul PC finisce qui. */
+export const isEditorStep = (s: Pick<SetupStep, 'title' | 'command'>) =>
+  /(^|\s)code\s+\.(\s|$)|\b(apri|open)\b.*\b(editor|vs ?code|visual studio|ide|intellij|rider|android studio|xcode|pycharm|webstorm)\b|\.sln\b/i.test(`${s.title} ${s.command}`)
+/**
+ * Passo che riguarda l'uso del programma (avvio, build, test, deploy…) e non
+ * la preparazione del PC: non fa parte della configurazione.
+ */
+export const isRunStep = (s: Pick<SetupStep, 'title' | 'command'>) =>
+  /\b(npm|pnpm|yarn|bun)\s+(run\s+)?(dev|start|serve|preview|test|build|lint|deploy|tauri)\b|\b(cargo|go)\s+(run|build|test)\b|\bdotnet\s+(run|test|publish|watch)\b|runserver|\bdocker(-|\s)compose\s+up\b|\bflutter\s+(run|build)\b|\b(mvn|gradlew?)\b.*\b(run|test|package|bootrun)\b/i.test(s.command) ||
+  /^\s*(avvia|esegui|lancia|compila|pubblica|testa|start|run|launch|build|deploy|publish|test)\b/i.test(s.title)
+
+/**
+ * Solo la preparazione del PC: niente passi di avvio/build/test/deploy, e ci
+ * si ferma al passo che apre l'editor (aggiunto in fondo se manca).
+ */
+export function setupOnly<T extends StepLike>(steps: T[], editor: () => T): T[] {
+  const out: T[] = []
+  for (const s of steps) {
+    if (isEditorStep(s)) return [...out, s]
+    if (!isRunStep(s)) out.push(s)
+  }
+  return out.length ? [...out, editor()] : out
+}
+/** Passo finale "apri nell'editor" (con la soluzione Visual Studio, se nota). */
+export const editorStep = (solution?: string): StepLike => ({
+  title: solution ? EDITOR.solution(solution) : EDITOR.title,
+  kind: 'manual',
+  command: '',
+  cwd: '',
+  url: '',
+  notes: solution ? '' : EDITOR.notes,
+})
+
 /** Tipo di applicazione deducibile dai framework (es. Tauri → desktop, Vue → web, Express → backend). */
 export function platformsFor(frameworks: string[]): Platform[] {
   const t = new Set(frameworks.map(fold))
@@ -342,7 +390,8 @@ export function parseStackMarkdown(md: string): ImportedStack {
   }
 
   // Passi: dalle sezioni di setup/installazione
-  imp.steps = list.filter((s) => s.kind === 'steps').flatMap((s) => parseSteps(blocksOf(s)))
+  // (solo preparazione del PC, fino all'apertura dell'editor)
+  imp.steps = setupOnly(list.filter((s) => s.kind === 'steps').flatMap((s) => parseSteps(blocksOf(s))), () => editorStep())
 
   // Variabili d'ambiente: sezioni dedicate, più i blocchi .env ovunque
   const envSections = list.filter((s) => s.kind === 'env')

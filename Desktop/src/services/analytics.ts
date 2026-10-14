@@ -117,10 +117,13 @@ const q = (s: string) => `"${s.replace(/"/g, '""')}"`
  * esegue tutto in sequenza: verifica i prerequisiti, lancia i comandi nella
  * cartella indicata, apre i link, si ferma sui passi manuali.
  */
-export function setupScriptWindows(projectName: string, stack: ScriptStack): string {
+export function setupScriptWindows(projectName: string, stack: ScriptStack, opts: { baseDir?: string } = {}): string {
   const S = common.script
   const L: string[] = []
   L.push('@echo off', 'setlocal EnableExtensions', `title ${S.title(projectName)}`, 'echo.', `echo === ${S.heading(projectName)} ===`, 'echo.')
+  // Cartella del progetto: i comandi (e le cartelle relative dei passi) partono da qui
+  const base = opts.baseDir?.trim()
+  if (base) L.push(`if not exist ${q(base)} mkdir ${q(base)}`, `cd /d ${q(base)} || goto fail`, `echo ${S.workdir}: %CD%`, 'echo.')
 
   if (stack.prerequisites.length) {
     L.push(`echo --- ${S.prerequisites} ---`)

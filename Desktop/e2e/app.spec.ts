@@ -14,11 +14,17 @@ test.beforeEach(({ page }) => {
 })
 test.afterEach(() => expect(pageErrors).toEqual([]))
 
+/** Cartella dei progetti e cartella Dati Project Goal Manager, con i pulsanti Sfoglia del dialog. */
+async function pickWorkspaceFolders(page: Page) {
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Project Goal Manager' }).click()
+}
+
 async function createLocalWorkspace(page: Page, name = 'Roadmap Sviluppo') {
   await page.goto('/')
   await page.getByRole('button', { name: 'Crea workspace' }).first().click()
   await page.fill('#ws-name', name)
-  await page.getByRole('button', { name: 'Sfoglia' }).click()
+  await pickWorkspaceFolders(page)
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
   await expect(page.getByRole('heading', { name })).toBeVisible()
 }
@@ -63,7 +69,7 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Crea workspace' }).first().click()
   await page.fill('#ws-name', 'Rete')
-  await page.getByRole('button', { name: 'Sfoglia' }).click()
+  await pickWorkspaceFolders(page)
   await page.getByText('Condiviso in rete').click()
   await page.fill('#ws-pw', 'segreto1')
   await page.fill('#ws-pw2', 'diversa')
@@ -122,7 +128,8 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
   await expect(aside.getByText('Clienti')).toBeHidden()
   await aside.getByLabel('Svuota cestino').click()
   await page.getByRole('button', { name: 'Svuota cestino' }).click()
-  await expect(cestino.getByText('Vuoto.')).toBeVisible()
+  // Vuoto: la sezione Cestino non compare più
+  await expect(cestino).toHaveCount(0)
 })
 
 test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ page }) => {
@@ -206,8 +213,11 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   await labels.getByPlaceholder('Nuova etichetta').fill('Bug')
   await labels.getByRole('button', { name: 'Aggiungi', exact: true }).click()
   await expect(labels.locator('input[aria-label="Nome etichetta Bug"]')).toBeVisible()
+  // Il nuovo task si è chiuso per lasciare spazio alle etichette
+  await expect(page.locator('#i-title')).toHaveCount(0)
   await labels.getByRole('button', { name: 'Chiudi', exact: true }).last().click()
   await expect(labels).toBeHidden()
+  await newItemButton(page).click()
   await page.fill('#i-title', 'Crash all’avvio')
   await dialog(page).getByLabel('Etichetta').selectOption({ label: 'Bug' })
   await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
@@ -348,7 +358,13 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await expect(page.getByText('0 di 2 completati')).toBeVisible()
   await page.getByTitle('Segna come fatto').first().click()
   await expect(page.getByText('1 di 2 completati')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Genera script Windows' })).toBeVisible()
+  // Configurazione automatica: riepilogo di verifiche e passi, poi avvio (nel browser: solo app desktop)
+  await page.getByRole('button', { name: 'Gestisci configurazione automatica' }).click()
+  await expect(dialog(page)).toContainText('Configurazione automatica di Stack test')
+  await expect(dialog(page)).toContainText('npm install')
+  await dialog(page).getByRole('button', { name: 'Avvia configurazione' }).click()
+  await expect(page.getByText(/disponibile nell’app desktop/)).toBeVisible()
+  await page.keyboard.press('Escape')
 
   // Strumenti AI, ora nella pagina Stack: skill incollata, visibile nel visualizzatore
   await expect(page.getByRole('heading', { name: 'Strumenti AI' })).toBeVisible()
@@ -400,7 +416,8 @@ test('stack come modello: nuovo progetto con lo stack copiato e cartella del pro
   await expect(dialog(page)).toContainText('README.md, setup-nuovo-portale.cmd, package.json')
   await dialog(page).getByRole('button', { name: 'Crea cartella' }).click()
   await expect(page.getByText(/Cartella del progetto creata \(3 file\)/)).toBeVisible()
-  await expect(page.locator('code', { hasText: /nuovo-portale$/ })).toBeVisible()
+  // La cartella creata è quella del progetto sul disco: <cartella dei progetti>/<nome>
+  await expect(page.locator('code', { hasText: /Nuovo portale$/ })).toBeVisible()
 
   // Importazione dello stack in un progetto esistente, durante la modifica
   await createProject(page, 'Altro')
@@ -477,7 +494,7 @@ test('stack: prerequisiti compilati in automatico, salvataggio e import di un do
     '| `DATABASE_URL` | `postgres://localhost/portale` |',
   ].join('\n')
   await page.locator('input[data-md-input]').setInputFiles({ name: 'ARCHITETTURA.md', mimeType: 'text/markdown', buffer: Buffer.from(md) })
-  await expect(page.getByText(/Da «ARCHITETTURA\.md»: .*1 passi.*Controlla e salva/)).toBeVisible()
+  await expect(page.getByText(/Da «ARCHITETTURA\.md»: .*\d passi.*Controlla e salva/)).toBeVisible()
   await expect(page.locator('#st-repo')).toHaveValue('https://github.com/example/portale')
   await page.getByRole('button', { name: 'Salva', exact: true }).click()
   await expect(page.getByText('Stack salvato').last()).toBeVisible()
@@ -504,18 +521,17 @@ test('workspace da una cartella di progetti: propone di crearli e chiede un’al
   await expect(box).toContainText('Questa cartella contiene 2 progetti')
   await expect(box.getByRole('checkbox')).toHaveCount(3) // "crea i progetti" + alfa + beta
   await expect(box).not.toContainText('documenti')
-  await expect(page.getByText('Cartella dei progetti')).toBeVisible()
 
   // Il workspace va salvato in un'altra cartella, non dentro un progetto
   const create = page.getByRole('button', { name: 'Crea workspace' }).last()
   await create.click()
-  await expect(page.getByText('Scegli una cartella diversa da quella dei progetti in cui salvare il workspace.')).toBeVisible()
+  await expect(page.getByText('Indica la cartella Dati Project Goal Manager, diversa da quella dei progetti.')).toBeVisible()
   await page.fill('#ws-data', '/progetti')
   await create.click()
-  await expect(page.getByText('La cartella del workspace deve essere diversa da quella dei progetti.')).toBeVisible()
+  await expect(page.getByText('La cartella Dati Project Goal Manager deve essere diversa dalla cartella dei progetti.')).toBeVisible()
   await page.fill('#ws-data', '/progetti/alfa/roadmap')
   await create.click()
-  await expect(page.getByText('La cartella del workspace non può stare dentro il progetto «alfa».')).toBeVisible()
+  await expect(page.getByText('La cartella Dati Project Goal Manager non può stare dentro il progetto «alfa».')).toBeVisible()
   await page.fill('#ws-data', '/dati/roadmap')
   await create.click()
 
@@ -526,4 +542,61 @@ test('workspace da una cartella di progetti: propone di crearli e chiede un’al
   await expect(page.getByText('/progetti/alfa', { exact: true })).toBeVisible()
   await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
   await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
+})
+
+test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi progetti, eliminazione dei dati', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', 'Sviluppo')
+  await page.fill('#ws-path', '/sviluppo')
+  await expect(page.getByText('Nessun progetto trovato: la cartella verrà usata per i progetti che creerai.')).toBeVisible()
+  // La cartella Dati è obbligatoria anche senza progetti; c'è un suggerimento accanto
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByText('Indica la cartella Dati Project Goal Manager, diversa da quella dei progetti.')).toBeVisible()
+  await page.getByRole('button', { name: /^Usa / }).click()
+  await expect(page.locator('#ws-data')).toHaveValue('/sviluppo/Project Goal Manager')
+  await page.fill('#ws-data', '/pgm/sviluppo')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Sviluppo' })).toBeVisible()
+
+  // Nuovo progetto: la cartella sul disco è proposta dentro la cartella dei progetti
+  await page.getByRole('button', { name: 'Progetto', exact: true }).click()
+  await page.fill('#p-name', 'Portale')
+  await expect(page.locator('#p-disk')).toHaveValue('/sviluppo/Portale')
+  await expect(page.getByText('Serve solo a raggruppare i progetti nella barra laterale')).toBeVisible()
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await expect(page.locator('#st-src')).toHaveValue('/sviluppo/Portale')
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click()
+
+  // Impostazioni: le due cartelle
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await expect(page.locator('#s-projects')).toHaveValue('/sviluppo')
+  await expect(page.locator('[data-data-folder]')).toHaveText('/pgm/sviluppo')
+  await page.keyboard.press('Escape')
+
+  // Recenti: si vede la cartella dei progetti, non quella dei dati
+  await page.getByRole('button', { name: 'Sviluppo' }).first().click()
+  await page.getByRole('menuitem', { name: 'Chiudi workspace' }).click()
+  await expect(page.locator('[data-recent-path]')).toHaveText('/sviluppo')
+
+  // Elimina i dati di Project Goal Manager (workspace locale): i progetti restano
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic('/sviluppo/Portale/README.md', '# Portale')
+  })
+  await page.locator('li', { hasText: 'Sviluppo' }).hover()
+  await page.getByRole('button', { name: 'Azioni workspace' }).click()
+  await page.getByRole('menuitem', { name: 'Elimina i dati di Project Goal Manager' }).click()
+  await expect(dialog(page)).toContainText('/pgm/sviluppo')
+  await expect(dialog(page)).toContainText('non vengono toccati')
+  await dialog(page).getByRole('button', { name: 'Elimina i dati' }).click()
+  await expect(page.getByText('Dati del workspace «Sviluppo» eliminati')).toBeVisible()
+  await expect(page.locator('[data-recent-path]')).toHaveCount(0)
+  const left = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ exists(p: string): Promise<boolean> }> }).__pgmFs()
+    return { data: await fs.exists('/pgm/sviluppo/workspace.json'), project: await fs.exists('/sviluppo/Portale/README.md') }
+  })
+  expect(left).toEqual({ data: false, project: true })
 })

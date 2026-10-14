@@ -201,7 +201,12 @@ export function scaffoldFiles(projectName: string, description: string, stack: S
  */
 export async function writeProjectFolder(dest: string, projectName: string, files: ScaffoldFile[]): Promise<string> {
   const fs = await getFs()
-  const root = await fs.join(dest, slugify(projectName))
+  return writeProjectFolderAt(await fs.join(dest, slugify(projectName)), files)
+}
+
+/** Scrive i file del progetto esattamente nella cartella `root` (creandola se serve). */
+export async function writeProjectFolderAt(root: string, files: ScaffoldFile[]): Promise<string> {
+  const fs = await getFs()
   await fs.mkdir(root)
   for (const f of files) {
     const parts = f.path.split('/')

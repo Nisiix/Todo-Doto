@@ -99,6 +99,28 @@ export class WorkspaceStorage {
     return this
   }
 
+  /**
+   * Elimina i dati di Project Goal Manager di un workspace: solo i file che
+   * l'app stessa crea (workspace.json, users.json, tree.json, audit.json,
+   * drive.json, projects/*.json, lock e file temporanei), poi le cartelle se
+   * restano vuote. Qualsiasi altro file nella cartella resta dov'è.
+   */
+  static async deleteData(root: string) {
+    const fs = await getFs()
+    if (!(await WorkspaceStorage.isWorkspace(root))) return
+    const own = (name: string) => /\.json\.lock$|\.json\.[a-z0-9]+\.tmp$/i.test(name)
+    const projectsDir = await fs.join(root, FILES.projectsDir)
+    for (const e of await fs.listDir(projectsDir).catch(() => [])) {
+      if (!e.isDir && (/\.json$/i.test(e.name) || own(e.name))) await fs.remove(await fs.join(projectsDir, e.name))
+    }
+    await fs.remove(projectsDir).catch(() => {}) // solo se vuota
+    const files: string[] = [FILES.users, FILES.tree, FILES.drive, FILES.audit, FILES.workspace]
+    for (const e of await fs.listDir(root).catch(() => [])) {
+      if (!e.isDir && (files.includes(e.name) || own(e.name))) await fs.remove(await fs.join(root, e.name))
+    }
+    await fs.remove(root).catch(() => {}) // solo se vuota
+  }
+
   static async isWorkspace(root: string) {
     const fs = await getFs()
     return fs.exists(await fs.join(root, FILES.workspace))
