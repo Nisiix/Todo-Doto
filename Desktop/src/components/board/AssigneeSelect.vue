@@ -23,15 +23,17 @@ const initials = computed(() =>
 </script>
 
 <template>
-  <span class="relative inline-flex items-center">
+  <!-- Iniziali e nome centrati; il menu a tendina, trasparente, copre tutta la pillola -->
+  <span class="relative inline-flex h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus-within:border-accent">
     <span
-      class="pointer-events-none absolute left-1 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full text-[8px] font-bold"
+      class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-bold"
       :class="current ? 'bg-accent-soft text-accent-ink' : 'border border-dashed border-ink-3 text-ink-3'"
     >
       {{ current ? initials : '?' }}
     </span>
+    <span class="truncate">{{ current?.displayName ?? m.unassigned }}</span>
     <select
-      class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-6 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
+      class="absolute inset-0 h-full w-full cursor-default appearance-none rounded-full opacity-0"
       :value="model ?? ''"
       :title="current ? m.assignedTo(current.displayName) : m.assign"
       :aria-label="m.assignee"

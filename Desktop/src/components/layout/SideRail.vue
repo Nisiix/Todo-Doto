@@ -40,6 +40,7 @@ const m = defineMessages({
     recent: 'Recenti',
     projects: 'Progetti',
     projectsEmpty: 'Nessun progetto. Creane uno con il pulsante qui sopra.',
+    projectsEmptyMember: 'Nessun progetto visibile. I progetti li crea un amministratore.',
     trash: 'Cestino',
     trashedActions: 'Azioni progetto cestinato',
   },
@@ -66,6 +67,7 @@ const m = defineMessages({
     recent: 'Recent',
     projects: 'Projects',
     projectsEmpty: 'No projects. Create one with the button above.',
+    projectsEmptyMember: 'No visible projects. Projects are created by an administrator.',
     trash: 'Trash',
     trashedActions: 'Trashed project actions',
   },
@@ -160,7 +162,8 @@ const trashMenu = (p: Project) => [
 
 <template>
   <aside class="flex h-full w-64 shrink-0 flex-col border-r border-line bg-surface">
-    <div class="flex items-center gap-1 px-3 pt-3">
+    <!-- Progetti e cartelle si creano solo da amministratore -->
+    <div v-if="ws.isAdmin" class="flex items-center gap-1 px-3 pt-3">
       <BaseButton variant="primary" size="sm" class="flex-1" @click="newProject(null)"><Plus :size="14" /> {{ m.project }}</BaseButton>
       <BaseButton size="icon-sm" :title="m.newFolder" @click="newFolder(null)"><FolderPlus :size="14" /></BaseButton>
     </div>
@@ -201,7 +204,7 @@ const trashMenu = (p: Project) => [
           <ProjectLink v-for="p in rootProjects" :key="p.id" :project="p" :depth="-1" sections />
         </ul>
         <p v-else class="px-1 text-[12.5px] leading-relaxed text-ink-3">
-          {{ m.projectsEmpty }}
+          {{ ws.isAdmin ? m.projectsEmpty : m.projectsEmptyMember }}
         </p>
       </section>
 

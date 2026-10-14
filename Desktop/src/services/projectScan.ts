@@ -20,7 +20,9 @@ export interface DetectedProject {
   markers: string[]
 }
 
-/** File e cartelle che indicano un progetto. */
+// --- Cartella dei progetti (workspace): riconoscimento delle sottocartelle-progetto -----
+
+/** File e cartelle che indicano un progetto, fra le sottocartelle della cartella dei progetti. */
 const MARKER_FILES = [
   'package.json', 'cargo.toml', 'pyproject.toml', 'requirements.txt', 'setup.py', 'go.mod', 'pom.xml', 'build.gradle', 'build.gradle.kts',
   'composer.json', 'pubspec.yaml', 'gemfile', 'readme.md', 'deno.json',
@@ -104,6 +106,79 @@ export async function scanProjects(root: string): Promise<DetectedProject[]> {
   return found.sort((a, b) => compareText(a.name, b.name))
 }
 
+// --- Cartella di un singolo progetto (acquisizione di un progetto) -------------------
+// Distinta dalla cartella dei progetti: qui si guarda una sola cartella e la si
+// riconosce come progetto di qualunque tipo o linguaggio, non le sue sottocartelle.
+
+/** File che indicano un progetto, di qualunque linguaggio o strumento di build. */
+const SINGLE_FILES = new Set([
+  ...MARKER_FILES.filter((f) => f !== 'readme.md'),
+  'tsconfig.json', 'angular.json', 'makefile', 'cmakelists.txt', 'meson.build', 'build.xml', 'build.sbt', 'settings.gradle', 'settings.gradle.kts',
+  'package.swift', 'mix.exs', 'rebar.config', 'stack.yaml', 'project.clj', 'deps.edn', 'rakefile', 'pipfile', 'environment.yml', 'manage.py',
+  'dockerfile', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yaml', 'index.html', 'global.json', 'directory.build.props', 'nuget.config',
+])
+const SINGLE_EXT = /\.(sln|slnx|csproj|vbproj|fsproj|vcxproj|cabal|gemspec|nimble)$/i
+const SINGLE_DIRS = new Set(['.git', '.svn', '.hg', 'src-tauri', '.vscode', '.idea'])
+const SINGLE_DIR_EXT = /\.(xcodeproj|xcworkspace)$/i
+/** File sorgente di qualunque linguaggio: bastano a riconoscere un progetto. */
+const SOURCE_EXT =
+  /\.(js|mjs|cjs|jsx|ts|tsx|vue|svelte|astro|py|ipynb|rb|php|java|kt|kts|scala|groovy|go|rs|c|h|cc|cpp|cxx|hpp|cs|vb|fs|swift|m|mm|dart|lua|pl|pm|r|jl|ex|exs|erl|hs|clj|cljs|elm|zig|nim|sql|sh|ps1|psm1|bat|cmd|html?|css|scss|sass|less|xaml|razor|cshtml|asm|f90|pas|dpr|lisp|ml)$/i
+/** Sottocartelle dove di solito stanno i sorgenti. */
+const SOURCE_DIRS = new Set(['src', 'app', 'lib', 'source', 'sources', 'scripts'])
+/** File di sistema da non contare (una cartella con solo questi è vuota). */
+const SYSTEM_FILES = /^(desktop\.ini|thumbs\.db|\.ds_store|\$recycle\.bin|system volume information)$/i
+
+/** Cosa fa riconoscere una singola cartella come progetto (vuoto se non lo è). */
+async function singleProjectMarkers(path: string, entries: { name: string; isDir: boolean }[]): Promise<string[]> {
+  const fs = await getFs()
+  const markers = entries
+    .filter((e) => (e.isDir ? SINGLE_DIRS.has(e.name.toLowerCase()) || SINGLE_DIR_EXT.test(e.name) : SINGLE_FILES.has(e.name.toLowerCase()) || SINGLE_EXT.test(e.name)))
+    .map((e) => e.name)
+  if (markers.length) return markers
+  // Nessun file di progetto noto: bastano dei sorgenti, nella cartella o in src/, app/…
+  const source = entries.find((e) => !e.isDir && SOURCE_EXT.test(e.name))
+  if (source) return [source.name]
+  for (const d of entries.filter((e) => e.isDir && SOURCE_DIRS.has(e.name.toLowerCase()))) {
+    const inner = await fs.listDir(await fs.join(path, d.name)).catch(() => [])
+    const f = inner.find((e) => !e.isDir && SOURCE_EXT.test(e.name))
+    if (f) return [`${d.name}/${f.name}`]
+  }
+  return []
+}
+
+export type FolderKind =
+  /** La cartella non esiste ancora: il progetto si crea da zero. */
+  | 'missing'
+  /** Esiste ed è vuota: il progetto si crea da zero. */
+  | 'empty'
+  /** Contiene un progetto (di qualunque tipo o linguaggio): se ne importa la struttura. */
+  | 'project'
+  /** Contiene più progetti nelle sottocartelle: è una cartella di progetti, non di un progetto. */
+  | 'projects'
+  /** È la cartella Dati di un workspace di Project Goal Manager. */
+  | 'workspace'
+  /** Contiene file, ma non un progetto riconoscibile. */
+  | 'other'
+
+/**
+ * Che cosa c'è nella cartella scelta per un singolo progetto. `markers`: cosa
+ * l'ha fatta riconoscere come progetto; per 'projects', i progetti trovati.
+ */
+export async function inspectFolder(path: string): Promise<{ kind: FolderKind; markers: string[] }> {
+  const fs = await getFs()
+  const p = path.trim()
+  if (!p || !(await fs.exists(p))) return { kind: 'missing', markers: [] }
+  const entries = (await fs.listDir(p)).filter((e) => !SYSTEM_FILES.test(e.name))
+  if (!entries.length) return { kind: 'empty', markers: [] }
+  if (entries.some((e) => !e.isDir && e.name.toLowerCase() === 'workspace.json')) return { kind: 'workspace', markers: [] }
+  const markers = await singleProjectMarkers(p, entries)
+  if (markers.length) return { kind: 'project', markers }
+  // Nessun progetto qui, ma più progetti nelle sottocartelle: è una cartella di progetti
+  const inside = (await scanProjects(p)).filter((x) => !samePath(x.path, p))
+  if (inside.length > 1) return { kind: 'projects', markers: inside.map((x) => x.name) }
+  return { kind: 'other', markers: [] }
+}
+
 const M = defineMessages({
   it: {
     install: 'Installa le dipendenze',
@@ -162,19 +237,26 @@ export function repoFromGitConfig(config: string): string {
  */
 export async function detectStack(path: string): Promise<{ description: string; stack: Stack }> {
   const fs = await getFs()
+  const at = async (rel: string) => (rel ? fs.join(path, ...rel.split('/')) : path)
   const source: ProjectSource = {
-    list: () => fs.listDir(path).catch(() => []),
-    read: async (name) => fs.readText(await fs.join(path, name)).catch(() => null),
+    // La cartella del progetto deve leggersi: un errore (rete, permessi) non diventa uno stack vuoto
+    list: async (sub = '') => (sub ? fs.listDir(await at(sub)).catch(() => []) : fs.listDir(path)),
+    read: async (name) => fs.readText(await at(name)).catch(() => null),
     gitConfig: async () => fs.readText(await fs.join(path, '.git', 'config')).catch(() => ''),
   }
   return stackFromSource(source, { sourcePath: path })
 }
 
+/** Sottocartelle da non esplorare cercando i file di progetto (dipendenze, output di build, strumenti). */
+const DEEP_SKIP = /^(\.|node_modules$|bin$|obj$|dist$|build$|out$|target$|packages$|vendor$|venv$|env$|__pycache__$|coverage$|debug$|release$|\$recycle\.bin$)/i
+/** Cartelle che di solito contengono più parti di un progetto: vi si guarda un livello più in giù. */
+const CONTAINER_DIRS = /^(src|source|sources|apps?|services|projects|modules|packages|code)$/i
+
 /** Dove si leggono i file di un progetto: una cartella locale o un repository remoto (es. GitHub). */
 export interface ProjectSource {
-  /** File e cartelle della radice del progetto. */
-  list(): Promise<{ name: string; isDir: boolean }[]>
-  /** Contenuto di un file della radice (null se manca o non si legge). */
+  /** File e cartelle della radice del progetto, o di una sua sottocartella (percorso relativo con "/"). */
+  list(sub?: string): Promise<{ name: string; isDir: boolean }[]>
+  /** Contenuto di un file (percorso relativo con "/"; null se manca o non si legge). */
   read(name: string): Promise<string | null>
   /** Configurazione git locale (.git/config), per ricavare il repository. */
   gitConfig?(): Promise<string>
@@ -209,76 +291,130 @@ export async function stackFromSource(
   // Repository remoto: il primo passo è clonarlo nella cartella del progetto
   if (info.clone && s.repoUrl) step(M.clone, `git clone ${s.repoUrl}.git .`)
 
-  // JavaScript / TypeScript
-  const pkgText = await read('package.json')
-  if (pkgText) {
-    try {
-      const pkg = JSON.parse(pkgText) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; scripts?: Record<string, string> }
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-      lang(deps.typescript || byName.has('tsconfig.json') ? 'TypeScript' : 'JavaScript')
-      if (deps.vue) fw(/^\D*3/.test(deps.vue) ? 'Vue 3' : 'Vue')
-      for (const name of Object.keys(deps)) for (const [re, f] of NPM_FRAMEWORKS) if (re.test(name)) fw(f)
-      const pm = byName.has('pnpm-lock.yaml') ? 'pnpm' : byName.has('yarn.lock') ? 'yarn' : 'npm'
-      step(M.install, pm === 'yarn' ? 'yarn' : `${pm} install`)
-    } catch {
-      /* package.json non valido: si ignora */
+  /**
+   * Linguaggi, framework e passi dai file di progetto di una cartella (`dir`
+   * relativa alla radice, '' = radice). true se vi ha trovato un progetto.
+   */
+  let firstProj: string | undefined
+  async function scanDir(dir: string, items: { name: string; isDir: boolean }[]): Promise<boolean> {
+    const names = new Map(items.map((e) => [e.name.toLowerCase(), e]))
+    const rel = (name: string) => (dir ? `${dir}/${name}` : name)
+    const readHere = async (name: string) => {
+      const e = names.get(name.toLowerCase())
+      if (!e || e.isDir) return null
+      return dir ? src.read(rel(e.name)) : read(e.name)
     }
+    const stepHere = (title: string, command: string) =>
+      s.steps.push({ id: newId('stp'), title: dir ? `${title} (${dir})` : title, kind: 'command', command, cwd: dir.replace(/\//g, '\\'), url: '', notes: '' })
+    let found = false
+
+    // JavaScript / TypeScript
+    const pkgText = await readHere('package.json')
+    if (pkgText) {
+      found = true
+      try {
+        const pkg = JSON.parse(pkgText) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string>; scripts?: Record<string, string> }
+        const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+        lang(deps.typescript || names.has('tsconfig.json') ? 'TypeScript' : 'JavaScript')
+        if (deps.vue) fw(/^\D*3/.test(deps.vue) ? 'Vue 3' : 'Vue')
+        for (const name of Object.keys(deps)) for (const [re, f] of NPM_FRAMEWORKS) if (re.test(name)) fw(f)
+        const pm = names.has('pnpm-lock.yaml') ? 'pnpm' : names.has('yarn.lock') ? 'yarn' : 'npm'
+        stepHere(M.install, pm === 'yarn' ? 'yarn' : `${pm} install`)
+      } catch {
+        /* package.json non valido: si ignora */
+      }
+    }
+    // Rust / Tauri
+    if (names.get('src-tauri')?.isDir) {
+      found = true
+      fw('Tauri')
+      lang('Rust')
+    }
+    if (names.has('cargo.toml')) {
+      found = true
+      lang('Rust')
+    }
+    // .NET
+    const projFile = items.find((e) => !e.isDir && /\.(csproj|vbproj|fsproj)$/i.test(e.name))
+    const slnFile = items.find((e) => !e.isDir && /\.slnx?$/i.test(e.name))
+    if (projFile || slnFile) {
+      found = true
+      firstProj ??= rel((slnFile ?? projFile)!.name)
+      const ext = (projFile?.name ?? '').toLowerCase()
+      lang(ext.endsWith('.vbproj') ? 'VB.NET' : ext.endsWith('.fsproj') ? 'F#' : 'C#')
+      const proj = projFile ? ((await readHere(projFile.name)) ?? '') : ''
+      if (/<UseWPF>\s*true/i.test(proj)) fw('WPF')
+      if (/<UseWindowsForms>\s*true/i.test(proj)) fw('WinForms')
+      if (/Microsoft\.NET\.Sdk\.Web/i.test(proj)) fw('ASP.NET Core')
+      if (/<TargetFrameworkVersion>\s*v[1-4]/i.test(proj)) fw('.NET Framework')
+      else fw('.NET')
+      if (/<Project\s+Sdk=/i.test(proj) && !s.steps.some((x) => x.command === 'dotnet restore')) stepHere(M.restore, 'dotnet restore')
+    }
+    // Python
+    const pyproject = await readHere('pyproject.toml')
+    const requirements = await readHere('requirements.txt')
+    if (pyproject !== null || requirements !== null || names.has('setup.py')) {
+      found = true
+      lang('Python')
+      const text = `${pyproject ?? ''}\n${requirements ?? ''}`.toLowerCase()
+      if (/\bdjango\b/.test(text)) fw('Django')
+      if (/\bflask\b/.test(text)) fw('Flask')
+      if (/\bfastapi\b/.test(text)) fw('FastAPI')
+      if (requirements !== null) stepHere(M.pipInstall, 'pip install -r requirements.txt')
+    }
+    // Altri ecosistemi
+    if (names.has('go.mod')) {
+      found = true
+      lang('Go')
+    }
+    const pom = await readHere('pom.xml')
+    if (pom !== null) {
+      found = true
+      lang('Java')
+      if (/spring-boot/i.test(pom)) fw('Spring Boot')
+    }
+    if (names.has('build.gradle.kts')) {
+      found = true
+      lang('Kotlin')
+    } else if (names.has('build.gradle')) {
+      found = true
+      lang('Java')
+    }
+    const composer = await readHere('composer.json')
+    if (composer !== null) {
+      found = true
+      lang('PHP')
+      if (/laravel\/framework/.test(composer)) fw('Laravel')
+      if (/symfony\/framework-bundle/.test(composer)) fw('Symfony')
+    }
+    const pubspec = await readHere('pubspec.yaml')
+    if (pubspec !== null) {
+      found = true
+      lang('Dart')
+      if (/\bflutter:/.test(pubspec)) fw('Flutter')
+    }
+    const gemfile = await readHere('gemfile')
+    if (gemfile !== null) {
+      found = true
+      lang('Ruby')
+      if (/['"]rails['"]/.test(gemfile)) fw('Rails')
+    }
+    return found
   }
-  // Rust / Tauri
-  if (byName.get('src-tauri')?.isDir) {
-    fw('Tauri')
-    lang('Rust')
-  }
-  if (byName.has('cargo.toml')) lang('Rust')
-  // .NET
-  const projFile = entries.find((e) => !e.isDir && /\.(csproj|vbproj|fsproj)$/i.test(e.name))
-  const slnFile = entries.find((e) => !e.isDir && /\.sln$/i.test(e.name))
-  if (projFile || slnFile) {
-    const ext = (projFile?.name ?? '').toLowerCase()
-    lang(ext.endsWith('.vbproj') ? 'VB.NET' : ext.endsWith('.fsproj') ? 'F#' : 'C#')
-    const proj = projFile ? ((await read(projFile.name)) ?? '') : ''
-    if (/<UseWPF>\s*true/i.test(proj)) fw('WPF')
-    if (/<UseWindowsForms>\s*true/i.test(proj)) fw('WinForms')
-    if (/Microsoft\.NET\.Sdk\.Web/i.test(proj)) fw('ASP.NET Core')
-    if (/<TargetFrameworkVersion>\s*v[1-4]/i.test(proj)) fw('.NET Framework')
-    else fw('.NET')
-    if (/<Project\s+Sdk=/i.test(proj)) step(M.restore, 'dotnet restore')
-  }
-  // Python
-  const pyproject = await read('pyproject.toml')
-  const requirements = await read('requirements.txt')
-  if (pyproject !== null || requirements !== null || byName.has('setup.py')) {
-    lang('Python')
-    const text = `${pyproject ?? ''}\n${requirements ?? ''}`.toLowerCase()
-    if (/\bdjango\b/.test(text)) fw('Django')
-    if (/\bflask\b/.test(text)) fw('Flask')
-    if (/\bfastapi\b/.test(text)) fw('FastAPI')
-    if (requirements !== null) step(M.pipInstall, 'pip install -r requirements.txt')
-  }
-  // Altri ecosistemi
-  if (byName.has('go.mod')) lang('Go')
-  const pom = await read('pom.xml')
-  if (pom !== null) {
-    lang('Java')
-    if (/spring-boot/i.test(pom)) fw('Spring Boot')
-  }
-  if (byName.has('build.gradle.kts')) lang('Kotlin')
-  else if (byName.has('build.gradle')) lang('Java')
-  const composer = await read('composer.json')
-  if (composer !== null) {
-    lang('PHP')
-    if (/laravel\/framework/.test(composer)) fw('Laravel')
-    if (/symfony\/framework-bundle/.test(composer)) fw('Symfony')
-  }
-  const pubspec = await read('pubspec.yaml')
-  if (pubspec !== null) {
-    lang('Dart')
-    if (/\bflutter:/.test(pubspec)) fw('Flutter')
-  }
-  const gemfile = await read('gemfile')
-  if (gemfile !== null) {
-    lang('Ruby')
-    if (/['"]rails['"]/.test(gemfile)) fw('Rails')
+
+  // Prima la radice; se lì non c'è un progetto riconoscibile (es. soluzione in src\App\,
+  // o frontend\ e backend\ separati) si guardano le sottocartelle, fino a due livelli.
+  if (!(await scanDir('', entries))) {
+    const dirs = entries.filter((e) => e.isDir && !DEEP_SKIP.test(e.name)).slice(0, 12)
+    for (const d of dirs) {
+      const inner = await src.list(d.name).catch(() => [])
+      if (await scanDir(d.name, inner)) continue
+      // Un livello in più per le cartelle contenitore (src\, apps\, services\…)
+      if (!CONTAINER_DIRS.test(d.name)) continue
+      for (const dd of inner.filter((e) => e.isDir && !DEEP_SKIP.test(e.name)).slice(0, 12)) {
+        await scanDir(`${d.name}/${dd.name}`, await src.list(`${d.name}/${dd.name}`).catch(() => []))
+      }
+    }
   }
 
   // Linguaggi indicati dalla sorgente (es. statistiche di GitHub), se riconosciuti
@@ -308,7 +444,7 @@ export async function stackFromSource(
   merged.steps = merged.steps.filter((x) => !isRunStep(x))
   const cut = merged.steps.findIndex(isEditorStep)
   if (cut >= 0) merged.steps = merged.steps.slice(0, cut + 1)
-  else merged.steps.push({ id: newId('stp'), ...editorStep((slnFile ?? projFile)?.name) })
+  else merged.steps.push({ id: newId('stp'), ...editorStep(firstProj) })
   for (const k of suggestPrerequisites(merged)) {
     const known = KNOWN_PREREQUISITES.find((x) => x.name === k.name)!
     merged.prerequisites.push({ id: newId('pre'), name: known.name, version: known.version, url: known.url, check: known.check })

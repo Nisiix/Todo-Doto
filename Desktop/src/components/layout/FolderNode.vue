@@ -75,7 +75,8 @@ const menu = computed(() => [
         <span class="truncate font-medium">{{ folder.name }}</span>
         <span class="ml-auto text-[11px] text-ink-3">{{ count || '' }}</span>
       </button>
-      <BaseMenu :items="menu">
+      <!-- Cartelle e progetti si creano e si gestiscono solo da amministratore -->
+      <BaseMenu v-if="ws.isAdmin" :items="menu">
         <MenuTriggerButton :label="m.actions" :size="14" class="!p-0.5" />
       </BaseMenu>
     </div>

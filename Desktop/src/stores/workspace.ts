@@ -10,7 +10,7 @@ import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { firstLine } from '@/services/items'
-import { detectStack, inferProjectsPath } from '@/services/projectScan'
+import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
 import { mergeStack } from '@/services/stackDoc'
 import type {
@@ -469,10 +469,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   // --- progetti ---------------------------------------------------------------------
+  /** Crea un progetto (solo amministratori). */
   async function createProject(data: Pick<Project, 'name' | 'description' | 'folderId' | 'members'> & { visibility?: Visibility }) {
     const s = storage.value
     const me = currentUser.value?.id ?? 'unknown'
-    if (!s) return
+    if (!s || !isAdmin.value) return
     const p: Project = {
       schema: 1,
       id: newId('prj'),
@@ -508,12 +509,23 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    */
   async function importProjects(found: { name: string; path: string }[], onProgress?: (done: number, total: number) => void) {
     let created = 0
+    const unreadable: string[] = []
     for (const [i, f] of found.entries()) {
-      const { description, stack } = await detectStack(f.path).catch(() => ({ description: '', stack: { ...EMPTY_STACK, sourcePath: f.path } }))
+      // Cartella già di un progetto del workspace: non lo si crea due volte
+      if (projectAtPath(f.path)) {
+        onProgress?.(i + 1, found.length)
+        continue
+      }
+      const { description, stack } = await detectStack(f.path).catch((e) => {
+        // Cartella non leggibile (rete, permessi): il progetto si crea comunque, lo stack si rileva poi dalla sezione Stack
+        unreadable.push(`${f.name}: ${describe(e)}`)
+        return { description: '', stack: { ...EMPTY_STACK, sourcePath: f.path } }
+      })
       const p = await createProject({ name: f.name, description, folderId: null, members: [] })
       if (p && (await mutateProject(p.id, (x) => void (x.stack = stack)))) created++
       onProgress?.(i + 1, found.length)
     }
+    if (unreadable.length) ui.toast(common.ws.stackUnreadable(unreadable.join(' · ')), 'warning', undefined, 10000)
     return created
   }
 
@@ -754,13 +766,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
 
   // --- cartelle --------------------------------------------------------
+  /** Cartelle della barra laterale: le crea, rinomina ed elimina solo un amministratore. */
   const addFolder = (name: string, parentId: string | null) =>
-    mutateTree((t) => {
+    !isAdmin.value ? Promise.resolve(undefined) : mutateTree((t) => {
       const siblings = t.folders.filter((f) => f.parentId === parentId)
       t.folders.push({ id: newId('fld'), name: name.trim(), parentId, order: siblings.length })
     })
 
   const renameFolder = (id: string, name: string) =>
+    !isAdmin.value ? Promise.resolve(undefined) :
     mutateTree((t) => {
       const f = t.folders.find((x) => x.id === id)
       if (f) f.name = name.trim()
@@ -784,7 +798,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * finiscono nel cestino del workspace (recuperabili, alla radice).
    */
   async function deleteFolder(id: string) {
-    if (!tree.value.folders.some((f) => f.id === id)) return
+    if (!isAdmin.value || !tree.value.folders.some((f) => f.id === id)) return
     const ids = new Set(folderSubtree(id))
     for (const p of Object.values(projects.value)) {
       if (p.folderId !== null && ids.has(p.folderId)) {
@@ -926,12 +940,25 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   /** Toglie il collegamento a GitHub (lo Stack resta). */
   const unlinkGitHub = (projectId: string) => (isAdmin.value ? mutateProject(projectId, (p) => void (p.github = null)) : Promise.resolve(undefined))
 
-  /** Cartella del progetto sul disco (Stack › Cartella del progetto). */
-  const setProjectSourcePath = (projectId: string, path: string) =>
-    mutateProject(projectId, (p) => {
+  /**
+   * Progetto (anche nel cestino) che ha già questa cartella sul disco, escluso
+   * `exceptId`: due progetti non possono avere la stessa cartella.
+   */
+  const projectAtPath = (path: string, exceptId?: string) =>
+    path.trim() ? (Object.values(projects.value).find((p) => p.id !== exceptId && !!p.stack.sourcePath && samePath(p.stack.sourcePath, path)) ?? null) : null
+
+  /** Cartella del progetto sul disco (Stack › Cartella del progetto); rifiutata se è già di un altro progetto. */
+  async function setProjectSourcePath(projectId: string, path: string) {
+    const other = projectAtPath(path, projectId)
+    if (other) {
+      ui.toast(common.ws.duplicateFolder(other.name, !!other.trashedAt), 'error', undefined, 6000)
+      return undefined
+    }
+    return mutateProject(projectId, (p) => {
       if (p.stack.sourcePath === path.trim()) return false
       p.stack = { ...p.stack, sourcePath: path.trim() }
     })
+  }
 
   async function forgetCredentials() {
     if (meta.value) await forgetPassword(meta.value.id)
@@ -1013,6 +1040,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     renameWorkspace,
     setProjectsPath,
     setProjectSourcePath,
+    projectAtPath,
     applyRepoStack,
     setProjectVisibility,
     unlinkGitHub,

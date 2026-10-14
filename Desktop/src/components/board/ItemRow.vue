@@ -135,11 +135,12 @@ function onKeydown(e: KeyboardEvent) {
       <span v-if="item.comments.length" class="flex items-center gap-0.5" :title="m.comments"><MessageSquare :size="13" /> {{ item.comments.length }}</span>
     </span>
 
+    <!-- Colonne di larghezza fissa: i badge si allineano da una riga all'altra, con pallino e testo centrati -->
     <template v-if="editable && !compact">
-      <LabelSelect :model-value="item.labelId" @update:model-value="setLabel" />
-      <DueDateField :model-value="item.dueDate" @update:model-value="setDue" />
-      <StatusSelect :model-value="item.status" @update:model-value="setStatus" />
-      <PrioritySelect :model-value="item.priority" @update:model-value="setPriority" />
+      <LabelSelect class="w-32" :model-value="item.labelId" @update:model-value="setLabel" />
+      <DueDateField class="w-20" :model-value="item.dueDate" @update:model-value="setDue" />
+      <StatusSelect class="w-28" :model-value="item.status" @update:model-value="setStatus" />
+      <PrioritySelect class="w-24" :model-value="item.priority" @update:model-value="setPriority" />
     </template>
     <span v-else-if="editable" class="flex shrink-0 items-center gap-2 whitespace-nowrap text-[12px] text-ink-3" :title="`${STATUS_LABEL[item.status]} · ${PRIORITY_LABEL[item.priority]}${label ? ' · ' + label.name : ''}`">
       <span v-if="item.dueDate" class="tabular-nums" :class="{ 'font-semibold text-danger': dueState(item.dueDate) === 'overdue' }">{{ formatDue(item.dueDate) }}</span>

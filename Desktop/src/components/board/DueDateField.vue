@@ -25,7 +25,7 @@ const label = computed(() => (model.value ? formatDue(model.value) : ''))
 
 <template>
   <label
-    class="relative inline-flex h-6 shrink-0 cursor-default items-center gap-1 whitespace-nowrap rounded-full px-1.5 text-[12px] tabular-nums hover:bg-surface-2"
+    class="relative inline-flex h-6 shrink-0 cursor-default items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 text-[12px] tabular-nums hover:bg-surface-2"
     :class="tone"
     :title="model ? m.due(dayjs(model).format(DATE.dateLong)) : m.add"
     @click.stop

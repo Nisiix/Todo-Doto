@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertTriangle, ArrowDown, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -11,14 +11,15 @@ import { useConfirm } from '@/composables/useConfirm'
 import { usePrereqChecks } from '@/composables/usePrereqChecks'
 import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
 import { parseGitHubRepo } from '@/services/github'
-import { checkFolder } from '@/services/fsErrors'
+import { checkFolder, explainFsError } from '@/services/fsErrors'
+import { detectStack } from '@/services/projectScan'
 import { useGitHubStore } from '@/stores/github'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { getFs, isTauri } from '@/services/fs'
 import { autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, suggestPrerequisites } from '@/services/prerequisites'
-import { mergeImportedStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
+import { mergeImportedStack, mergeStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
 import { copyStack, hasStack, resolveStack, slugify, varsFor } from '@/services/scaffold'
@@ -109,6 +110,13 @@ const m = defineMessages({
     autofilled: (name: string) => `Completati i dati di ${name}`,
     importMd: 'Importa .md',
     importMdHint: 'Importa un documento di architettura in Markdown (README, ARCHITETTURA.md…) per precompilare lo stack',
+    detect: 'Rileva dai file del progetto',
+    detectHint: 'Rilegge la cartella del progetto (anche di rete) e aggiunge linguaggi, framework, prerequisiti e passi ricavati dai suoi file, senza cancellare nulla',
+    detecting: 'Leggo i file del progetto…',
+    detected: (parts: string) => `Dai file del progetto: ${parts}`,
+    detectedNothing: 'Nessun dato nuovo dai file del progetto: lo stack era già completo, o la cartella non contiene file di progetto riconoscibili.',
+    detectFailed: (err: string) => `Non riesco a leggere la cartella del progetto: ${err}`,
+    detectEmpty: 'Linguaggi, framework e prerequisiti non sono ancora indicati: puoi ricavarli dai file della cartella del progetto.',
     pickMd: 'Scegli il documento di architettura (.md)',
     mdImported: (file: string, parts: string) => (parts ? `Da «${file}»: ${parts}. Controlla e salva.` : `«${file}» memorizzato; nessun dato nuovo da aggiungere. Controlla e salva.`),
     mdFailed: (err: string) => `Non riesco a leggere il documento: ${err}`,
@@ -261,6 +269,13 @@ const m = defineMessages({
     autofilled: (name: string) => `Filled in the details of ${name}`,
     importMd: 'Import .md',
     importMdHint: 'Import a Markdown architecture document (README, ARCHITECTURE.md…) to pre-fill the stack',
+    detect: 'Detect from the project files',
+    detectHint: 'Reads the project folder again (network ones too) and adds the languages, frameworks, prerequisites and steps found in its files, without deleting anything',
+    detecting: 'Reading the project files…',
+    detected: (parts: string) => `From the project files: ${parts}`,
+    detectedNothing: 'Nothing new from the project files: the stack was already complete, or the folder has no recognizable project files.',
+    detectFailed: (err: string) => `Cannot read the project folder: ${err}`,
+    detectEmpty: 'Languages, frameworks and prerequisites are not set yet: you can derive them from the files in the project folder.',
     pickMd: 'Choose the architecture document (.md)',
     mdImported: (file: string, parts: string) => (parts ? `From “${file}”: ${parts}. Review and save.` : `“${file}” stored; nothing new to add. Review and save.`),
     mdFailed: (err: string) => `Cannot read the document: ${err}`,
@@ -377,6 +392,9 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 })
 async function save() {
   const d = draft.value
+  // Un progetto per cartella: non si può indicare la cartella di un altro progetto
+  const other = d.sourcePath.trim() !== stack.value.sourcePath ? ws.projectAtPath(d.sourcePath, props.project.id) : null
+  if (other) return ui.toast(common.ws.duplicateFolder(other.name, !!other.trashedAt), 'error', undefined, 6000)
   d.prerequisites = d.prerequisites.filter((p) => p.name.trim())
   d.steps = d.steps.filter((s) => s.title.trim())
   d.envVars = d.envVars.filter((v) => v.key.trim())
@@ -454,6 +472,31 @@ function applyMarkdown(fileName: string, content: string) {
   ui.toast(m.mdImported(fileName, m.mdParts(added)), 'success', undefined, 7000)
 }
 const showDoc = ref(false)
+
+// --- stack ricavato dai file della cartella del progetto (admin) ---------------------
+const detecting = ref(false)
+/** Niente di tecnico nello stack, ma c'è la cartella: si propone di ricavarlo dai file. */
+const needsDetect = computed(() => !!stack.value.sourcePath && !stack.value.languages.length && !stack.value.frameworks.length && !stack.value.prerequisites.length)
+async function detectFromFolder() {
+  const dir = view.value.sourcePath.trim()
+  if (!dir || detecting.value) return
+  detecting.value = true
+  try {
+    const problem = await checkFolder(await getFs(), dir)
+    if (problem) return ui.toast(m.detectFailed(problem), 'error', undefined, 8000)
+    const det = await detectStack(dir)
+    const { stack: merged, added } = mergeStack(stack.value, det.stack)
+    const parts = m.mdParts(added)
+    if (!parts) return ui.toast(m.detectedNothing, 'info', undefined, 6000)
+    await ws.updateStack(props.project.id, { ...merged, sourcePath: stack.value.sourcePath })
+    if (!props.project.description.trim() && det.description) await ws.updateProject(props.project.id, { description: det.description })
+    ui.toast(m.detected(parts), 'success', undefined, 6000)
+  } catch (e) {
+    ui.toast(m.detectFailed(explainFsError(e, dir)), 'error', undefined, 8000)
+  } finally {
+    detecting.value = false
+  }
+}
 
 // --- importazione dello stack da un altro progetto (admin): si controlla e si salva ---
 const importMenu = computed(() =>
@@ -667,9 +710,19 @@ async function ghSync() {
       <BaseMenu v-if="canEdit && importMenu.length" :items="importMenu">
         <BaseButton size="sm" variant="ghost" :title="m.importFromHint"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
       </BaseMenu>
+      <BaseButton v-if="canEdit && !editing && stack.sourcePath" size="sm" variant="ghost" :title="m.detectHint" :disabled="detecting" data-detect-stack @click="detectFromFolder">
+        <Loader2 v-if="detecting" :size="14" class="animate-spin" /><FolderSearch v-else :size="14" /> {{ detecting ? m.detecting : m.detect }}
+      </BaseButton>
       <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
       <input ref="mdInput" type="file" accept=".md,.markdown,.txt,text/markdown" class="hidden" data-md-input @change="onMdFile" />
       <BaseButton v-if="canEdit && !editing" size="sm" @click="startEdit"><Pencil :size="14" /> {{ hasStack(stack) ? common.actions.edit : m.fill }}</BaseButton>
+    </div>
+
+    <!-- Stack ancora senza tecnologie ma con la cartella del progetto: lo si può ricavare dai file -->
+    <div v-if="canEdit && !editing && needsDetect" class="!mt-3 flex items-center gap-2 rounded-md border border-dashed border-accent/50 px-3 py-2 text-[13px] text-ink-2" data-detect-hint>
+      <FolderSearch :size="15" class="shrink-0 text-accent" />
+      <span class="flex-1">{{ m.detectEmpty }}</span>
+      <BaseButton size="sm" variant="primary" :disabled="detecting" @click="detectFromFolder">{{ m.detect }}</BaseButton>
     </div>
 
     <!-- Repository GitHub collegato (o collegabile) -->

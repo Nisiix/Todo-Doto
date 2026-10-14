@@ -61,7 +61,7 @@ async function addItem(page: Page, title: string, priority = 'media', opts: { no
   await newItemButton(page).click()
   await page.fill('#i-title', title)
   if (opts.notes) await page.fill('#i-notes', opts.notes)
-  await dialog(page).locator('select[title^="Priorità"]').selectOption(priority)
+  await dialog(page).locator('#i-priority').selectOption(priority)
   if (opts.label) await dialog(page).getByLabel('Etichetta').selectOption({ label: opts.label })
   await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(dialog(page)).toBeHidden()
@@ -246,6 +246,27 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await page.getByRole('button', { name: 'Salva', exact: true }).click()
   await expect(page.getByText('Salvato')).toBeVisible()
 
+  // Anche gli attributi (priorità, stato…) aspettano «Salva» e si annullano con «Annulla»
+  const panel = page.locator('aside').last()
+  const detailPriority = panel.locator('select[title^="Priorità"]')
+  const before = await detailPriority.inputValue()
+  const other = before === 'immediata' ? 'bassa' : 'immediata'
+  await detailPriority.selectOption(other)
+  await expect(panel.locator('[data-detail-save]')).toContainText('Modifiche non salvate')
+  await panel.getByRole('button', { name: 'Annulla', exact: true }).click()
+  await expect(detailPriority).toHaveValue(before)
+  await expect(panel.locator('[data-detail-save]')).toHaveCount(0)
+  await detailPriority.selectOption(other)
+  await panel.locator('select[title^="Stato"]').selectOption('confermato')
+  // Salva e Annulla a destra
+  const box = await panel.locator('[data-detail-save]').boundingBox()
+  const saveBtn = await panel.getByRole('button', { name: 'Salva', exact: true }).boundingBox()
+  expect(saveBtn!.x + saveBtn!.width).toBeGreaterThan(box!.x + box!.width - 4)
+  await panel.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(panel.locator('[data-detail-save]')).toHaveCount(0)
+  await expect(detailPriority).toHaveValue(other)
+  await expect(panel.locator('select[title^="Stato"]')).toHaveValue('confermato')
+
   // Cestina, poi elimina definitivamente dal cestino
   await rows(page).nth(1).hover()
   await rows(page).nth(1).getByLabel('Azioni').click()
@@ -266,7 +287,7 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   // Dati inseriti prima di passare alle etichette
   await page.fill('#i-title', 'Crash all’avvio')
   await page.fill('#i-notes', 'Succede solo al primo avvio')
-  await dialog(page).locator('select[title^="Priorità"]').selectOption('alta')
+  await dialog(page).locator('#i-priority').selectOption('alta')
   await dialog(page).getByRole('button', { name: 'Gestisci etichette…' }).click()
   const labels = page.getByRole('dialog').filter({ hasText: 'Badge da assegnare' })
   await expect(labels).toBeVisible()
@@ -280,7 +301,7 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   // …e alla chiusura torna con quanto già inserito
   await expect(page.locator('#i-title')).toHaveValue('Crash all’avvio')
   await expect(page.locator('#i-notes')).toHaveValue('Succede solo al primo avvio')
-  await expect(dialog(page).locator('select[title^="Priorità"]')).toHaveValue('alta')
+  await expect(dialog(page).locator('#i-priority')).toHaveValue('alta')
   await dialog(page).getByLabel('Etichetta').selectOption({ label: 'Bug' })
   await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(rows(page).first().getByTitle('Etichetta: Bug').first()).toBeVisible()
@@ -718,7 +739,7 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
 test('nome del progetto: è quello della cartella, si decide alla creazione e poi non si cambia', async ({ page }) => {
   await createLocalWorkspace(page)
   await page.getByRole('button', { name: 'Progetto' }).first().click()
-  await expect(page.locator('[data-name-hint]')).toContainText('Il nome del progetto è il nome della sua cartella sul disco')
+  await expect(page.locator('[data-name-hint]')).toContainText('Il nome del progetto è il nome della sua cartella')
   // Scrivendo il nome si propone la cartella <cartella dei progetti>/<nome>
   await page.fill('#p-name', 'Bozza')
   await expect(page.locator('#p-disk')).toHaveValue(/[\\/]Bozza$/)
@@ -793,4 +814,90 @@ test('GitHub: collegamento con token, progetti creati dai repository e stack sin
   await expect(page.locator('[data-github-link]')).toContainText('tester/demo-app')
   await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
   await expect(page.getByText('git clone https://github.com/tester/demo-app.git .')).toBeVisible()
+})
+
+test('nuovo progetto da cartella: importa un progetto esistente, rifiuta cartelle non vuote, di progetti o già usate', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic('/esterni/gestionale/package.json', JSON.stringify({ dependencies: { vue: '^3.5.0' }, devDependencies: { typescript: '^5' } }))
+    await fs.writeTextAtomic('/esterni/script-py/analisi.py', 'print(1)')
+    await fs.writeTextAtomic('/esterni/documenti/lettera.docx', 'x')
+    await fs.writeTextAtomic('/esterni/vuota/desktop.ini', '')
+  })
+  const open = () => page.getByRole('button', { name: 'Progetto' }).first().click()
+  const kind = page.locator('[data-folder-kind]')
+
+  // Prima la cartella, poi il nome (preso dalla cartella)
+  await open()
+  const fields = await dialog(page).locator('input.field').evaluateAll((els) => els.map((e) => e.id))
+  expect(fields.slice(0, 2)).toEqual(['p-disk', 'p-name'])
+
+  // Cartella con file che non sono un progetto: errore, per partire da zero dev'essere vuota
+  await page.fill('#p-disk', '/esterni/documenti')
+  await expect(kind).toHaveAttribute('data-kind', 'other')
+  await expect(kind).toContainText('la cartella deve essere vuota')
+  await expect(page.getByRole('button', { name: 'Crea progetto' })).toBeDisabled()
+
+  // Progetto esistente (anche solo sorgenti Python): riconosciuto e importato così com'è
+  await page.fill('#p-disk', '/esterni/script-py')
+  await expect(kind).toHaveAttribute('data-kind', 'project')
+  await expect(kind).toContainText('analisi.py')
+  await page.fill('#p-disk', '/esterni/gestionale')
+  await expect(kind).toContainText('Progetto esistente riconosciuto (package.json)')
+  await expect(page.locator('#p-name')).toHaveValue('gestionale')
+  await page.getByRole('button', { name: 'Importa progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'gestionale' })).toBeVisible()
+  await expect(page.getByText('Progetto importato: stack ricavato dai file della cartella')).toBeVisible()
+  await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
+  // La cartella non viene toccata: niente README aggiunto
+  const touched = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ exists(p: string): Promise<boolean> }> }).__pgmFs()
+    return fs.exists('/esterni/gestionale/README.md')
+  })
+  expect(touched).toBe(false)
+
+  // Stessa cartella una seconda volta: non si può creare un doppione
+  await open()
+  await page.fill('#p-disk', '/esterni/gestionale/')
+  await expect(kind).toHaveAttribute('data-kind', 'error')
+  await expect(kind).toContainText('Esiste già un progetto con questa cartella: «gestionale»')
+  await expect(page.getByRole('button', { name: /Crea progetto|Importa progetto/ })).toBeDisabled()
+
+  // Cartella vuota (solo file di sistema): progetto da zero, con i file iniziali
+  await page.fill('#p-disk', '/esterni/vuota')
+  await expect(kind).toHaveAttribute('data-kind', 'empty')
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'vuota' })).toBeVisible()
+  await expect(page.getByText(/Cartella del progetto creata/)).toBeVisible()
+
+  // Cartella che contiene più progetti: è una cartella di progetti, non di un progetto
+  await open()
+  await page.fill('#p-disk', '/esterni')
+  await expect(kind).toHaveAttribute('data-kind', 'projects')
+  await expect(kind).toContainText('contiene più progetti')
+})
+
+test('stack: «Rileva dai file del progetto» ricava lo stack anche dalle sottocartelle', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Gestionale')
+  await openSection(page, 'Stack')
+  const dir = (await page.locator('code', { hasText: /Gestionale$/ }).textContent())!.trim()
+  // Il codice arriva dopo (es. copiato sulla cartella di rete): file di progetto in sottocartelle
+  await page.evaluate(async (d) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic(`${d}/frontend/package.json`, JSON.stringify({ dependencies: { vue: '^3.5.0' }, devDependencies: { typescript: '^5' } }))
+    await fs.writeTextAtomic(`${d}/src/Api/Api.csproj`, '<Project Sdk="Microsoft.NET.Sdk.Web"></Project>')
+  }, dir)
+  await expect(page.locator('[data-detect-hint]')).toBeVisible()
+  await page.locator('[data-detect-hint]').getByRole('button', { name: 'Rileva dai file del progetto' }).click()
+  await expect(page.getByText(/Dai file del progetto:/)).toBeVisible()
+  await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
+  await expect(page.getByText('ASP.NET Core', { exact: true })).toBeVisible()
+  await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
+  await expect(page.getByText('Prerequisito: .NET SDK')).toBeVisible()
+  await expect(page.locator('[data-detect-hint]')).toHaveCount(0)
+  // Seconda volta: niente di nuovo
+  await page.locator('[data-detect-stack]').click()
+  await expect(page.getByText(/Nessun dato nuovo dai file del progetto/)).toBeVisible()
 })

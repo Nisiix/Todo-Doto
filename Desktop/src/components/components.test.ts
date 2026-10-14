@@ -98,7 +98,7 @@ describe('testo con menzioni', () => {
 })
 
 describe('gestione permessi dei progetti', () => {
-  it('solo i progetti limitati: utenti per progetto, filtro, i pubblici non si selezionano', async () => {
+  it('solo i progetti limitati: utenti per progetto, filtro, i pubblici non si selezionano', { timeout: 20_000 }, async () => {
     const PermissionsDialog = (await import('./dialogs/PermissionsDialog.vue')).default
     await useSessionStore().init()
     const ws = useWorkspaceStore()

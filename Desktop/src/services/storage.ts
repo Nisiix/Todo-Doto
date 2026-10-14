@@ -45,6 +45,8 @@ export interface LockOptions {
   /** Oltre questo tempo di attesa il salvataggio fallisce con `LockBusyError`. */
   timeoutMs: number
 }
+/** Ogni quanto la firma dei file si ricalcola per intero anche se le cartelle non risultano cambiate. */
+export const FULL_SIGNATURE_MS = 30_000
 export const DEFAULT_LOCK: LockOptions = { staleMs: 12_000, abandonedMs: 5 * 60_000, timeoutMs: 30_000 }
 
 /** Il file è occupato da un altro salvataggio da troppo tempo. */
@@ -133,8 +135,9 @@ export class WorkspaceStorage {
     return parse(JSON.parse(text))
   }
 
+  /** JSON compatto: file più piccoli da trasferire e analizzare (quelli formattati si leggono comunque). */
   private writeJson(path: string, data: unknown) {
-    return this.fs.writeTextAtomic(path, JSON.stringify(data, null, 2))
+    return this.fs.writeTextAtomic(path, JSON.stringify(data))
   }
 
   projectPath(id: string) {
@@ -309,8 +312,29 @@ export class WorkspaceStorage {
 
   // --- rilevamento cambiamenti --------------------------------------------
 
-  /** Firma (mtime+size) di tutti i file del workspace. */
+  /**
+   * Firma (mtime+size) di tutti i file del workspace.
+   *
+   * Scorciatoia per le cartelle di rete: ogni scrittura dell'app crea e rinomina
+   * file nella cartella che li contiene (il .lock e il file temporaneo), quindi
+   * ne cambia la data di modifica. Se le date della cartella del workspace e di
+   * projects/ sono quelle dell'ultima firma completa, nulla è cambiato e la
+   * firma resta quella: 2 richieste invece di una per file. Per sicurezza la
+   * firma completa si ricalcola comunque ogni FULL_SIGNATURE_MS.
+   */
   async signature(): Promise<Signature> {
+    const [root, projects] = await Promise.all([this.fs.stat(this.root), this.fs.stat(this.paths.projectsDir)])
+    const key = root?.mtimeMs && projects?.mtimeMs ? `${root.mtimeMs}|${projects.mtimeMs}` : ''
+    const q = this.quick
+    if (key && q && q.key === key && Date.now() - q.at < FULL_SIGNATURE_MS) return { ...q.sig }
+    const sig = await this.fullSignature()
+    this.quick = key ? { key, sig, at: Date.now() } : null
+    return { ...sig }
+  }
+  /** Ultima firma completa e date delle cartelle a cui si riferisce (vedi signature()). */
+  private quick: { key: string; sig: Signature; at: number } | null = null
+
+  private async fullSignature(): Promise<Signature> {
     const sig: Signature = {}
     const put = (key: string, s: FileStat | null) => {
       if (s) sig[key] = `${s.mtimeMs}:${s.size}`

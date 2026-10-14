@@ -150,9 +150,10 @@ export class GitHubClient {
       .map(([name]) => name)
   }
 
-  /** File e cartelle della radice del repository. */
-  async rootEntries(owner: string, repo: string): Promise<{ name: string; isDir: boolean }[]> {
-    const list = await this.json<{ name: string; type: string }[]>(`/repos/${owner}/${repo}/contents/`)
+  /** File e cartelle della radice del repository, o di una sua sottocartella. */
+  async rootEntries(owner: string, repo: string, sub = ''): Promise<{ name: string; isDir: boolean }[]> {
+    const path = sub ? sub.split('/').map(encodeURIComponent).join('/') : ''
+    const list = await this.json<{ name: string; type: string }[]>(`/repos/${owner}/${repo}/contents/${path}`)
     return list.map((e) => ({ name: e.name, isDir: e.type === 'dir' }))
   }
 
@@ -170,7 +171,7 @@ export class GitHubClient {
   /** Il repository come sorgente da cui ricavare lo Stack. */
   source(owner: string, repo: string): ProjectSource {
     return {
-      list: () => this.rootEntries(owner, repo).catch(() => []),
+      list: (sub) => this.rootEntries(owner, repo, sub).catch(() => []),
       read: (name) => this.fileText(owner, repo, name).catch(() => null),
     }
   }

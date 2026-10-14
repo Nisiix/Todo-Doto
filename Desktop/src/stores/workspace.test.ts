@@ -584,3 +584,43 @@ describe('workspace: visibilità dei progetti (pubblica / limitata)', () => {
     expect(ws.projects[p.id]!.visibility).toBe('restricted')
   })
 })
+
+describe('workspace: un progetto per cartella', () => {
+  it('non si assegna a un progetto la cartella di un altro (anche nel cestino), né la si importa due volte', async () => {
+    await useSessionStore().init()
+    const ws = useWorkspaceStore()
+    await ws.create({ path: '/dup-dati', name: 'Dup', mode: 'local' })
+    const a = (await ws.createProject({ name: 'A', description: '', folderId: null, members: [] }))!
+    const b = (await ws.createProject({ name: 'B', description: '', folderId: null, members: [] }))!
+    await ws.setProjectSourcePath(a.id, '/progetti/A')
+    expect(ws.projectAtPath('/PROGETTI/a/')?.id).toBe(a.id)
+    expect(await ws.setProjectSourcePath(b.id, '/progetti/A')).toBeUndefined()
+    expect(ws.projects[b.id]!.stack.sourcePath).toBe('')
+    await ws.trashProject(a.id)
+    expect(ws.projectAtPath('/progetti/A')?.id).toBe(a.id)
+    expect(await ws.importProjects([{ name: 'A', path: '/progetti/A' }])).toBe(0)
+  })
+})
+
+describe('workspace: progetti e cartelle solo dagli amministratori', () => {
+  it('un membro non crea progetti né cartelle (e non rinomina/elimina cartelle)', async () => {
+    await useSessionStore().init()
+    const ws = useWorkspaceStore()
+    await ws.create({ path: '/soloadmin', name: 'Rete', mode: 'network', password: 'segreto1' })
+    await ws.addFolder('Clienti', null)
+    const folder = ws.tree.folders[0]!
+    const me = ws.currentUser!
+    await ws.storage!.mutateUsers((f) => {
+      f.users.push({ id: 'usr_admin', username: 'boss', hostname: 'PC9', displayName: 'Boss', role: 'admin', createdAt: '' })
+      f.users.find((u) => u.id === me.id)!.role = 'member'
+    })
+    await ws.refresh()
+    expect(ws.isAdmin).toBe(false)
+    expect(await ws.createProject({ name: 'Mio', description: '', folderId: null, members: [] })).toBeUndefined()
+    expect(Object.keys(ws.projects)).toHaveLength(0)
+    await ws.addFolder('Altra', null)
+    await ws.renameFolder(folder.id, 'Rinominata')
+    await ws.deleteFolder(folder.id)
+    expect(ws.tree.folders.map((f) => f.name)).toEqual(['Clienti'])
+  })
+})

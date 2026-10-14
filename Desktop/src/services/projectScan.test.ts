@@ -123,3 +123,71 @@ describe('inferProjectsPath', () => {
     expect(inferProjectsPath(['progetto'])).toBe('')
   })
 })
+
+describe('inspectFolder (cartella di un singolo progetto)', () => {
+  it('riconosce progetti di qualunque tipo o linguaggio', async () => {
+    const { inspectFolder } = await import('./projectScan')
+    const fs = await getFs()
+    await fs.writeTextAtomic('/singolo/node/package.json', '{}')
+    await fs.writeTextAtomic('/singolo/cmake/CMakeLists.txt', 'project(x)')
+    await fs.writeTextAtomic('/singolo/script/analisi.py', 'print(1)')
+    await fs.writeTextAtomic('/singolo/sorgenti/src/main.go', 'package main')
+    await fs.writeTextAtomic('/singolo/sito/index.html', '<html>')
+    for (const d of ['node', 'cmake', 'script', 'sorgenti', 'sito']) expect((await inspectFolder(`/singolo/${d}`)).kind).toBe('project')
+    expect((await inspectFolder('/singolo/sorgenti')).markers).toEqual(['src/main.go'])
+  })
+  it('cartella nuova, vuota, con altri file, di progetti o Dati del workspace', async () => {
+    const { inspectFolder } = await import('./projectScan')
+    const fs = await getFs()
+    expect((await inspectFolder('/singolo/nuova')).kind).toBe('missing')
+    await fs.writeTextAtomic('/singolo/vuota/desktop.ini', '')
+    expect((await inspectFolder('/singolo/vuota')).kind).toBe('empty')
+    await fs.writeTextAtomic('/singolo/documenti/lettera.docx', 'x')
+    await fs.writeTextAtomic('/singolo/documenti/README.md', '# solo readme')
+    expect((await inspectFolder('/singolo/documenti')).kind).toBe('other')
+    await fs.writeTextAtomic('/singolo/dati/workspace.json', '{}')
+    expect((await inspectFolder('/singolo/dati')).kind).toBe('workspace')
+    await fs.writeTextAtomic('/molti/alfa/package.json', '{}')
+    await fs.writeTextAtomic('/molti/beta/Cargo.toml', '')
+    const many = await inspectFolder('/molti')
+    expect(many.kind).toBe('projects')
+    expect(many.markers).toEqual(['alfa', 'beta'])
+  })
+  it('la cartella dei progetti continua a usare il suo riconoscimento (sottocartelle)', async () => {
+    const fs = await getFs()
+    await fs.writeTextAtomic('/cartella-progetti/solo-sorgenti/main.py', 'x')
+    await fs.writeTextAtomic('/cartella-progetti/node/package.json', '{}')
+    // Un singolo .py non basta per la scansione della cartella dei progetti (logica distinta)
+    expect((await scanProjects('/cartella-progetti')).map((p) => p.name)).toEqual(['node'])
+  })
+})
+
+describe('detectStack: progetti con i file di progetto nelle sottocartelle (anche di rete)', () => {
+  it('soluzione .NET in src\App e frontend separato: linguaggi, framework e prerequisiti', async () => {
+    const fs = await getFs()
+    await fs.writeTextAtomic('/rete/gestionale/Gestionale.sln', '')
+    await fs.writeTextAtomic('/rete/aziendale/src/Api/Api.csproj', '<Project Sdk="Microsoft.NET.Sdk.Web"></Project>')
+    await fs.writeTextAtomic('/rete/aziendale/frontend/package.json', JSON.stringify({ dependencies: { vue: '^3.4.0' }, devDependencies: { typescript: '^5' } }))
+    await fs.writeTextAtomic('/rete/aziendale/node_modules/x/package.json', JSON.stringify({ dependencies: { react: '18' } }))
+    await fs.writeTextAtomic('/rete/aziendale/README.md', '# Aziendale')
+    const { stack } = await detectStack('/rete/aziendale')
+    expect(stack.languages).toEqual(expect.arrayContaining(['C#', 'TypeScript']))
+    expect(stack.frameworks).toEqual(expect.arrayContaining(['ASP.NET Core', 'Vue 3']))
+    expect(stack.frameworks).not.toContain('React') // node_modules non si esplora
+    expect(stack.prerequisites.map((p) => p.name)).toEqual(expect.arrayContaining(['Node.js', '.NET SDK']))
+    // I passi delle sottocartelle si eseguono lì
+    const install = stack.steps.find((x) => x.command === 'npm install')!
+    expect(install.cwd).toBe('frontend')
+    expect(stack.steps.find((x) => x.command === 'dotnet restore')!.cwd).toBe('src\\Api')
+  })
+  it('la cartella del progetto che non si legge non diventa uno stack vuoto: l’errore arriva a chi chiama', async () => {
+    const { stackFromSource } = await import('./projectScan')
+    const failing = {
+      list: async () => {
+        throw new Error('Access is denied. (os error 5)')
+      },
+      read: async () => null,
+    }
+    await expect(stackFromSource(failing)).rejects.toThrow('os error 5')
+  })
+})

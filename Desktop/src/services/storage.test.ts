@@ -260,3 +260,44 @@ describe('WorkspaceStorage: eliminazione dei dati', () => {
     expect(await fs.exists('/altro/users.json')).toBe(true)
   })
 })
+
+describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', () => {
+  it('se le date delle cartelle non cambiano non si interrogano i singoli file; ogni scrittura le cambia', async () => {
+    const fs = await getFs()
+    const s = await freshWorkspace('/rapido')
+    await s.writeProject({ ...project('prj_a'), name: 'A' })
+    // Il filesystem di rete dà alle cartelle la data dell'ultima modifica del loro contenuto
+    const original = fs.stat
+    let dirTime = 1000
+    let fileStats = 0
+    fs.stat = async (p: string) => {
+      const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
+      if (n === '/rapido' || n === '/rapido/projects') return { mtimeMs: dirTime, size: 0 }
+      fileStats++
+      return original(p)
+    }
+    try {
+      const first = await s.signature()
+      expect(fileStats).toBeGreaterThan(0)
+      fileStats = 0
+      // Nessun cambiamento: due sole richieste (le cartelle), stessa firma
+      expect(await s.signature()).toEqual(first)
+      expect(fileStats).toBe(0)
+      // Una scrittura cambia la data della cartella: si ricalcola tutto e si vede la modifica
+      await s.mutateProject('prj_a', 'usr_1', (p) => void (p.name = 'A2'))
+      dirTime = 2000
+      const after = await s.signature()
+      expect(fileStats).toBeGreaterThan(0)
+      expect(after['projects/prj_a']).not.toBe(first['projects/prj_a'])
+    } finally {
+      fs.stat = original
+    }
+  })
+  it('i file si scrivono compatti; quelli formattati delle versioni precedenti si leggono', async () => {
+    const fs = await getFs()
+    const s = await freshWorkspace('/compatto')
+    expect(await fs.readText('/compatto/workspace.json')).not.toContain('\n')
+    await fs.writeTextAtomic('/compatto/tree.json', JSON.stringify({ folders: [], labels: [] }, null, 2))
+    expect(await s.readTree()).toEqual({ folders: [], labels: [] })
+  })
+})

@@ -15,7 +15,7 @@ import ItemQuestions from '@/components/detail/ItemQuestions.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
-import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Project } from '@/types'
+import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority, type Project, type Status } from '@/types'
 import { DATE, defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -25,6 +25,7 @@ const m = defineMessages({
     lockDone: 'Elemento completato: riaprilo per modificare.',
     lockTrash: 'Elemento nel cestino: ripristinalo per modificare.',
     saved: 'Salvato',
+    unsaved: 'Modifiche non salvate',
     complete: 'Completa',
     restore: 'Ripristina',
     closeEsc: 'Chiudi (Esc)',
@@ -41,6 +42,7 @@ const m = defineMessages({
     lockDone: 'Completed item: reopen it to make changes.',
     lockTrash: 'Item in the trash: restore it to make changes.',
     saved: 'Saved',
+    unsaved: 'Unsaved changes',
     complete: 'Complete',
     restore: 'Restore',
     closeEsc: 'Close (Esc)',
@@ -74,11 +76,35 @@ const lockReason = computed(() => {
   return ''
 })
 
-// Titolo e note si modificano in locale e si salvano con "Salva": un
-// aggiornamento remoto non cancella quello che si sta scrivendo.
+// Titolo, descrizione e attributi (priorità, stato, scadenza, etichetta,
+// assegnatario) si modificano in locale e si salvano insieme con "Salva" (o si
+// annullano): un aggiornamento remoto non cancella quello che si sta scrivendo.
 const title = ref(props.item.title)
 const notes = ref(props.item.notes)
-const dirty = computed(() => title.value !== props.item.title || notes.value !== props.item.notes)
+const priority = ref<Priority>(props.item.priority)
+const status = ref<Status>(props.item.status)
+const dueDate = ref<string | null>(props.item.dueDate)
+const labelId = ref<string | null>(props.item.labelId)
+const assigneeId = ref<string | null>(props.item.assigneeId)
+const dirty = computed(
+  () =>
+    title.value !== props.item.title ||
+    notes.value !== props.item.notes ||
+    priority.value !== props.item.priority ||
+    status.value !== props.item.status ||
+    dueDate.value !== props.item.dueDate ||
+    labelId.value !== props.item.labelId ||
+    assigneeId.value !== props.item.assigneeId,
+)
+function load(it: Item) {
+  title.value = it.title
+  notes.value = it.notes
+  priority.value = it.priority
+  status.value = it.status
+  dueDate.value = it.dueDate
+  labelId.value = it.labelId
+  assigneeId.value = it.assigneeId
+}
 const titleEl = ref<HTMLTextAreaElement | null>(null)
 
 function autosizeTitle() {
@@ -91,10 +117,9 @@ watch(
   () => props.item,
   (it) => {
     if (!dirty.value) {
-      title.value = it.title
-      notes.value = it.notes
+      load(it)
       requestAnimationFrame(autosizeTitle)
-    }
+    } else if (labelId.value && !ws.labelsById[labelId.value]) labelId.value = null // etichetta eliminata nel frattempo
   },
 )
 watch(title, () => requestAnimationFrame(autosizeTitle), { immediate: true })
@@ -102,13 +127,20 @@ watch(title, () => requestAnimationFrame(autosizeTitle), { immediate: true })
 async function save() {
   const t = title.value.trim()
   if (!t) return
-  await ws.updateItem(props.project.id, props.item.id, { title: t, notes: notes.value })
+  await ws.updateItem(props.project.id, props.item.id, {
+    title: t,
+    notes: notes.value,
+    priority: priority.value,
+    status: status.value,
+    dueDate: dueDate.value,
+    labelId: labelId.value,
+    assigneeId: assigneeId.value,
+  })
   title.value = t
   ui.toast(m.saved, 'success', undefined, 1800)
 }
 function discard() {
-  title.value = props.item.title
-  notes.value = props.item.notes
+  load(props.item)
 }
 
 const close = () => (ui.selectedItemId = null)
@@ -153,11 +185,11 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
         />
         <div class="mt-2 flex flex-wrap items-center gap-1.5">
           <template v-if="!locked">
-            <PrioritySelect :model-value="item.priority" @update:model-value="(p) => ws.updateItem(project.id, item.id, { priority: p })" />
-            <StatusSelect :model-value="item.status" @update:model-value="(s) => ws.updateItem(project.id, item.id, { status: s })" />
-            <DueDateField :model-value="item.dueDate" @update:model-value="(d) => ws.updateItem(project.id, item.id, { dueDate: d })" />
-            <LabelSelect :model-value="item.labelId" @update:model-value="(l) => ws.updateItem(project.id, item.id, { labelId: l })" />
-            <AssigneeSelect :model-value="item.assigneeId" @update:model-value="(u) => ws.updateItem(project.id, item.id, { assigneeId: u })" />
+            <PrioritySelect v-model="priority" />
+            <StatusSelect v-model="status" />
+            <DueDateField v-model="dueDate" />
+            <LabelSelect v-model="labelId" />
+            <AssigneeSelect v-model="assigneeId" />
             <button type="button" class="text-[11.5px] font-medium text-ink-3 hover:text-accent-ink hover:underline" @click="emit('manageLabels')">{{ m.manageLabels }}</button>
           </template>
           <template v-else>
@@ -181,10 +213,12 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
           :disabled="locked"
           :aria-label="m.description"
         />
-        <div v-if="!locked && dirty" class="mt-2 flex items-center gap-2">
-          <BaseButton variant="primary" size="sm" :disabled="!title.trim()" @click="save">{{ common.actions.save }}</BaseButton>
-          <BaseButton variant="ghost" size="sm" @click="discard">{{ common.actions.cancel }}</BaseButton>
+        <!-- Salva / Annulla: per titolo, descrizione e attributi insieme -->
+        <div v-if="!locked && dirty" class="mt-2 flex items-center justify-end gap-2" data-detail-save>
+          <span class="mr-auto text-[11.5px] font-semibold text-p-alta">{{ m.unsaved }}</span>
           <span class="text-[11.5px] text-ink-3">Ctrl+S</span>
+          <BaseButton variant="ghost" size="sm" @click="discard">{{ common.actions.cancel }}</BaseButton>
+          <BaseButton variant="primary" size="sm" :disabled="!title.trim()" @click="save">{{ common.actions.save }}</BaseButton>
         </div>
       </div>
 

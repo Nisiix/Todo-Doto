@@ -17,7 +17,7 @@ const label = computed(() => (props.labelId ? ws.labelsById[props.labelId] : nul
 <template>
   <span
     v-if="label"
-    class="inline-flex h-5 max-w-32 shrink-0 items-center truncate rounded-full px-2 text-[11px] font-semibold text-white"
+    class="inline-flex h-5 max-w-32 shrink-0 items-center justify-center truncate rounded-full px-2 text-[11px] font-semibold text-white"
     :style="{ background: label.color }"
     :title="m.labelNamed(label.name)"
   >

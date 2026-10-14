@@ -4,8 +4,8 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { defineMessages } from '@/i18n'
 
 const m = defineMessages({
-  it: { label: 'Etichetta', labelNamed: (n: string) => `Etichetta: ${n}`, none: 'Nessuna etichetta' },
-  en: { label: 'Label', labelNamed: (n: string) => `Label: ${n}`, none: 'No label' },
+  it: { label: 'Etichetta', labelNamed: (n: string) => `Etichetta: ${n}`, none: 'Nessuna etichetta', noneShort: 'Nessuna' },
+  en: { label: 'Label', labelNamed: (n: string) => `Label: ${n}`, none: 'No label', noneShort: 'None' },
 })
 
 /**
@@ -20,13 +20,15 @@ const current = computed(() => (model.value ? ws.labelsById[model.value] : null)
 </script>
 
 <template>
-  <span class="relative inline-flex items-center">
+  <!-- Pallino ed etichetta centrati; il menu a tendina, trasparente, copre tutta la pillola -->
+  <span class="relative inline-flex h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus-within:border-accent">
     <span
-      class="pointer-events-none absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full"
+      class="h-2 w-2 shrink-0 rounded-full"
       :style="{ background: current?.color ?? 'transparent', boxShadow: current ? 'none' : 'inset 0 0 0 1.5px var(--ink-3)' }"
     />
+    <span class="truncate" :class="{ 'text-ink-3': !current }">{{ current?.name ?? m.noneShort }}</span>
     <select
-      class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-5 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
+      class="absolute inset-0 h-full w-full cursor-default appearance-none rounded-full opacity-0"
       :value="model ?? ''"
       :title="current ? m.labelNamed(current.name) : m.label"
       :aria-label="m.label"

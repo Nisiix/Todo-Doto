@@ -9,15 +9,11 @@ const model = defineModel<Priority>({ required: true })
 </script>
 
 <template>
-  <span class="relative inline-flex items-center">
-    <span class="pointer-events-none absolute left-1.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" :class="`bg-p-${model}`" />
-    <select
-      v-model="model"
-      class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-5 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
-      :class="{ 'w-6 !pl-0 !pr-0 text-transparent': compact }"
-      :title="m.priority(PRIORITY_LABEL[model])"
-      @click.stop
-    >
+  <!-- Pallino ed etichetta centrati; il menu a tendina, trasparente, copre tutta la pillola -->
+  <span class="relative inline-flex h-6 min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line bg-surface px-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus-within:border-accent" :class="{ 'w-6 !px-0': compact }">
+    <span class="h-2 w-2 shrink-0 rounded-full" :class="`bg-p-${model}`" />
+    <span v-if="!compact" class="truncate">{{ PRIORITY_LABEL[model] }}</span>
+    <select v-model="model" class="absolute inset-0 h-full w-full cursor-default appearance-none rounded-full opacity-0" :title="m.priority(PRIORITY_LABEL[model])" @click.stop>
       <option v-for="p in PRIORITIES" :key="p" :value="p">{{ PRIORITY_LABEL[p] }}</option>
     </select>
   </span>
