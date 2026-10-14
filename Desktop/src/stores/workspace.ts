@@ -8,6 +8,7 @@ import { useSessionStore } from './session'
 import { useUiStore } from './ui'
 import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
+import { EMPTY_STACK, type AiTool, type Stack } from '@/types'
 import { firstLine } from '@/services/items'
 import type {
   Attachment,
@@ -441,6 +442,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       items: [],
       attachmentFolders: [],
       attachments: [],
+      stack: { ...EMPTY_STACK },
+      aiTools: [],
     }
     const ok = await guard(async () => {
       await s.writeProject(p)
@@ -505,6 +508,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       status: data.status ?? 'da_valutare',
       dueDate: data.dueDate ?? null,
       labelId: data.labelId ?? null,
+      assigneeId: data.assigneeId ?? null,
       bucket: 'todo',
       createdAt: nowIso(),
       createdBy: me,
@@ -716,6 +720,27 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     await mutateTree((t) => void (t.folders = t.folders.filter((f) => !ids.has(f.id))))
   }
 
+  // --- stack e strumenti AI (solo admin) -------------------------------------
+  const updateStack = (projectId: string, stack: Stack) =>
+    isAdmin.value ? mutateProject(projectId, (p) => void (p.stack = stack)) : Promise.resolve(undefined)
+
+  const addAiTool = (projectId: string, data: Omit<AiTool, 'id' | 'addedBy' | 'addedAt'>) =>
+    isAdmin.value
+      ? mutateProject(projectId, (p) => void p.aiTools.push({ ...data, id: newId('ait'), addedBy: currentUser.value?.id ?? 'unknown', addedAt: nowIso() }))
+      : Promise.resolve(undefined)
+
+  const updateAiTool = (projectId: string, toolId: string, data: Partial<AiTool>) =>
+    isAdmin.value
+      ? mutateProject(projectId, (p) => {
+          const t = p.aiTools.find((x) => x.id === toolId)
+          if (!t) return false
+          Object.assign(t, data)
+        })
+      : Promise.resolve(undefined)
+
+  const removeAiTool = (projectId: string, toolId: string) =>
+    isAdmin.value ? mutateProject(projectId, (p) => void (p.aiTools = p.aiTools.filter((t) => t.id !== toolId))) : Promise.resolve(undefined)
+
   // --- etichette --------------------------------------------------------------------
   const addLabel = (name: string, color: string) =>
     mutateTree((t) => void t.labels.push({ id: newId('lbl'), name: name.trim(), color }))
@@ -858,6 +883,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     addFolder,
     renameFolder,
     deleteFolder,
+    updateStack,
+    addAiTool,
+    updateAiTool,
+    removeAiTool,
     addLabel,
     updateLabel,
     deleteLabel,

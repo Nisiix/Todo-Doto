@@ -35,6 +35,8 @@ export function diffProjects(prev: Project, next: Project): Change[] {
     }
     if (old.status !== it.status) out.push({ ...base(it), type: 'item_status', text: `ha cambiato lo stato in «${STATUS_LABEL[it.status]}»` })
     if (old.notes !== it.notes) out.push({ ...base(it), type: 'item_notes', text: 'ha modificato la descrizione' })
+    if (old.assigneeId !== it.assigneeId && it.assigneeId)
+      out.push({ ...base(it), type: 'assigned', text: 'ha assegnato l’elemento', mentions: [it.assigneeId] })
 
     const oldComments = new Set(old.comments.map((c) => c.id))
     for (const c of it.comments)

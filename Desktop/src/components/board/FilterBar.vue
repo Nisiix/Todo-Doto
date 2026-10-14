@@ -72,7 +72,7 @@ const chip =
       </button>
     </div>
 
-    <select class="field field-sm h-6 w-40 py-0" :value="model.userId ?? ''" aria-label="Creato da" @change="set('userId', ($event.target as HTMLSelectElement).value || null)">
+    <select class="field field-sm h-6 w-40 py-0" :value="model.userId ?? ''" aria-label="Utente (creato da o assegnato a)" @change="set('userId', ($event.target as HTMLSelectElement).value || null)">
       <option value="">Tutti gli utenti</option>
       <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
     </select>

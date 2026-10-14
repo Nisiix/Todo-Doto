@@ -46,6 +46,7 @@ src/
     items.ts               ordinamento, scadenze, ricerca, filtri, conteggi (funzioni pure)
     changes.ts             confronto fra due versioni di un progetto → elenco di modifiche (per le notifiche)
     preview.ts             tipo di anteprima da nome/MIME e costruzione del contenuto (blob URL / testo)
+    analytics.ts           riepilogo numerico del workspace (pagina Analisi) e script .cmd di configurazione (sezione Stack)
     drive.ts               client Google Drive: PKCE, token, elenco ricorsivo, download/esportazione
     http.ts                fetch per API esterne (plugin http in Tauri, window.fetch altrove)
     ids.ts                 generazione id con prefisso (prj_, itm_, …) e timestamp
@@ -58,13 +59,15 @@ src/
   composables/
     useConfirm.ts          dialog di conferma come Promise<boolean>
   components/
+    project/               sezioni del progetto: ProjectStack (stack, prerequisiti, passi guidati, script) e ProjectAiTools (connettori, plugin, skill)
     ui/                    generici, senza conoscenza del dominio
     board/                 lista del progetto: riga, composer, selettori, allegati
     detail/                pannello elemento: commenti, domande, testo con menzioni
     layout/                TopBar, SideRail (albero), FolderNode, ProjectLink, DetailPanel
     dialogs/               form modali: workspace, password, progetto, allegato, nome, impostazioni
   views/                   WelcomeView, WorkspaceView (layout), WorkspaceHomeView, ProjectView, MembersView,
-                           DriveView (esplorazione della cartella replicata), AuditView (cronologia, admin)
+                           DriveView (esplorazione della cartella replicata), AuditView (cronologia, admin),
+                           AnalyticsView (riepilogo numerico, admin)
   test/setup.ts            setup Vitest: Pinia pulita e filesystem in memoria azzerato a ogni test
 e2e/app.spec.ts            test end-to-end Playwright
 src-tauri/                 backend Rust, configurazione finestra, permessi (capabilities)
@@ -145,6 +148,7 @@ mutateQuestion(projectId, itemId, qId, (q) => { ... })
 | `MenuTriggerButton` | il pulsante "⋯" che apre un `BaseMenu`, visibile all'hover del contenitore `.group` |
 | `SegmentedControl` | gruppo di opzioni esclusive, generico sul tipo del valore |
 | `UserAvatar` | iniziali con colore stabile derivato dal nome |
+| `ChipsInput` | elenco di valori come chip con suggerimenti (linguaggi, framework…) |
 | `ToastHost`, `ConfirmHost` | host globali montati una volta in `App.vue` |
 | `BrandMark` | il segno dell'app (quattro barre di priorità) |
 
@@ -185,6 +189,7 @@ watcher o polling → `ws.refresh()` → `storage.signature()` → per ogni file
 | una nuova azione (es. "duplica elemento") | una funzione nello store costruita con `mutateProject`/`mutateItem`; una voce nel `menu` di `ItemRow`. |
 | un nuovo tipo di allegato | `AttachmentSchema.kind`, `AttachmentDialog` (segmento), `AttachmentsBoard` (icona), `fs.openExternal`. |
 | una nuova pagina | `views/NuovaView.vue` + rotta figlia di `/w` in `router/index.ts` + link in `TopBar` o `SideRail`. |
+| una nuova sezione del progetto | un componente in `components/project/`, una voce in `SECTIONS` di `ProjectView` (la rotta `p/:id/:section?` è già pronta). |
 | un nuovo dialog | copia `NameDialog` come modello: `v-model:open`, `watch(open)` per inizializzare, `BaseDialog` con slot `footer`. |
 | una regola pura (ordinamento, filtri, date) | `services/items.ts`, con test in `items.test.ts`. |
 | cambiare i colori | solo le variabili in `style.css`. |

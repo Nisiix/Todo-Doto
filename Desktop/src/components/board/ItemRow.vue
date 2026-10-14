@@ -28,7 +28,8 @@ const editable = computed(() => !props.readOnly && props.item.bucket === 'todo')
 /** Con il pannello di dettaglio aperto la riga è stretta: controlli ridotti ai minimi. */
 const compact = computed(() => ui.selectedItemId !== null)
 const label = computed(() => (props.item.labelId ? ws.labelsById[props.item.labelId] : null))
-const authorName = computed(() => ws.userName(props.item.createdBy))
+const authorName = computed(() => ws.userName(props.item.assigneeId ?? props.item.createdBy))
+const personLabel = computed(() => (props.item.assigneeId ? `Assegnato a ${authorName.value}` : `Creato da ${authorName.value}`))
 const barHeight: Record<Priority, string> = { bassa: 'h-2', media: 'h-3.5', alta: 'h-5', immediata: 'h-7' }
 
 const setPriority = (p: Priority) => ws.updateItem(props.projectId, props.item.id, { priority: p })
@@ -106,7 +107,7 @@ const menu = computed(() => {
     </span>
     <LabelBadge v-if="!editable || compact" :label-id="item.labelId" />
 
-    <span class="flex shrink-0 items-center gap-1.5 text-[12px] text-ink-2" :title="`Creato da ${authorName}`">
+    <span class="flex shrink-0 items-center gap-1.5 text-[12px] text-ink-2" :title="personLabel">
       <UserAvatar :name="authorName" size="xs" />
       <span v-if="!compact" class="max-w-36 truncate">{{ authorName }}</span>
     </span>

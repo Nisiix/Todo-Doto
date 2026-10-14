@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Lock, Paperclip, Plus, RotateCcw, Settings2, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Layers, ListChecks, Lock, Paperclip, Plus, RotateCcw, Settings2, Sparkles, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ItemRow from '@/components/board/ItemRow.vue'
@@ -12,13 +12,15 @@ import AttachmentsBoard from '@/components/board/AttachmentsBoard.vue'
 import DetailPanel from '@/components/layout/DetailPanel.vue'
 import ProjectDialog from '@/components/dialogs/ProjectDialog.vue'
 import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
+import ProjectStack from '@/components/project/ProjectStack.vue'
+import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { BUCKET_LABEL, EMPTY_FILTER, type Bucket, type ItemFilter } from '@/types'
 import { applyFilter, countByBucket, isFilterActive, matchesSearch, sortForBucket } from '@/services/items'
 
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; section?: string }>()
 const ws = useWorkspaceStore()
 const ui = useUiStore()
 const route = useRoute()
@@ -36,6 +38,21 @@ watch(
 )
 /** Progetto nel cestino: tutto in sola lettura finché non viene ripristinato. */
 const trashed = computed(() => !!project.value?.trashedAt)
+
+// Sezioni del progetto (barra a sinistra): Todo, Stack, Strumenti AI
+type Section = 'todo' | 'stack' | 'ai'
+const SECTIONS: { id: Section; label: string; icon: unknown }[] = [
+  { id: 'todo', label: 'Todo', icon: ListChecks },
+  { id: 'stack', label: 'Stack', icon: Layers },
+  { id: 'ai', label: 'Strumenti AI', icon: Sparkles },
+]
+const section = computed<Section>(() => (props.section === 'stack' || props.section === 'ai' ? props.section : 'todo'))
+const goSection = (sct: Section) => router.push({ name: 'project', params: { id: props.id, section: sct === 'todo' ? '' : sct } })
+const sectionHint = computed(() => ({
+  todo: counts.value.todo || '',
+  stack: project.value?.stack.steps.length || '',
+  ai: project.value?.aiTools.length || '',
+}))
 
 type Tab = Bucket | 'attachments'
 const tab = ref<Tab>('todo')
@@ -112,7 +129,7 @@ async function emptyTrash() {
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null
   if (t?.closest('input, textarea, select, [contenteditable], [role=dialog]')) return
-  if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !trashed.value) {
+  if (e.key.toLowerCase() === 'n' && !e.ctrlKey && !e.metaKey && !trashed.value && section.value === 'todo') {
     e.preventDefault()
     tab.value = 'todo'
     showNewItem.value = true
@@ -129,6 +146,22 @@ const tabs: { id: Tab; label: string }[] = [
 
 <template>
   <template v-if="project">
+    <!-- Sezioni del progetto -->
+    <nav class="flex w-40 shrink-0 flex-col gap-0.5 border-r border-line bg-surface px-2 pt-6" aria-label="Sezioni del progetto">
+      <button
+        v-for="sct in SECTIONS"
+        :key="sct.id"
+        class="flex h-8 items-center gap-2 rounded-md px-2 text-[13px] font-semibold transition-colors"
+        :class="section === sct.id ? 'bg-accent-soft text-accent-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'"
+        :aria-current="section === sct.id ? 'page' : undefined"
+        @click="goSection(sct.id)"
+      >
+        <component :is="sct.icon" :size="15" class="shrink-0" />
+        <span class="flex-1 text-left">{{ sct.label }}</span>
+        <span class="text-[11px] font-medium tabular-nums text-ink-3">{{ sectionHint[sct.id] }}</span>
+      </button>
+    </nav>
+
     <div class="flex min-w-0 flex-1 flex-col">
       <!-- Intestazione -->
       <header class="shrink-0 px-8 pt-6">
@@ -168,11 +201,11 @@ const tabs: { id: Tab; label: string }[] = [
           </div>
         </div>
 
-        <div class="mt-4">
+        <div v-if="section === 'todo'" class="mt-4">
           <FilterBar v-model="filter" />
         </div>
 
-        <nav class="mt-3 flex items-end gap-1 border-b border-line">
+        <nav v-if="section === 'todo'" class="mt-3 flex items-end gap-1 border-b border-line" aria-label="Contenitori">
           <button
             v-for="t in tabs"
             :key="t.id"
@@ -197,7 +230,9 @@ const tabs: { id: Tab; label: string }[] = [
 
       <!-- Contenuto -->
       <div class="flex-1 overflow-y-auto px-8 pb-10 pt-4">
-        <AttachmentsBoard v-if="tab === 'attachments'" :project="project" :read-only="trashed" />
+        <ProjectStack v-if="section === 'stack'" :project="project" :read-only="trashed" />
+        <ProjectAiTools v-else-if="section === 'ai'" :project="project" :read-only="trashed" />
+        <AttachmentsBoard v-else-if="tab === 'attachments'" :project="project" :read-only="trashed" />
         <template v-else>
           <TransitionGroup name="fade" tag="div" class="space-y-px">
             <ItemRow v-for="it in items" :key="it.id" :item="it" :project-id="project.id" :read-only="trashed" @manage-labels="showLabels = true" />
@@ -213,7 +248,7 @@ const tabs: { id: Tab; label: string }[] = [
     </div>
 
     <Transition name="panel" mode="out-in">
-      <DetailPanel v-if="selected" :key="selected.id" :project="project" :item="selected" :read-only="trashed" @manage-labels="showLabels = true" />
+      <DetailPanel v-if="selected && section === 'todo'" :key="selected.id" :project="project" :item="selected" :read-only="trashed" @manage-labels="showLabels = true" />
     </Transition>
 
     <ProjectDialog v-model:open="showEdit" :project="project" />

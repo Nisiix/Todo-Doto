@@ -9,6 +9,7 @@ import StatusSelect from '@/components/board/StatusSelect.vue'
 import DueDateField from '@/components/board/DueDateField.vue'
 import LabelSelect from '@/components/board/LabelSelect.vue'
 import LabelBadge from '@/components/board/LabelBadge.vue'
+import AssigneeSelect from '@/components/board/AssigneeSelect.vue'
 import ItemComments from '@/components/detail/ItemComments.vue'
 import ItemQuestions from '@/components/detail/ItemQuestions.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -116,12 +117,14 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
             <StatusSelect :model-value="item.status" @update:model-value="(s) => ws.updateItem(project.id, item.id, { status: s })" />
             <DueDateField :model-value="item.dueDate" @update:model-value="(d) => ws.updateItem(project.id, item.id, { dueDate: d })" />
             <LabelSelect :model-value="item.labelId" @update:model-value="(l) => ws.updateItem(project.id, item.id, { labelId: l })" @manage="emit('manageLabels')" />
+            <AssigneeSelect :model-value="item.assigneeId" @update:model-value="(u) => ws.updateItem(project.id, item.id, { assigneeId: u })" />
           </template>
           <template v-else>
           <LabelBadge :label-id="item.labelId" />
           <span class="text-[12.5px] text-ink-2">
             {{ PRIORITY_LABEL[item.priority] }} · {{ STATUS_LABEL[item.status] }}
             <template v-if="item.dueDate"> · scadenza {{ dayjs(item.dueDate).format('D MMM YYYY') }}</template>
+            <template v-if="item.assigneeId"> · assegnato a {{ ws.userName(item.assigneeId) }}</template>
           </span>
           </template>
         </div>

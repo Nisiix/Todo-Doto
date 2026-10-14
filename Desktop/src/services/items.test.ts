@@ -11,6 +11,7 @@ const base: Item = {
   status: 'da_valutare',
   dueDate: null,
   labelId: null,
+  assigneeId: null,
   bucket: 'todo',
   createdAt: '2026-01-01T00:00:00.000Z',
   createdBy: 'usr_1',

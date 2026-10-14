@@ -19,6 +19,9 @@ Un'app leggera, veloce e bella da usare che permetta in pochi click di:
 - commentare, fare domande e rispondere dentro ogni elemento, taggando altri utenti della rete;
 - ricevere **notifiche** interne (configurabili per tipo) sulle novità dei progetti di cui si fa parte;
 - consultare, da amministratore, la **cronologia** delle operazioni su elementi e progetti (creazioni, completamenti, cestino, eliminazioni);
+- assegnare gli elementi alle persone e vedere, da amministratore, il quadro d'insieme nella pagina **Analisi** (progetti, elementi per contenitore/stato/priorità, scadenze, carico per utente e per progetto);
+- descrivere per ogni progetto lo **Stack** (tipo di applicazione, linguaggi, framework, repository, cartella sorgente) e una **configurazione guidata** passo per passo (prerequisiti con comando di verifica, passi con comandi/link/operazioni manuali, variabili d'ambiente) che gli altri utenti seguono spuntando i passi fatti o eseguono con uno script Windows generato dall'app;
+- elencare gli **Strumenti AI** usati nel progetto (connettori, plugin, skill), con le skill allegate come file e consultabili nell'app;
 - lavorare in due modalità: **Locale** (dati solo sul proprio PC) o **Rete** (dati su una cartella condivisa, con password di accesso e gestione utenti);
 - vedere sempre dati aggiornati anche quando altri colleghi modificano lo stesso progetto.
 
@@ -287,6 +290,16 @@ L'eseguibile si distribuisce copiandolo o tramite installer; i dati restano nell
 - **Notifiche**: generate dal confronto fra la versione precedente e quella nuova di un progetto quando un altro utente lo modifica (nuovo elemento, cambio stato, completato/riaperto, cestinato/ripristinato, descrizione, domanda, risposta, commento, menzione). Ogni utente sceglie quali tipi ricevere; le proprie azioni non generano notifiche.
 - **Cronologia**: pagina riservata agli amministratori, divisa per progetto, con filtri per progetto, operazione e utente.
 - **Google Drive**: l'utente crea un ID client OAuth "App desktop" nella Google Cloud Console; l'app apre il browser di sistema per il consenso (scope `drive.readonly`, PKCE) e riceve il codice su `http://127.0.0.1:<porta>` grazie a un piccolo ricevitore in Rust. La struttura della cartella scelta viene salvata nel workspace (visibile a tutti), mentre token e account restano cifrati sulla macchina: per aprire un documento ciascuno usa il proprio accesso. I documenti Google (Docs, Sheets, Slides) vengono esportati in PDF per l'anteprima.
+
+## 9c. Sezioni del progetto: Todo, Stack, Strumenti AI
+
+Dentro un progetto una barra a sinistra divide tre sezioni.
+
+- **Todo**: la lista descritta sopra (filtri, contenitori, dettaglio).
+- **Stack**: compilato dall'admin (gli altri lo leggono). Campi: tipo di applicazione (web/desktop/mobile/backend), linguaggi, framework, repository, cartella del progetto (locale o di rete, con "Apri cartella"), note, **prerequisiti** (nome, versione, link, comando di verifica), **passi** ordinati (comando con cartella di esecuzione, link o operazione manuale) e **variabili d'ambiente**. La parte "Configura sul tuo PC" mostra la procedura come checklist: ogni utente spunta i passi fatti (progresso salvato in locale), copia i comandi con un click, apre i link; "Genera script Windows" produce un `.cmd` che esegue in sequenza verifiche e comandi e si ferma al primo errore. L'app non esegue comandi da sola: lo script lo lancia l'utente.
+- **Strumenti AI**: connettori, plugin e skill del progetto; per le skill si allega il file (es. `SKILL.md`, fino a 512 KB) o si incolla il contenuto, che resta nel file del progetto e si può vedere, copiare o salvare.
+
+Dati nel file del progetto: `stack` e `aiTools` (vedi schemi in `types/index.ts`); gli elementi hanno `assigneeId`.
 
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 

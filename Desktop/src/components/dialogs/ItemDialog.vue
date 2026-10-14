@@ -6,6 +6,7 @@ import PrioritySelect from '@/components/board/PrioritySelect.vue'
 import StatusSelect from '@/components/board/StatusSelect.vue'
 import DueDateField from '@/components/board/DueDateField.vue'
 import LabelSelect from '@/components/board/LabelSelect.vue'
+import AssigneeSelect from '@/components/board/AssigneeSelect.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import type { Priority, Status } from '@/types'
@@ -23,6 +24,7 @@ const priority = ref<Priority>('media')
 const status = ref<Status>('da_valutare')
 const dueDate = ref<string | null>(null)
 const labelId = ref<string | null>(null)
+const assigneeId = ref<string | null>(null)
 const error = ref('')
 const addAnother = ref(false)
 
@@ -34,6 +36,7 @@ watch(open, (o) => {
   status.value = 'da_valutare'
   dueDate.value = null
   labelId.value = null
+  assigneeId.value = null
   error.value = ''
 })
 
@@ -47,6 +50,7 @@ async function submit(keepOpen = false) {
     status: status.value,
     dueDate: dueDate.value,
     labelId: labelId.value,
+    assigneeId: assigneeId.value,
   })
   if (keepOpen) {
     title.value = ''
@@ -76,6 +80,7 @@ async function submit(keepOpen = false) {
         <StatusSelect v-model="status" />
         <DueDateField v-model="dueDate" />
         <LabelSelect v-model="labelId" @manage="emit('manageLabels')" />
+        <AssigneeSelect v-model="assigneeId" />
       </div>
       <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
     </form>

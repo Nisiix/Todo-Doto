@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { WorkspaceStorage } from './storage'
-import type { Project, UsersFile, WorkspaceMeta } from '@/types'
+import { EMPTY_STACK, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
 
 const meta: WorkspaceMeta = {
   schema: 1,
@@ -31,6 +31,8 @@ const project = (id: string): Project => ({
   items: [],
   attachmentFolders: [],
   attachments: [],
+  stack: { ...EMPTY_STACK },
+  aiTools: [],
 })
 
 async function freshWorkspace(root = '/ws') {

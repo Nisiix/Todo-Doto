@@ -28,6 +28,8 @@ export interface FsApi {
   appDataDir(): Promise<string>
   pickFolder(title?: string): Promise<string | null>
   pickFile(title?: string): Promise<string | null>
+  /** Chiede dove salvare un file; ritorna il percorso scelto (null se annullato). */
+  saveFile(defaultName: string, title?: string): Promise<string | null>
   openExternal(target: string, kind: 'file' | 'link'): Promise<void>
   identity(): Promise<Identity>
   /** Ricevitore OAuth su 127.0.0.1: apre una porta e attende il redirect. */
@@ -94,6 +96,10 @@ async function tauriFs(): Promise<FsApi> {
     },
     async pickFile(title) {
       const r = await dialog.open({ directory: false, multiple: false, title })
+      return typeof r === 'string' ? r : null
+    },
+    async saveFile(defaultName, title) {
+      const r = await dialog.save({ defaultPath: defaultName, title })
       return typeof r === 'string' ? r : null
     },
     async openExternal(target, kind) {
@@ -172,6 +178,9 @@ function memoryFs(): FsApi {
     },
     async pickFile() {
       return '/demo/documento.pdf'
+    },
+    async saveFile(defaultName) {
+      return '/demo/' + defaultName
     },
     async openExternal(target, kind) {
       if (kind === 'link') window.open(target, '_blank')

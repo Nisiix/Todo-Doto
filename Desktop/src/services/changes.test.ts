@@ -3,7 +3,7 @@ import { diffProjects } from './changes'
 import type { Item, Project } from '@/types'
 
 const item = (over: Partial<Item>): Item => ({
-  id: 'i1', title: 'Export XBRL\nriga 2', notes: '', priority: 'media', status: 'da_valutare', dueDate: null, labelId: null,
+  id: 'i1', title: 'Export XBRL\nriga 2', notes: '', priority: 'media', status: 'da_valutare', dueDate: null, labelId: null, assigneeId: null,
   bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], ...over,
 })
 const project = (items: Item[], updatedBy = 'u2'): Project =>

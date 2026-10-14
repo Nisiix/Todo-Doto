@@ -51,8 +51,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
     for (const c of changes) {
       if (c.byId === meId) continue // le proprie azioni non si notificano
       const mentioned = meId !== null && c.mentions.includes(meId)
-      const type: NotificationType = mentioned ? 'mention' : c.type
-      if (!isEnabled(type) && !(mentioned && isEnabled('mention'))) continue
+      let type: NotificationType
+      if (c.type === 'assigned') {
+        if (!mentioned) continue // l'assegnazione interessa solo l'assegnatario
+        type = 'assigned'
+      } else type = mentioned ? 'mention' : c.type
+      if (!isEnabled(type) && !(mentioned && type !== 'assigned' && isEnabled('mention'))) continue
       fresh.push({
         id: nanoid(10),
         at: new Date().toISOString(),

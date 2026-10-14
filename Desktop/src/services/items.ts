@@ -60,7 +60,7 @@ export function applyFilter(items: Item[], f: ItemFilter): Item[] {
     if (f.to && i.dueDate! > f.to) return false
     if (f.statuses.length && !f.statuses.includes(i.status)) return false
     if (f.priorities.length && !f.priorities.includes(i.priority)) return false
-    if (f.userId && i.createdBy !== f.userId) return false
+    if (f.userId && i.createdBy !== f.userId && i.assigneeId !== f.userId) return false
     if (f.labelId && i.labelId !== f.labelId) return false
     return true
   })

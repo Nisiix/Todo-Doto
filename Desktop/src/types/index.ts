@@ -136,6 +136,7 @@ export const ItemSchema = z.object({
   status: z.enum(STATUSES).default('da_valutare'),
   dueDate: z.string().nullable().default(null), // YYYY-MM-DD
   labelId: z.string().nullable().default(null),
+  assigneeId: z.string().nullable().default(null), // a chi è assegnato (facoltativo)
   bucket: z.enum(BUCKETS).default('todo'),
   createdAt: iso,
   createdBy: z.string(),
@@ -161,6 +162,79 @@ export const AttachmentSchema = z.object({
 })
 export type Attachment = z.infer<typeof AttachmentSchema>
 
+// ---------------------------------------------------------------------------
+// Sezioni del progetto: Stack (tecnologie e configurazione) e Strumenti AI
+// ---------------------------------------------------------------------------
+
+export const PLATFORMS = ['web', 'desktop', 'mobile', 'backend', 'altro'] as const
+export type Platform = (typeof PLATFORMS)[number]
+export const PLATFORM_LABEL: Record<Platform, string> = {
+  web: 'Web',
+  desktop: 'Desktop',
+  mobile: 'Mobile',
+  backend: 'Backend / servizi',
+  altro: 'Altro',
+}
+
+export const PrerequisiteSchema = z.object({
+  id: z.string(),
+  name: z.string(), // es. Node.js
+  version: z.string().default(''), // es. 20+
+  url: z.string().default(''), // dove scaricarlo
+  check: z.string().default(''), // comando per verificarlo, es. node -v
+})
+export type Prerequisite = z.infer<typeof PrerequisiteSchema>
+
+export const SETUP_STEP_KINDS = ['command', 'manual', 'link'] as const
+export type SetupStepKind = (typeof SETUP_STEP_KINDS)[number]
+export const SETUP_STEP_LABEL: Record<SetupStepKind, string> = { command: 'Comando', manual: 'Operazione manuale', link: 'Apri link' }
+
+export const SetupStepSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  kind: z.enum(SETUP_STEP_KINDS).default('command'),
+  command: z.string().default(''), // per kind=command (può avere più righe)
+  cwd: z.string().default(''), // cartella relativa in cui eseguire
+  url: z.string().default(''), // per kind=link
+  notes: z.string().default(''),
+})
+export type SetupStep = z.infer<typeof SetupStepSchema>
+
+export const EnvVarSchema = z.object({ key: z.string(), example: z.string().default(''), notes: z.string().default('') })
+export type EnvVar = z.infer<typeof EnvVarSchema>
+
+export const StackSchema = z.object({
+  platforms: z.array(z.enum(PLATFORMS)).default([]),
+  languages: z.array(z.string()).default([]),
+  frameworks: z.array(z.string()).default([]),
+  repoUrl: z.string().default(''), // repository remoto (git)
+  sourcePath: z.string().default(''), // cartella del progetto sul PC/rete dell'admin
+  notes: z.string().default(''),
+  prerequisites: z.array(PrerequisiteSchema).default([]),
+  steps: z.array(SetupStepSchema).default([]),
+  envVars: z.array(EnvVarSchema).default([]),
+})
+export type Stack = z.infer<typeof StackSchema>
+export const EMPTY_STACK: Stack = { platforms: [], languages: [], frameworks: [], repoUrl: '', sourcePath: '', notes: '', prerequisites: [], steps: [], envVars: [] }
+
+export const AI_TOOL_KINDS = ['connector', 'plugin', 'skill'] as const
+export type AiToolKind = (typeof AI_TOOL_KINDS)[number]
+export const AI_TOOL_LABEL: Record<AiToolKind, string> = { connector: 'Connettore', plugin: 'Plugin', skill: 'Skill' }
+
+export const AiToolSchema = z.object({
+  id: z.string(),
+  kind: z.enum(AI_TOOL_KINDS),
+  name: z.string(),
+  notes: z.string().default(''),
+  url: z.string().default(''),
+  // per le skill: il contenuto del file allegato (es. SKILL.md) e il suo nome
+  fileName: z.string().nullable().default(null),
+  content: z.string().nullable().default(null),
+  addedBy: z.string().default(''),
+  addedAt: iso.default(''),
+})
+export type AiTool = z.infer<typeof AiToolSchema>
+
 export const ProjectSchema = z.object({
   schema: z.number().default(1),
   id: z.string(),
@@ -178,6 +252,8 @@ export const ProjectSchema = z.object({
   items: z.array(ItemSchema).default([]),
   attachmentFolders: z.array(AttachmentFolderSchema).default([]),
   attachments: z.array(AttachmentSchema).default([]),
+  stack: StackSchema.default(EMPTY_STACK),
+  aiTools: z.array(AiToolSchema).default([]),
 })
 export type Project = z.infer<typeof ProjectSchema>
 
@@ -243,6 +319,7 @@ export const NOTIFICATION_TYPES = [
   'answer',
   'comment',
   'mention',
+  'assigned',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 export const NOTIFICATION_LABEL: Record<NotificationType, string> = {
@@ -255,6 +332,7 @@ export const NOTIFICATION_LABEL: Record<NotificationType, string> = {
   answer: 'Nuova risposta',
   comment: 'Nuovo commento',
   mention: 'Qualcuno mi tagga con @',
+  assigned: 'Un elemento viene assegnato a me',
 }
 
 export interface Notification {
@@ -326,7 +404,7 @@ export interface ItemFilter {
   to: string | null
   statuses: Status[]
   priorities: Priority[]
-  userId: string | null // createdBy
+  userId: string | null // creato da oppure assegnato a
   labelId: string | null
 }
 export const EMPTY_FILTER: ItemFilter = { from: null, to: null, statuses: [], priorities: [], userId: null, labelId: null }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronDown, Cloud, History, LogOut, Moon, Search, Settings, Sun, Users, WifiOff } from 'lucide-vue-next'
+import { BarChart3, ChevronDown, Cloud, History, LogOut, Moon, Search, Settings, Sun, Users, WifiOff } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -20,7 +20,12 @@ const searchEl = ref<HTMLInputElement | null>(null)
 const menu = computed(() => [
   { label: 'Impostazioni', icon: Settings, onSelect: () => (showSettings.value = true) },
   { label: 'Membri', icon: Users, onSelect: () => router.push({ name: 'members' }) },
-  ...(ws.isAdmin ? [{ label: 'Cronologia operazioni', icon: History, onSelect: () => router.push({ name: 'audit' }) }] : []),
+  ...(ws.isAdmin
+    ? [
+        { label: 'Analisi', icon: BarChart3, onSelect: () => router.push({ name: 'analytics' }) },
+        { label: 'Cronologia operazioni', icon: History, onSelect: () => router.push({ name: 'audit' }) },
+      ]
+    : []),
   { sep: true, label: '' },
   {
     label: 'Chiudi workspace',

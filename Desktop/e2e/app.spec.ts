@@ -137,7 +137,7 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await expect(rows(page)).toHaveCount(3)
 
   // Ordine dei tab: Da fare, Completati, Allegati, Cestino
-  const tabs = page.locator('nav button')
+  const tabs = page.getByRole('navigation', { name: 'Contenitori' }).locator('button')
   await expect(tabs.nth(2)).toContainText('Allegati')
   await expect(tabs.nth(3)).toContainText('Cestino')
 
@@ -274,4 +274,49 @@ test('membri: ruoli Admin, Cleaner, Membro e cronologia per l’admin', async ({
   await page.keyboard.press('Escape')
   await page.getByTitle('Impostazioni').click()
   await expect(page.getByText('Nuova domanda')).toBeVisible()
+})
+
+test('sezioni del progetto: Stack con procedura guidata, Strumenti AI; Analisi per l’admin', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Stack test')
+  await addItem(page, 'Elemento assegnato')
+
+  // Stack: compilazione (admin) e procedura guidata
+  await page.getByRole('button', { name: 'Stack' }).click()
+  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByRole('button', { name: 'Desktop' }).click()
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Prerequisito' }).click()
+  await page.getByPlaceholder('Nome, es. Node.js').fill('Node.js')
+  await page.getByPlaceholder('Comando di verifica, es. node -v').fill('node -v')
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').fill('Installa le dipendenze')
+  await page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)').fill('npm install')
+  await page.getByRole('button', { name: 'Salva' }).click()
+  await expect(page.getByText('Stack salvato')).toBeVisible()
+  await expect(page.getByText('TypeScript', { exact: true })).toBeVisible()
+  await expect(page.getByText('0 di 2 completati')).toBeVisible()
+  await page.getByTitle('Segna come fatto').first().click()
+  await expect(page.getByText('1 di 2 completati')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Genera script Windows' })).toBeVisible()
+
+  // Strumenti AI: skill incollata, visibile nel visualizzatore
+  await page.getByRole('button', { name: 'Strumenti AI' }).click()
+  await page.getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Skill' }).click()
+  await page.fill('#ai-name', 'frontend-design')
+  await page.locator('textarea[placeholder^="…oppure incolla"]').fill('# Frontend Design\nLinee guida')
+  await dialog(page).getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await expect(page.getByTitle('Vedi SKILL.md')).toBeVisible()
+  await page.getByTitle('Vedi SKILL.md').click()
+  await expect(dialog(page).locator('pre')).toContainText('Linee guida')
+  await dialog(page).getByRole('button', { name: 'Chiudi', exact: true }).last().click()
+
+  // Analisi dal menu del workspace
+  await page.getByRole('button', { name: /Roadmap Sviluppo/ }).first().click()
+  await page.getByRole('menuitem', { name: 'Analisi' }).click()
+  await expect(page.getByRole('heading', { name: 'Analisi' })).toBeVisible()
+  await expect(page.getByText('Carico per utente')).toBeVisible()
+  await expect(page.getByRole('main').getByText('Stack test')).toBeVisible()
 })

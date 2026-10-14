@@ -10,10 +10,11 @@ export const router = createRouter({
       component: () => import('@/views/WorkspaceView.vue'),
       children: [
         { path: '', name: 'workspace-home', component: () => import('@/views/WorkspaceHomeView.vue') },
-        { path: 'p/:id', name: 'project', component: () => import('@/views/ProjectView.vue'), props: true },
+        { path: 'p/:id/:section?', name: 'project', component: () => import('@/views/ProjectView.vue'), props: true },
         { path: 'members', name: 'members', component: () => import('@/views/MembersView.vue') },
         { path: 'drive', name: 'drive', component: () => import('@/views/DriveView.vue') },
         { path: 'audit', name: 'audit', component: () => import('@/views/AuditView.vue') },
+        { path: 'analytics', name: 'analytics', component: () => import('@/views/AnalyticsView.vue') },
       ],
     },
   ],

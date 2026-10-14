@@ -410,3 +410,36 @@ describe('workspace: notifiche dalle modifiche remote', () => {
     expect(notif.items).toHaveLength(2)
   })
 })
+
+describe('workspace: stack e strumenti AI (solo admin)', () => {
+  it('salva lo stack, aggiunge/modifica/rimuove strumenti AI; i membri non possono', async () => {
+    const ws = useWorkspaceStore()
+    expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
+    const me = ws.currentUser!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    await ws.updateStack(p.id, { ...p.stack, languages: ['TypeScript'], steps: [{ id: 's1', title: 'npm install', kind: 'command', command: 'npm install', cwd: '', url: '', notes: '' }] })
+    expect(ws.projects[p.id]!.stack.languages).toEqual(['TypeScript'])
+    await ws.addAiTool(p.id, { kind: 'skill', name: 'frontend-design', notes: '', url: '', fileName: 'SKILL.md', content: '# skill' })
+    const tool = ws.projects[p.id]!.aiTools[0]!
+    expect(tool.addedBy).toBe(me.id)
+    await ws.updateAiTool(p.id, tool.id, { notes: 'per la UI' })
+    expect(ws.projects[p.id]!.aiTools[0]!.notes).toBe('per la UI')
+
+    await ws.storage!.mutateUsers((f) => void (f.users.find((u) => u.id === me.id)!.role = 'member'))
+    await ws.refresh()
+    expect(ws.isAdmin).toBe(false)
+    await ws.updateStack(p.id, { ...ws.projects[p.id]!.stack, languages: [] })
+    expect(ws.projects[p.id]!.stack.languages).toEqual(['TypeScript']) // rifiutato
+    await ws.removeAiTool(p.id, tool.id)
+    expect(ws.projects[p.id]!.aiTools).toHaveLength(1)
+  })
+
+  it('un elemento può essere assegnato; il filtro utente trova creatore e assegnatario', async () => {
+    const ws = await openLocal()
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const it = await ws.addItem(p.id, { title: 'x', assigneeId: 'usr_altro' })
+    expect(ws.findItem(it.id)!.item.assigneeId).toBe('usr_altro')
+    await ws.updateItem(p.id, it.id, { assigneeId: null })
+    expect(ws.findItem(it.id)!.item.assigneeId).toBeNull()
+  })
+})
