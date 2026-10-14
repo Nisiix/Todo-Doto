@@ -65,6 +65,13 @@ export interface FsApi {
    * finestre e con un tempo massimo. Solo nell'app desktop.
    */
   runCheck(command: string, timeoutMs?: number): Promise<CheckOutput>
+  /**
+   * Cifratura legata all'utente del sistema operativo (Windows DPAPI): il dato
+   * si decifra solo dallo stesso account sullo stesso PC. `null` se il sistema
+   * non la offre (altri OS, anteprima nel browser): si usa allora AES-GCM locale.
+   */
+  protectSecret(plain: string): Promise<Uint8Array | null>
+  unprotectSecret(data: Uint8Array): Promise<string | null>
 }
 
 export interface CheckOutput {
@@ -173,6 +180,20 @@ async function tauriFs(): Promise<FsApi> {
     oauthStart: () => invoke<number>('oauth_start'),
     oauthWait: () => invoke('oauth_wait', { locale }),
     runCheck: (command, timeoutMs) => invoke<CheckOutput>('run_check', { command, timeoutMs }),
+    async protectSecret(plain) {
+      try {
+        return new Uint8Array(await invoke<number[]>('protect_secret', { plain }))
+      } catch {
+        return null // "unsupported" fuori da Windows, o DPAPI non disponibile
+      }
+    },
+    async unprotectSecret(data) {
+      try {
+        return await invoke<string>('unprotect_secret', { data: [...data] })
+      } catch {
+        return null // dato di un altro utente/PC o danneggiato
+      }
+    },
   }
 
   // Percorsi di rete (\\server\condivisione) e unità mappate: la radice di ogni
@@ -301,6 +322,12 @@ function memoryFs(): FsApi {
       const fake = (window as unknown as { __pgmChecks?: Record<string, CheckOutput> }).__pgmChecks?.[command]
       if (fake) return fake
       throw new Error(common.drive.desktopOnly)
+    },
+    async protectSecret() {
+      return null
+    },
+    async unprotectSecret() {
+      return null
     },
   }
 }

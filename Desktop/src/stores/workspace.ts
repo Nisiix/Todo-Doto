@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { WorkspaceStorage, type Signature } from '@/services/storage'
 import { hashPassword, verifyPassword } from '@/services/crypto'
-import { forgetPassword, recallPassword, rememberPassword } from '@/services/config'
+import { forgetPassword, hasRememberedPassword, recallPassword, rememberPassword } from '@/services/config'
 import { newId, nowIso } from '@/services/ids'
 import { useSessionStore } from './session'
 import { useUiStore } from './ui'
@@ -53,6 +53,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const audit = ref<AuditEntry[]>([])
   const projects = ref<Record<string, Project>>({})
   const lastError = ref<string | null>(null)
+  /** La password del workspace di rete è ricordata (cifrata) su questo PC per questo utente. */
+  const passwordRemembered = ref(false)
 
   let signature: Signature = {}
   let pollTimer: number | null = null
@@ -138,7 +140,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return s
   }
 
-  async function open(path: string): Promise<OpenResult> {
+  /**
+   * `password`: da provare prima di quella ricordata (subito dopo la creazione
+   * di un workspace di rete, quando l'utente ha scelto di non ricordarla).
+   */
+  async function open(path: string, opts: { password?: string } = {}): Promise<OpenResult> {
     await close()
     status.value = 'opening'
     try {
@@ -152,8 +158,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       users.value = (await s.readUsers()).users
 
       if (meta.value.mode === 'network' && meta.value.auth) {
-        const remembered = await recallPassword(meta.value.id, session.localSecret)
-        if (!remembered || !(await verifyPassword(remembered, meta.value.auth))) {
+        const candidate = opts.password ?? (await recallPassword(meta.value.id, session.localSecret))
+        if (!candidate || !(await verifyPassword(candidate, meta.value.auth))) {
           status.value = 'locked'
           return { ok: false, needsPassword: true }
         }
@@ -168,10 +174,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   /** Secondo passo dell'apertura di un workspace di rete. */
-  async function unlock(password: string): Promise<OpenResult> {
+  async function unlock(password: string, remember = true): Promise<OpenResult> {
     if (!storage.value || !meta.value?.auth) return { ok: false, error: common.ws.nothingToUnlock }
     if (!(await verifyPassword(password, meta.value.auth))) return { ok: false, error: common.ws.wrongPassword }
-    await rememberPassword(meta.value.id, password, session.localSecret)
+    // Ricordata solo se l'utente lo sceglie; altrimenti si toglie anche una
+    // eventuale copia vecchia (non più valida, visto che è stata richiesta).
+    if (remember) await rememberPassword(meta.value.id, password, session.localSecret)
+    else await forgetPassword(meta.value.id)
     await finishOpen()
     return { ok: true }
   }
@@ -179,6 +188,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   async function finishOpen() {
     const s = storage.value!
     await ensureCurrentUser()
+    passwordRemembered.value = meta.value?.mode === 'network' && !!meta.value.auth && (await hasRememberedPassword(meta.value.id))
     tree.value = await s.readTree()
     drive.value = await s.readDrive()
     audit.value = (await s.readAudit()).entries
@@ -218,6 +228,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     stopWatching()
     storage.value = null
     meta.value = null
+    passwordRemembered.value = false
     users.value = []
     tree.value = { folders: [], labels: [] }
     drive.value = { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] }
@@ -230,7 +241,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   /** `path`: cartella Dati Project Goal Manager; `projectsPath`: cartella dei progetti (deve essere diversa). */
-  async function create(opts: { path: string; projectsPath?: string; name: string; mode: WorkspaceMode; password?: string }): Promise<OpenResult> {
+  async function create(opts: { path: string; projectsPath?: string; name: string; mode: WorkspaceMode; password?: string; rememberPassword?: boolean }): Promise<OpenResult> {
     try {
       const s = await openStorage(opts.path)
       if (await WorkspaceStorage.isWorkspace(opts.path)) {
@@ -255,8 +266,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         projectsPath: opts.projectsPath?.trim() ?? '',
       }
       await s.create(m, { users: [admin] })
-      if (m.auth && opts.password) await rememberPassword(m.id, opts.password, session.localSecret)
-      return open(opts.path)
+      if (m.auth && opts.password && opts.rememberPassword !== false) await rememberPassword(m.id, opts.password, session.localSecret)
+      return open(opts.path, { password: opts.password })
     } catch (e) {
       return { ok: false, error: describe(e) }
     }
@@ -896,7 +907,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const auth = await hashPassword(newPassword)
       const m = await s.mutateMeta((x) => void (x.auth = auth))
       meta.value = m
-      await rememberPassword(m.id, newPassword, session.localSecret)
+      // La copia locale si aggiorna solo se l'admin aveva scelto di ricordarla.
+      if (passwordRemembered.value) await rememberPassword(m.id, newPassword, session.localSecret)
       markLocalWrite('workspace.json')
     })
   }
@@ -960,8 +972,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
 
+  /** Toglie da questo PC la password ricordata: al prossimo accesso verrà richiesta. */
   async function forgetCredentials() {
-    if (meta.value) await forgetPassword(meta.value.id)
+    if (!meta.value) return
+    await forgetPassword(meta.value.id)
+    passwordRemembered.value = false
   }
 
   return {
@@ -973,6 +988,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     writeDrive,
     projects,
     lastError,
+    passwordRemembered,
     currentUser,
     isAdmin,
     isNetwork,

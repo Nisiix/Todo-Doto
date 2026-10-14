@@ -1,6 +1,6 @@
 [package]
 name = "project-goal-manager"
-version = "0.2.13"
+version = "0.2.14"
 description = "Roadmap e todo di progetto, in locale o su cartella di rete"
 authors = ["nisos"]
 edition = "2021"
@@ -26,6 +26,8 @@ whoami = "1"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
+# DPAPI: password ricordate cifrate per l'utente Windows corrente
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
 
 [profile.release]
 codegen-units = 1

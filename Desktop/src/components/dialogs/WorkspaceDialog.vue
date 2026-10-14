@@ -42,7 +42,8 @@ const m = defineMessages({
     networkHint: 'Cartella Dati su un server; i colleghi entrano con una password.',
     password: 'Password di accesso',
     repeatPassword: 'Ripeti password',
-    adminHint: 'Tu sarai amministratore. Chi apre la cartella Dati da un altro PC dovrà inserire la password una sola volta.',
+    adminHint: 'Tu sarai amministratore. Chi apre la cartella Dati da un altro PC dovrà inserire la password, e potrà scegliere di farla ricordare.',
+    remember: 'Ricorda la password su questo PC (cifrata per il tuo utente Windows)',
     create: 'Crea workspace',
     errName: 'Dai un nome al workspace.',
     errProjects: 'Indica la cartella dei progetti (dove si trovano o dove vuoi crearli).',
@@ -81,7 +82,8 @@ const m = defineMessages({
     networkHint: 'Data folder on a server; colleagues join with a password.',
     password: 'Access password',
     repeatPassword: 'Repeat password',
-    adminHint: 'You will be the administrator. Whoever opens the data folder from another PC enters the password only once.',
+    adminHint: 'You will be the administrator. Whoever opens the data folder from another PC enters the password, and can choose to have it remembered.',
+    remember: 'Remember the password on this PC (encrypted for your Windows user)',
     create: 'Create workspace',
     errName: 'Give the workspace a name.',
     errProjects: 'Enter the projects folder (where they are or where you want to create them).',
@@ -113,6 +115,7 @@ const dataPath = ref('') // cartella Dati Project Goal Manager
 const mode = ref<WorkspaceMode>('local')
 const password = ref('')
 const password2 = ref('')
+const rememberPw = ref(false)
 const error = ref('')
 const busy = ref(false)
 const progress = ref('')
@@ -186,6 +189,7 @@ watch(open, (o) => {
   mode.value = 'local'
   password.value = ''
   password2.value = ''
+  rememberPw.value = false
   error.value = ''
 })
 
@@ -230,7 +234,7 @@ async function submit() {
     if (password.value !== password2.value) return (error.value = common.password.mismatch)
   }
   busy.value = true
-  const r = await ws.create({ path: dataPath.value.trim(), projectsPath: path.value.trim(), name: name.value, mode: mode.value, password: password.value })
+  const r = await ws.create({ path: dataPath.value.trim(), projectsPath: path.value.trim(), name: name.value, mode: mode.value, password: password.value, rememberPassword: rememberPw.value })
   if (r.ok && toImport.value.length) {
     const n = await ws.importProjects(toImport.value, (done, total) => (progress.value = m.importing(done, total)))
     ui.toast(m.imported(n), 'success', undefined, 4000)
@@ -342,6 +346,9 @@ async function submit() {
           <label class="label" for="ws-pw2">{{ m.repeatPassword }}</label>
           <input id="ws-pw2" v-model="password2" type="password" class="field" autocomplete="new-password" />
         </div>
+        <label class="col-span-2 flex items-center gap-2 text-[13px] text-ink">
+          <input v-model="rememberPw" type="checkbox" class="accent-accent" /> {{ m.remember }}
+        </label>
         <p class="col-span-2 text-[12.5px] text-ink-2">{{ m.adminHint }}</p>
       </div>
       <p v-if="progress" class="flex items-center gap-1.5 text-[13px] text-ink-2"><Loader2 :size="13" class="animate-spin" /> {{ progress }}</p>

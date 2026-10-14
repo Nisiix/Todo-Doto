@@ -44,8 +44,8 @@ src/
   services/
     fs.ts                  astrazione del filesystem: Tauri oppure in memoria (browser/test)
     storage.ts             WorkspaceStorage: file del workspace, mutazioni read-before-write, firma
-    crypto.ts              PBKDF2 (hash password) e AES-GCM (password memorizzata)
-    config.ts              config.json e credentials.json in appDataDir
+    crypto.ts              PBKDF2 (hash password) e AES-GCM (ripiego per i segreti locali)
+    config.ts              config.json e credentials.json in appDataDir (password ricordate: DPAPI, ripiego AES-GCM)
     items.ts               ordinamento, scadenze, ricerca, filtri, conteggi (funzioni pure)
     changes.ts             confronto fra due versioni di un progetto → elenco di modifiche (per le notifiche)
     preview.ts             tipo di anteprima da nome/MIME e costruzione del contenuto (blob URL / testo)
@@ -196,6 +196,8 @@ I testi stanno vicino al codice che li usa: in ogni componente `const m = define
 
 ### 3.8 Backend Rust
 
+**Segreti locali** (`src-tauri/src/secrets.rs`): i comandi `protect_secret`/`unprotect_secret` usano Windows DPAPI (`CryptProtectData` con entropia propria dell'app), così la password ricordata si decifra solo dallo stesso account Windows sullo stesso PC; fuori da Windows rispondono "unsupported" e `services/config.ts` ripiega su AES-GCM. Le voci del vecchio formato AES vengono riscritte con DPAPI alla prima lettura riuscita.
+
 `src-tauri/src/lib.rs` registra i plugin (`fs`, `dialog`, `opener`, `os`, `http`, `window-state`) e tre comandi: `get_identity`, `oauth_start` (apre una porta su 127.0.0.1) e `oauth_wait` (attende il redirect di Google e restituisce codice e stato; riceve la lingua dell'interfaccia per la pagina di conferma). Il parser del redirect ha test unitari Rust (`cargo test`). I permessi sono in `capabilities/default.json`: il frontend può leggere/scrivere ovunque (`fs:scope **`, necessario per cartelle di rete scelte dall'utente), aprire URL e file. Aggiungere un comando Rust = funzione `#[tauri::command]` + `generate_handler!` + `invoke()` in `services/fs.ts`.
 
 ---
@@ -203,7 +205,7 @@ I testi stanno vicino al codice che li usa: in ogni componente `const m = define
 ## 4. Flussi principali
 
 **Apertura di un workspace di rete**
-`WelcomeView` → `ws.open(path)` → legge `workspace.json`/`users.json` → se `mode = network`: cerca la password cifrata in `credentials.json` (`config.recallPassword`) e la verifica contro l'hash; se manca o non vale → `status = 'locked'` e `PasswordDialog` → `ws.unlock(pw)` → `rememberPassword` → `finishOpen()` (aggiunge l'utente a `users.json` se nuovo, carica tutto, avvia il watcher, aggiorna i recenti).
+`WelcomeView` → `ws.open(path)` → legge `workspace.json`/`users.json` → se `mode = network`: cerca la password cifrata in `credentials.json` (`config.recallPassword`) e la verifica contro l'hash; se manca o non vale → `status = 'locked'` e `PasswordDialog` → `ws.unlock(pw, ricorda)` → `rememberPassword` solo se l'utente ha spuntato "Ricorda la password su questo PC" (altrimenti `forgetPassword`) → `finishOpen()` (aggiunge l'utente a `users.json` se nuovo, carica tutto, avvia il watcher, aggiorna i recenti).
 
 **Un'azione dell'utente** (es. "Completa")
 `ItemRow` → `ws.moveItem(projectId, itemId, 'done')` → `mutateItem` → `storage.mutateProject` (rilegge, modifica, `version++`, scrive atomico) → `projects[id] = fresh` → Vue aggiorna la riga. Nessuno stato intermedio in memoria: lo store riflette sempre ciò che c'è sul disco.

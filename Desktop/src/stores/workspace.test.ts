@@ -4,6 +4,7 @@ import { useSessionStore } from './session'
 import { useUiStore } from './ui'
 import { WorkspaceStorage } from '@/services/storage'
 import { useNotificationsStore } from './notifications'
+import { getFs } from '@/services/fs'
 
 /**
  * Test dello store con il filesystem in memoria: coprono i flussi che l'utente
@@ -71,6 +72,55 @@ describe('workspace: apertura e accesso', () => {
     expect((await ws.unlock('sbagliata')).ok).toBe(false)
     expect((await ws.unlock('nuova-pw')).ok).toBe(true)
     expect(ws.status).toBe('open')
+  })
+
+  it('la password si ricorda solo se l’utente lo sceglie, ed è salvata cifrata', async () => {
+    const ws = useWorkspaceStore()
+    // Creazione senza "Ricorda": il workspace si apre subito, ma la password non resta sul PC
+    expect((await ws.create({ path: '/net2', name: 'Rete', mode: 'network', password: 'segreto1', rememberPassword: false })).ok).toBe(true)
+    expect(ws.status).toBe('open')
+    expect(ws.passwordRemembered).toBe(false)
+    await ws.close()
+    expect('needsPassword' in (await ws.open('/net2'))).toBe(true)
+
+    // Accesso senza "Ricorda": viene richiesta di nuovo alla riapertura
+    expect((await ws.unlock('segreto1', false)).ok).toBe(true)
+    expect(ws.passwordRemembered).toBe(false)
+    await ws.close()
+    expect('needsPassword' in (await ws.open('/net2'))).toBe(true)
+
+    // Accesso con "Ricorda": la riapertura non la chiede più
+    expect((await ws.unlock('segreto1', true)).ok).toBe(true)
+    expect(ws.passwordRemembered).toBe(true)
+    const fs = await getFs()
+    const creds = await fs.readText(await fs.join(await fs.appDataDir(), 'credentials.json'))
+    expect(creds).not.toContain('segreto1') // mai in chiaro
+    await ws.close()
+    expect((await ws.open('/net2')).ok).toBe(true)
+    expect(ws.passwordRemembered).toBe(true)
+
+    // L'admin cambia la password: la copia ricordata si aggiorna, la riapertura funziona
+    await ws.changePassword('nuova-pw')
+    await ws.close()
+    expect((await ws.open('/net2')).ok).toBe(true)
+
+    // "Dimentica su questo PC": al prossimo accesso viene richiesta
+    await ws.forgetCredentials()
+    expect(ws.passwordRemembered).toBe(false)
+    await ws.close()
+    expect('needsPassword' in (await ws.open('/net2'))).toBe(true)
+    expect((await ws.unlock('segreto1')).ok).toBe(false) // la vecchia non vale più
+  })
+
+  it('solo l’admin può cambiare la password del workspace', async () => {
+    const ws = useWorkspaceStore()
+    expect((await ws.create({ path: '/net3', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
+    const before = ws.meta!.auth
+    await ws.storage!.mutateUsers((f) => void (f.users[0]!.role = 'member'))
+    await ws.refresh()
+    expect(ws.isAdmin).toBe(false)
+    await ws.changePassword('tentativo')
+    expect(ws.meta!.auth).toEqual(before)
   })
 })
 

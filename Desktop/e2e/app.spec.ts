@@ -141,6 +141,66 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await expect(dialog(page).locator('#perm-filter')).toHaveValue(/.+/)
 })
 
+test('workspace di rete: “Ricorda la password” a scelta, cambio password dell’admin', async ({ page }) => {
+  const reopen = async () => {
+    await page.getByRole('button', { name: /^Rete2/ }).first().click()
+    await page.getByRole('menuitem', { name: 'Chiudi workspace' }).click()
+    await page.locator('li', { hasText: 'Rete2' }).getByRole('button').first().click()
+  }
+  const pwDialog = () => page.getByRole('dialog').filter({ hasText: 'Workspace protetto' })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', 'Rete2')
+  await pickWorkspaceFolders(page)
+  await page.getByText('Condiviso in rete').click()
+  await page.fill('#ws-pw', 'segreto1')
+  await page.fill('#ws-pw2', 'segreto1')
+  // Non spuntata: la password non resta su questo PC
+  await expect(page.getByLabel(/Ricorda la password su questo PC/)).not.toBeChecked()
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
+
+  // Riapertura: viene chiesta, con l'opzione per ricordarla (non spuntata)
+  await reopen()
+  await expect(pwDialog()).toBeVisible()
+  await expect(pwDialog().getByLabel('Ricorda la password su questo PC')).not.toBeChecked()
+  await page.fill('#pw', 'sbagliata')
+  await pwDialog().getByRole('button', { name: 'Entra' }).click()
+  await expect(pwDialog()).toContainText('Password non corretta')
+  await page.fill('#pw', 'segreto1')
+  await pwDialog().getByLabel('Ricorda la password su questo PC').check()
+  await pwDialog().getByRole('button', { name: 'Entra' }).click()
+  await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
+
+  // Ricordata: la riapertura non la chiede; le Impostazioni lo dicono
+  await reopen()
+  await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await expect(page.getByText(/Ricordata su questo PC, cifrata/)).toBeVisible()
+
+  // Admin: cambia la password del workspace (resta ricordata, aggiornata)
+  await page.getByRole('textbox', { name: 'Nuova password' }).fill('nuova-pw')
+  await page.getByRole('textbox', { name: 'Ripeti' }).fill('nuova-pw')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText(/Password aggiornata/)).toBeVisible()
+  await reopen()
+  await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
+
+  // "Dimentica su questo PC": al prossimo accesso viene richiesta, la vecchia non vale
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await page.getByRole('button', { name: 'Dimentica su questo PC' }).click()
+  await expect(page.getByText(/Non ricordata su questo PC/)).toBeVisible()
+  await page.keyboard.press('Escape')
+  await reopen()
+  await page.fill('#pw', 'segreto1')
+  await pwDialog().getByRole('button', { name: 'Entra' }).click()
+  await expect(pwDialog()).toContainText('Password non corretta')
+  await page.fill('#pw', 'nuova-pw')
+  await pwDialog().getByRole('button', { name: 'Entra' }).click()
+  await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
+})
+
 test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async ({ page }) => {
   await createLocalWorkspace(page)
   const aside = page.locator('aside').first()

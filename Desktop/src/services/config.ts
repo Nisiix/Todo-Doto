@@ -4,7 +4,7 @@
  */
 import { getFs } from './fs'
 import { CredentialsFileSchema, LocalConfigSchema, type CredentialsFile, type LocalConfig } from '@/types'
-import { decryptLocal, encryptLocal } from './crypto'
+import { decryptLocal, encryptLocal, fromB64, toB64 } from './crypto'
 
 const CONFIG = 'config.json'
 const CREDENTIALS = 'credentials.json'
@@ -39,16 +39,53 @@ export const saveConfig = (c: LocalConfig) => writeJson(CONFIG, c)
 const loadCredentials = () =>
   readJson<CredentialsFile>(CREDENTIALS, (r) => CredentialsFileSchema.parse(r), { entries: {} })
 
+// --- Password ricordate dei workspace -------------------------------------------
+//
+// Si salvano solo se l'utente lo sceglie ("Ricorda la password su questo PC").
+// Su Windows sono cifrate con DPAPI per l'account Windows corrente (prefisso
+// "dpapi:"): illeggibili da altri utenti o copiando il file su un altro PC.
+// Altrove (o se DPAPI non risponde) si usa AES-GCM con chiave locale. Le voci
+// del vecchio formato vengono convertite a DPAPI alla prima lettura riuscita.
+
+const DPAPI = 'dpapi:'
+
+async function seal(plain: string, secret: string): Promise<string> {
+  const sealed = await (await getFs()).protectSecret(plain)
+  return sealed ? DPAPI + toB64(sealed) : encryptLocal(plain, secret)
+}
+
 export async function rememberPassword(workspaceId: string, password: string, secret: string) {
   const creds = await loadCredentials()
-  creds.entries[workspaceId] = await encryptLocal(password, secret)
+  creds.entries[workspaceId] = await seal(password, secret)
   await writeJson(CREDENTIALS, creds)
 }
 
 export async function recallPassword(workspaceId: string, secret: string): Promise<string | null> {
   const creds = await loadCredentials()
   const payload = creds.entries[workspaceId]
-  return payload ? decryptLocal(payload, secret) : null
+  if (!payload) return null
+  if (payload.startsWith(DPAPI)) {
+    try {
+      return await (await getFs()).unprotectSecret(fromB64(payload.slice(DPAPI.length)))
+    } catch {
+      return null
+    }
+  }
+  const plain = await decryptLocal(payload, secret)
+  // Vecchio formato: se ora DPAPI è disponibile, la voce viene riscritta con DPAPI.
+  if (plain !== null) {
+    const upgraded = await seal(plain, secret)
+    if (upgraded.startsWith(DPAPI)) {
+      creds.entries[workspaceId] = upgraded
+      await writeJson(CREDENTIALS, creds).catch(() => {})
+    }
+  }
+  return plain
+}
+
+/** C'è una password ricordata per questo workspace su questo PC. */
+export async function hasRememberedPassword(workspaceId: string): Promise<boolean> {
+  return !!(await loadCredentials()).entries[workspaceId]
 }
 
 // --- Google Drive: credenziali del client e token, cifrati con la chiave locale ---

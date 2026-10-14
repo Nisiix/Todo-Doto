@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { FolderOpen } from 'lucide-vue-next'
+import { FolderOpen, KeyRound, Lock } from 'lucide-vue-next'
 import { getFs } from '@/services/fs'
 import { samePath } from '@/services/projectScan'
 import { checkFolder } from '@/services/fsErrors'
@@ -37,7 +37,13 @@ const m = defineMessages({
     reopenLast: 'All’avvio riapri l’ultimo workspace',
     notifications: 'Notifiche',
     notificationsHint: 'Novità sui progetti di cui fai parte, fatte da altri utenti. Scegli cosa ricevere.',
-    changePw: 'Cambia password di accesso',
+    pwSection: 'Password del workspace',
+    pwRemembered: 'Ricordata su questo PC, cifrata per il tuo utente Windows: l’accesso avviene senza chiederla.',
+    pwNotRemembered: 'Non ricordata su questo PC: ti viene chiesta a ogni apertura del workspace. Per farla ricordare, spunta l’opzione al prossimo accesso.',
+    forgetPw: 'Dimentica su questo PC',
+    pwForgotten: 'Password rimossa da questo PC: verrà chiesta al prossimo accesso.',
+    changePw: 'Cambia password di accesso (amministratore)',
+    changePwHint: 'Vale per tutti: gli altri utenti dovranno inserire la nuova password al prossimo accesso.',
     newPw: 'Nuova password',
     repeat: 'Ripeti',
     leaveEmpty: 'Lascia vuoto per non cambiarla.',
@@ -62,7 +68,13 @@ const m = defineMessages({
     reopenLast: 'Reopen the last workspace on startup',
     notifications: 'Notifications',
     notificationsHint: 'Updates on the projects you belong to, made by other users. Choose what to receive.',
-    changePw: 'Change access password',
+    pwSection: 'Workspace password',
+    pwRemembered: 'Remembered on this PC, encrypted for your Windows user: you get in without being asked.',
+    pwNotRemembered: 'Not remembered on this PC: you are asked for it every time you open the workspace. To have it remembered, tick the option on your next access.',
+    forgetPw: 'Forget on this PC',
+    pwForgotten: 'Password removed from this PC: it will be asked on the next access.',
+    changePw: 'Change access password (administrator)',
+    changePwHint: 'Applies to everyone: the other users will have to enter the new password on their next access.',
     newPw: 'New password',
     repeat: 'Repeat',
     leaveEmpty: 'Leave empty to keep it.',
@@ -121,6 +133,11 @@ async function save() {
     ui.toast(m.pwUpdated, 'success', undefined, 6000)
   }
   open.value = false
+}
+
+async function forgetPw() {
+  await ws.forgetCredentials()
+  ui.toast(m.pwForgotten, 'info', undefined, 4000)
 }
 
 const themes: { value: Theme; label: string }[] = [
@@ -182,14 +199,23 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
-      <section v-if="ws.isNetwork && ws.isAdmin">
-        <span class="label">{{ m.changePw }}</span>
-        <div class="grid grid-cols-2 gap-3">
-          <input v-model="pw1" type="password" class="field" :placeholder="m.newPw" autocomplete="new-password" />
-          <input v-model="pw2" type="password" class="field" :placeholder="m.repeat" autocomplete="new-password" />
+      <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-pw-title">
+        <span id="s-pw-title" class="label">{{ m.pwSection }}</span>
+        <div class="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2">
+          <component :is="ws.passwordRemembered ? KeyRound : Lock" :size="15" class="mt-0.5 shrink-0 text-ink-3" />
+          <p class="flex-1 text-[12.5px] leading-snug text-ink-2">{{ ws.passwordRemembered ? m.pwRemembered : m.pwNotRemembered }}</p>
+          <BaseButton v-if="ws.passwordRemembered" size="sm" variant="ghost" @click="forgetPw">{{ m.forgetPw }}</BaseButton>
         </div>
-        <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
-        <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }}</p>
+
+        <template v-if="ws.isAdmin">
+          <span class="label mt-4">{{ m.changePw }}</span>
+          <div class="grid grid-cols-2 gap-3">
+            <input v-model="pw1" type="password" class="field" :placeholder="m.newPw" :aria-label="m.newPw" autocomplete="new-password" />
+            <input v-model="pw2" type="password" class="field" :placeholder="m.repeat" :aria-label="m.repeat" autocomplete="new-password" />
+          </div>
+          <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
+          <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }} {{ m.changePwHint }}</p>
+        </template>
       </section>
     </div>
     <template #footer>

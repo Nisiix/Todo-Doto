@@ -9,6 +9,8 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 
+mod secrets;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Identity {
@@ -363,7 +365,15 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![get_identity, oauth_start, oauth_wait, run_check, allow_paths])
+        .invoke_handler(tauri::generate_handler![
+            get_identity,
+            oauth_start,
+            oauth_wait,
+            run_check,
+            allow_paths,
+            secrets::protect_secret,
+            secrets::unprotect_secret
+        ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Project Goal Manager");
 }
