@@ -42,7 +42,6 @@ const m = defineMessages({
     projectsEmpty: 'Nessun progetto. Creane uno con il pulsante qui sopra.',
     trash: 'Cestino',
     trashedActions: 'Azioni progetto cestinato',
-    empty: 'Vuoto.',
   },
   en: {
     deleteFolderTitle: (n: string) => `Delete the folder “${n}”?`,
@@ -69,7 +68,6 @@ const m = defineMessages({
     projectsEmpty: 'No projects. Create one with the button above.',
     trash: 'Trash',
     trashedActions: 'Trashed project actions',
-    empty: 'Empty.',
   },
 })
 
@@ -211,10 +209,10 @@ const trashMenu = (p: Project) => [
       <section v-if="ws.trashedProjects.length">
         <div class="mb-1 flex items-center justify-between px-1">
           <h2 class="text-[11.5px] font-semibold text-ink-3">
-            {{ m.trash }} <span class="tabular-nums">{{ ws.trashedProjects.length || '' }}</span>
+            {{ m.trash }} <span class="tabular-nums">{{ ws.trashedProjects.length }}</span>
           </h2>
           <button
-            v-if="ws.trashedProjects.length && ws.canPurge"
+            v-if="ws.canPurge"
             class="rounded-md p-1 text-ink-3 hover:bg-danger/10 hover:text-danger"
             :title="m.emptyTrashHint"
             :aria-label="m.emptyTrash"
@@ -223,7 +221,7 @@ const trashMenu = (p: Project) => [
             <Trash2 :size="14" />
           </button>
         </div>
-        <ul v-if="ws.trashedProjects.length">
+        <ul>
           <li v-for="p in ws.trashedProjects" :key="p.id" class="group flex h-7 items-center gap-2 rounded-md pl-2.5 pr-1 text-[13px] hover:bg-surface-2">
             <RouterLink :to="{ name: 'project', params: { id: p.id } }" class="min-w-0 flex-1 truncate text-ink-2 line-through decoration-line-strong" active-class="text-accent-ink">
               {{ p.name }}
@@ -234,7 +232,6 @@ const trashMenu = (p: Project) => [
             </BaseMenu>
           </li>
         </ul>
-        <p v-else class="px-1 text-[12px] text-ink-3">{{ m.empty }}</p>
       </section>
     </div>
 

@@ -508,3 +508,18 @@ describe('workspace: stack e strumenti AI (solo admin)', () => {
     expect(ws.findItem(it.id)!.item.assigneeId).toBeNull()
   })
 })
+
+describe('workspace: aggiornamento in background e scritture locali', () => {
+  it('un progetto appena creato non sparisce per un aggiornamento partito prima della scrittura', async () => {
+    await useSessionStore().init()
+    const ws = useWorkspaceStore()
+    await ws.create({ path: '/race', name: 'Rete', mode: 'network', password: 'segreto1' })
+    await ws.storage!.mutateUsers((f) => void f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' }))
+    await ws.refresh()
+    await ws.createProject({ name: 'Primo', description: '', folderId: null, members: [] })
+    const second = (await ws.createProject({ name: 'Secondo', description: '', folderId: null, members: ['usr_b'] }))!
+    expect(ws.projects[second.id]).toBeDefined()
+    await ws.refresh()
+    expect(Object.values(ws.projects).map((p) => p.name).sort()).toEqual(['Primo', 'Secondo'])
+  })
+})

@@ -293,6 +293,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const s = storage.value
     if (!s || status.value === 'closed' || status.value === 'locked') return
     try {
+      // Le scritture locali successive a questa lettura rendono superata la firma:
+      // un file appena creato qui sembrerebbe "cancellato" (vedi stale() sotto).
+      const gen = writeGen
       const next = await s.signature()
       const changedKeys = new Set<string>()
       for (const k of new Set([...Object.keys(signature), ...Object.keys(next)])) {
@@ -311,9 +314,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const remoteAuthors = new Set<string>()
       const applied: Record<string, string | undefined> = {}
       for (const key of changedKeys) {
-        const gen = writeGen
-        // Se durante la lettura è avvenuta una scrittura locale, si salta: il file
-        // verrà riletto al prossimo giro (la sua firma resta "da aggiornare").
+        // Se dalla lettura della firma è avvenuta una scrittura locale, si salta: il
+        // file verrà riletto al prossimo giro (la sua firma resta "da aggiornare").
         const stale = () => gen !== writeGen
         if (key === 'workspace.json') {
           const v = await s.readMeta()
@@ -338,6 +340,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         } else if (key.startsWith('projects/')) {
           const id = key.slice('projects/'.length)
           if (!next[key]) {
+            if (stale()) continue
             delete projects.value[id]
             if (ui.selectedItemId && !findItem(ui.selectedItemId)) ui.selectedItemId = null
             continue
@@ -357,7 +360,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       // Aggiorna la firma solo per i file effettivamente applicati
       for (const k of Object.keys(next)) if (!changedKeys.has(k)) applied[k] = next[k]
-      for (const k of changedKeys) if (!(k in applied) && !next[k]) applied[k] = undefined
+      // I file saltati tengono la firma di prima: restano "da aggiornare" al prossimo giro
+      for (const k of changedKeys) if (!(k in applied)) applied[k] = signature[k]
       signature = Object.fromEntries(Object.entries(applied).filter(([, v]) => v !== undefined)) as Signature
       if (remoteAuthors.size > 0) {
         const names = [...remoteAuthors].map(userName).join(', ')

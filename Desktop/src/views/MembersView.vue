@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import dayjs from 'dayjs'
-import { Eraser, Shield, ShieldOff, UserX } from 'lucide-vue-next'
+import { Eraser, KeyRound, Shield, ShieldOff, UserX } from 'lucide-vue-next'
+import BaseButton from '@/components/ui/BaseButton.vue'
+import PermissionsDialog from '@/components/dialogs/PermissionsDialog.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
@@ -27,6 +29,8 @@ const m = defineMessages({
     cleanerHint: 'Può spostare nel cestino qualsiasi elemento, anche non assegnato a lui',
     userSince: (u: string, h: string, d: string) => `${u} su ${h} · dal ${d}`,
     restricted: (n: number) => `${n} ${plural(n, 'progetto riservato', 'progetti riservati')}`,
+    permissions: 'Gestione permessi',
+    permissionsHint: 'Chi può vedere ciascun progetto, utente per utente',
   },
   en: {
     removeTitle: (n: string) => `Remove ${n} from the workspace?`,
@@ -43,11 +47,14 @@ const m = defineMessages({
     cleanerHint: 'Can move any item to the trash, even when not assigned to them',
     userSince: (u: string, h: string, d: string) => `${u} on ${h} · since ${d}`,
     restricted: (n: number) => `${n} restricted ${plural(n, 'project', 'projects')}`,
+    permissions: 'Manage permissions',
+    permissionsHint: 'Who can see each project, user by user',
   },
 })
 
 const ws = useWorkspaceStore()
 const confirm = useConfirm()
+const showPermissions = ref(false)
 
 const RANK: Record<Role, number> = { admin: 0, cleaner: 1, member: 2 }
 const sorted = computed(() => [...ws.users].sort((a, b) => RANK[a.role] - RANK[b.role] || compareText(a.displayName, b.displayName)))
@@ -73,7 +80,10 @@ const menu = (u: User) => [
 
 <template>
   <div class="w-full overflow-y-auto px-10 py-8">
-    <h1 class="text-[24px] font-extrabold tracking-tight">{{ m.title }}</h1>
+    <div class="flex max-w-3xl items-center gap-3">
+      <h1 class="flex-1 text-[24px] font-extrabold tracking-tight">{{ m.title }}</h1>
+      <BaseButton v-if="ws.isAdmin && ws.isNetwork" size="sm" :title="m.permissionsHint" @click="showPermissions = true"><KeyRound :size="14" /> {{ m.permissions }}</BaseButton>
+    </div>
     <p class="mt-1 max-w-xl text-[13.5px] leading-relaxed text-ink-2">
       <template v-if="ws.isNetwork">
         {{ m.networkLead1 }} <b>Cleaner</b> {{ m.networkLead2 }}
@@ -99,5 +109,6 @@ const menu = (u: User) => [
         </BaseMenu>
       </li>
     </ul>
+    <PermissionsDialog v-model:open="showPermissions" />
   </div>
 </template>

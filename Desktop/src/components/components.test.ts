@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import BaseButton from './ui/BaseButton.vue'
@@ -94,5 +94,54 @@ describe('testo con menzioni', () => {
     expect(w.emitted('submit')).toBeUndefined()
     await w.find('textarea').trigger('keydown', { key: 'Enter' })
     expect(w.emitted('submit')).toHaveLength(1)
+  })
+})
+
+describe('gestione permessi dei progetti', () => {
+  it('matrice progetti × utenti: filtro per progetto, «Tutti» e permessi per utente', async () => {
+    const PermissionsDialog = (await import('./dialogs/PermissionsDialog.vue')).default
+    await useSessionStore().init()
+    const ws = useWorkspaceStore()
+    await ws.create({ path: '/perm', name: 'Rete', mode: 'network', password: 'segreto1' })
+    await ws.storage!.mutateUsers((f) => {
+      f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' })
+      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carlo', role: 'member', createdAt: '' })
+    })
+    await ws.refresh()
+    const aperto = (await ws.createProject({ name: 'Aperto', description: '', folderId: null, members: [] }))!
+    const riservato = (await ws.createProject({ name: 'Riservato', description: '', folderId: null, members: ['usr_b', ws.currentUser!.id] }))!
+    await ws.refresh()
+    expect(ws.visibleProjects.map((p) => p.name)).toEqual(['Aperto', 'Riservato'])
+
+    const w = mount(PermissionsDialog, { props: { open: false }, attachTo: document.body })
+    await w.setProps({ open: true })
+    await nextTick()
+    const box = (label: string) => document.body.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!
+    // Stato iniziale: "Aperto" visibile a tutti, "Riservato" solo a Bea
+    expect(box('Tutti · Aperto').checked).toBe(true)
+    expect(box('Carlo può vedere «Aperto»').checked).toBe(true)
+    expect(box('Tutti · Riservato').checked).toBe(false)
+    expect(box('Bea può vedere «Riservato»').checked).toBe(true)
+    expect(box('Carlo può vedere «Riservato»').checked).toBe(false)
+
+    // Togliere Carlo da "Aperto": diventa riservato a tutti gli altri; dare "Riservato" anche a Carlo
+    box('Carlo può vedere «Aperto»').click()
+    box('Carlo può vedere «Riservato»').click()
+    await nextTick()
+    expect(box('Tutti · Aperto').checked).toBe(false)
+    expect(document.body.textContent).toContain('2 progetti modificati')
+
+    // Filtro per progetto: una sola riga
+    const select = document.body.querySelector<HTMLSelectElement>('#perm-filter')!
+    select.value = riservato.id
+    select.dispatchEvent(new Event('change'))
+    await nextTick()
+    expect(document.body.querySelectorAll('tr[data-project]')).toHaveLength(1)
+
+    const save = [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Salva')!
+    save.click()
+    await vi.waitFor(() => expect(ws.projects[aperto.id]!.members.sort()).toEqual(['usr_b', ws.currentUser!.id].sort()))
+    expect(ws.projects[riservato.id]!.members.sort()).toEqual(['usr_b', 'usr_c', ws.currentUser!.id].sort())
+    w.unmount()
   })
 })

@@ -10,7 +10,6 @@ import ItemDialog from '@/components/dialogs/ItemDialog.vue'
 import FilterBar from '@/components/board/FilterBar.vue'
 import AttachmentsBoard from '@/components/board/AttachmentsBoard.vue'
 import DetailPanel from '@/components/layout/DetailPanel.vue'
-import ProjectMembersDialog from '@/components/dialogs/ProjectMembersDialog.vue'
 import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
 import ProjectStack from '@/components/project/ProjectStack.vue'
 import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
@@ -42,8 +41,6 @@ const m = defineMessages({
     nameLabel: 'Nome del progetto',
     errName: 'Il progetto ha bisogno di un nome.',
     renamed: 'Nome del progetto aggiornato',
-    users: 'Gestione utenti',
-    usersHint: 'Chi può vedere e modificare il progetto',
     containers: 'Contenitori',
     newItemKey: 'Nuovo task (N)',
     newItem: 'Nuovo task',
@@ -68,8 +65,6 @@ const m = defineMessages({
     nameLabel: 'Project name',
     errName: 'The project needs a name.',
     renamed: 'Project name updated',
-    users: 'Manage users',
-    usersHint: 'Who can see and edit the project',
     containers: 'Lists',
     newItemKey: 'New task (N)',
     newItem: 'New task',
@@ -148,7 +143,6 @@ const favorite = computed(() => ws.isFavorite(props.id))
 
 // --- azioni progetto ----------------------------------------------------------
 // (lo spostamento nel cestino sta accanto al progetto nella barra laterale)
-const showUsers = ref(false)
 
 // --- nome del progetto: modifica nell'intestazione (solo se non è collegato a una cartella) ---
 const renaming = ref(false)
@@ -274,9 +268,6 @@ const tabs: { id: Bucket; label: string }[] = [
             </div>
             <p v-if="project.description" class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">{{ project.description }}</p>
           </div>
-          <BaseButton v-if="!trashed && ws.isNetwork && ws.isAdmin" size="sm" variant="ghost" class="shrink-0" :title="m.usersHint" @click="showUsers = true">
-            <Users :size="15" /> {{ m.users }}
-          </BaseButton>
         </div>
 
         <template v-if="section === 'todo'">
@@ -335,7 +326,6 @@ const tabs: { id: Bucket; label: string }[] = [
       <DetailPanel v-if="selected && section === 'todo'" :key="selected.id" :project="project" :item="selected" :read-only="trashed" @manage-labels="showLabels = true" />
     </Transition>
 
-    <ProjectMembersDialog v-model:open="showUsers" :project="project" />
     <LabelsDialog v-model:open="showLabels" />
     <ItemDialog v-model:open="showNewItem" :project-id="project.id" @manage-labels="showLabels = true" />
   </template>

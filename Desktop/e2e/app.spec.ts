@@ -101,18 +101,24 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await page.fill('#p-name', 'Condiviso')
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await expect(page.getByRole('heading', { name: 'Condiviso' })).toBeVisible()
-  // Chi vede il progetto si gestisce con «Gestione utenti» in alto a destra
-  await page.getByRole('button', { name: 'Gestione utenti' }).click()
-  await expect(dialog(page)).toContainText('Condiviso')
-  await expect(dialog(page).getByRole('radio', { name: 'Tutti i membri del workspace' })).toHaveAttribute('aria-checked', 'true')
-  await dialog(page).getByRole('button', { name: 'Salva' }).click()
-  await expect(page.getByText('Utenti del progetto aggiornati')).toBeVisible()
+  // Nella pagina del progetto non c'è «Gestione utenti»: i permessi stanno nella pagina Membri
+  await expect(page.getByRole('button', { name: 'Gestione utenti' })).toHaveCount(0)
+  await page.getByTitle('Membri del workspace').click()
+  await page.getByRole('button', { name: 'Gestione permessi' }).click()
+  await expect(dialog(page)).toContainText('Gestione permessi')
+  await expect(dialog(page).locator('#perm-filter')).toContainText('Tutti i progetti')
+  await expect(dialog(page).locator('#perm-filter')).toContainText('Condiviso')
+  // Solo l'admin nel workspace: nessun altro a cui dare permessi
+  await expect(dialog(page)).toContainText('Nessun altro membro ancora')
+  await expect(dialog(page).getByRole('button', { name: 'Salva' })).toBeDisabled()
 })
 
 test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async ({ page }) => {
   await createLocalWorkspace(page)
   const aside = page.locator('aside').first()
   await expect(aside.getByText('Segna un progetto con la stella')).toBeVisible()
+  // Cestino vuoto: la sezione non c'è proprio
+  await expect(aside.locator('section', { hasText: 'Cestino' })).toHaveCount(0)
 
   await page.getByTitle('Nuova cartella').click()
   await page.fill('input[placeholder="Nome cartella"]', 'Clienti')
@@ -700,8 +706,9 @@ test('nome del progetto: matita → salva/annulla nell’intestazione, finché n
     window.dispatchEvent(new Event('focus'))
   }, disk)
   await expect(page.getByRole('button', { name: 'Modifica il nome del progetto' })).toHaveCount(0)
-  // Gestione utenti: solo nei workspace di rete
-  await expect(page.getByRole('button', { name: 'Gestione utenti' })).toHaveCount(0)
+  // Workspace locale: nella pagina Membri non c'è «Gestione permessi» (c'è un solo utente)
+  await page.getByTitle('Membri del workspace').click()
+  await expect(page.getByRole('button', { name: 'Gestione permessi' })).toHaveCount(0)
 })
 
 test('GitHub: collegamento con token, progetti creati dai repository e stack sincronizzato', async ({ page }) => {
