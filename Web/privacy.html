@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Informativa sulla privacy — Project Goal Manager</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Project Goal Manager
+      </a>
+      <nav class="nav" aria-label="Sezioni">
+        <a href="index.html#funzionalita">Funzionalità</a>
+        <a href="index.html#download">Scarica</a>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow">
+      <h1>Informativa sulla privacy</h1>
+      <p class="upd">Ultimo aggiornamento: 14 ottobre 2026</p>
+
+      <p>Questa informativa spiega quali dati tratta <b>Project Goal Manager</b> (l'applicazione desktop) e questo sito, e come. La risposta breve: <b>l'applicazione non invia i tuoi dati a nessuno</b>; tutto resta sul tuo computer o nella cartella condivisa che scegli tu.</p>
+
+      <h2>1. Titolare</h2>
+      <p>Il titolare del trattamento è l'autore dell'Applicazione, contattabile tramite il repository GitHub indicato nel sito.</p>
+
+      <h2>2. L'applicazione desktop</h2>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.1 Dati che inserisci</h2>
+      <p>Progetti, elementi, descrizioni, domande, commenti, allegati (come riferimenti a file o link), etichette, membri del workspace e cronologia delle operazioni sono salvati come file JSON nella cartella del workspace. Non vengono trasmessi a noi né ad alcun servizio esterno. In un workspace di rete sono accessibili alle persone che hanno accesso a quella cartella.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.2 Identità locale</h2>
+      <p>Per attribuire le modifiche, l'Applicazione legge il nome utente e il nome del computer dal sistema operativo e li salva nel file degli utenti del workspace, insieme al nome visibile che scegli. Non raccoglie indirizzo e-mail, numeri di telefono o altri identificativi.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.3 Password del workspace</h2>
+      <p>La password di un workspace di rete è conservata nel workspace solo come hash (PBKDF2-SHA256 con salt casuale). Sul tuo computer viene memorizzata cifrata (AES-GCM) con una chiave derivata dalla tua identità locale, così da non doverla reinserire a ogni avvio. Puoi eliminarla chiudendo il workspace o cancellando i file di configurazione locali.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.4 Dati locali</h2>
+      <p>Nella cartella dati dell'utente (<code>%APPDATA%\com.nisos.projectgoalmanager</code>) l'Applicazione conserva: tema, elenco dei workspace recenti, preferiti, preferenze sulle notifiche, password cifrate e, se usi Google Drive, le credenziali OAuth cifrate. Le notifiche ricevute restano nello storage locale dell'Applicazione. Puoi cancellare tutto eliminando quella cartella.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.5 Google Drive (facoltativo)</h2>
+      <p>Se colleghi un account Google, l'Applicazione dialoga direttamente con le API di Google dal tuo computer, con il tuo consenso e con il solo permesso di lettura (<code>drive.readonly</code>). Nel workspace condiviso viene salvata soltanto la struttura della cartella sincronizzata (nomi, identificativi, tipi e link dei file), visibile agli altri membri; il contenuto dei documenti viene scaricato solo quando lo apri e non viene salvato nel workspace. Il token di accesso resta cifrato sul tuo computer. Il trattamento da parte di Google è descritto nell'informativa privacy di Google.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.6 Nessuna telemetria</h2>
+      <p>L'Applicazione non contiene strumenti di analisi, tracciamento o segnalazione automatica degli errori e non contatta alcun nostro server. Le uniche connessioni di rete sono quelle verso Google che attivi tu con la funzione Drive.</p>
+
+      <h2>3. Questo sito</h2>
+      <p>Il sito è composto da pagine statiche. Non usa cookie di profilazione né strumenti di analisi. Il salvataggio della preferenza sul tema chiaro/scuro avviene nel tuo browser (localStorage) e non viene trasmesso. I caratteri tipografici sono caricati da Google Fonts: nel farlo, il tuo browser invia a Google il tuo indirizzo IP, secondo l'informativa di Google. Il server che ospita il sito e l'eventuale server di download possono registrare nei log tecnici indirizzo IP, data e ora e pagina richiesta, per sicurezza e manutenzione, per il tempo strettamente necessario.</p>
+
+      <h2>4. Base giuridica e conservazione</h2>
+      <p>Per quanto riguarda il sito, il trattamento dei log tecnici si fonda sul legittimo interesse a garantirne la sicurezza e il funzionamento; i log sono conservati per un periodo limitato. Per l'Applicazione, i dati sono trattati esclusivamente sui tuoi dispositivi e sotto il tuo controllo: tu decidi dove sono, chi vi accede e per quanto tempo conservarli.</p>
+
+      <h2>5. I tuoi diritti</h2>
+      <p>Hai il diritto di accedere ai dati, rettificarli, cancellarli, limitarne il trattamento e opporti, nonché di proporre reclamo al Garante per la protezione dei dati personali. Per i dati dell'Applicazione puoi esercitare questi diritti direttamente, perché i file sono tuoi; per i log del sito puoi contattarci tramite il repository GitHub.</p>
+
+      <h2>6. Minori</h2>
+      <p>L'Applicazione e il sito non sono destinati a minori di 14 anni e non raccolgono consapevolmente dati su di loro.</p>
+
+      <h2>7. Modifiche</h2>
+      <p>Aggiorneremo questa informativa se cambieranno le funzionalità dell'Applicazione o del sito; la data in alto indica l'ultima versione.</p>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Project Goal Manager</span>
+      <nav class="foot__links" aria-label="Note legali">
+        <a href="termini.html">Termini di utilizzo</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="condizioni.html">Condizioni di utilizzo</a>
+        <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

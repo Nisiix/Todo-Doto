@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Goal Manager — la roadmap dei tuoi progetti, in una cartella</title>
+  <meta name="description" content="App desktop per Windows che gestisce la roadmap di uno o più progetti: cose da fare con priorità e scadenze, domande e commenti, allegati, condivisione in rete locale senza server." />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="#">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Project Goal Manager
+      </a>
+      <nav class="nav" aria-label="Sezioni">
+        <a href="#perche">Perché</a>
+        <a href="#come-funziona">Come funziona</a>
+        <a href="#funzionalita">Funzionalità</a>
+        <a href="#schermate">Schermate</a>
+        <a class="btn btn--primary btn--sm" href="#download">Scarica</a>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero__grid">
+        <div>
+          <h1>La roadmap dei tuoi progetti, in una cartella.</h1>
+          <p>Da fare, completati, cestino. Priorità, scadenze, domande e allegati. Sul tuo PC o su una cartella di rete condivisa con i colleghi: nessun server da installare, nessun abbonamento.</p>
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="#download">Scarica per Windows</a>
+            <a class="btn btn--outline" href="#come-funziona">Guarda come funziona</a>
+          </div>
+          <p class="hero__meta">Gratuita · Windows 10/11 · i dati restano tuoi, in file leggibili</p>
+        </div>
+        <figure class="window" style="margin:0">
+          <div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div>
+          <img src="assets/screens/project-list.png" width="1600" height="1000" alt="La lista Da fare di un progetto: elementi ordinati per priorità, con etichette, scadenze e autore" />
+        </figure>
+      </div>
+    </section>
+
+    <section id="perche">
+      <div class="wrap">
+        <h2 class="sec__title">Pensata per chi lavora su più progetti insieme</h2>
+        <p class="sec__lead">Uno strumento leggero per tenere traccia di cosa c'è da fare, deciderlo insieme e non perdere nulla per strada. Senza infrastruttura: la sorgente di verità è una cartella.</p>
+        <div class="strengths">
+          <div class="strength" style="--bar: var(--p-immediata)">
+            <h3>Nessun server, nessun account</h3>
+            <p>I dati sono file JSON in una cartella. Locale per lavorare da soli; su un server di rete (anche come unità mappata, <code>Z:\Roadmap</code>) per condividerli con l'ufficio.</p>
+          </div>
+          <div class="strength" style="--bar: var(--p-alta)">
+            <h3>Sempre aggiornata</h3>
+            <p>Se un collega modifica un progetto, la tua finestra si aggiorna da sola e ti dice chi ha cambiato cosa. Le modifiche di più persone si sommano, non si sovrascrivono.</p>
+          </div>
+          <div class="strength" style="--bar: var(--p-media)">
+            <h3>Ruoli e permessi chiari</h3>
+            <p>Password d'accesso al workspace, progetti riservati a chi vuoi tu, ruolo Cleaner per chi può eliminare definitivamente, cronologia delle operazioni per gli amministratori.</p>
+          </div>
+          <div class="strength" style="--bar: var(--p-bassa)">
+            <h3>Leggera e veloce</h3>
+            <p>Un eseguibile di pochi megabyte che si apre in meno di un secondo. Tema chiaro «bianco sporco» o scuro, scorciatoie da tastiera, tutto a portata di pochi click.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="come-funziona">
+      <div class="wrap">
+        <h2 class="sec__title">Come funziona</h2>
+        <p class="sec__lead">Tre passaggi, poi si lavora.</p>
+        <div class="steps">
+          <div class="step">
+            <h3>Crea un workspace</h3>
+            <p>Scegli una cartella: sul tuo PC oppure su un server condiviso. Per la rete imposti una password: chi la conosce può entrare, tu sei l'amministratore.</p>
+          </div>
+          <div class="step">
+            <h3>Organizza i progetti</h3>
+            <p>Cartelle e sottocartelle, preferiti, recenti. Per ogni progetto decidi se è aperto a tutti o solo ad alcune persone.</p>
+          </div>
+          <div class="step">
+            <h3>Lavora insieme</h3>
+            <p>Aggiungi gli elementi, assegna priorità, stato, scadenza ed etichetta; fai domande, rispondi, allega documenti. Le notifiche ti avvisano delle novità.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="funzionalita">
+      <div class="wrap">
+        <h2 class="sec__title">Funzionalità</h2>
+        <p class="sec__lead">Quello che serve per una roadmap condivisa, e niente di più.</p>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3>Elementi che si leggono a colpo d'occhio</h3>
+            <p>La barra colorata a sinistra di ogni riga cresce con la priorità: la lista si legge come un istogramma di urgenza, senza etichette da decifrare.</p>
+            <p style="display:flex;gap:.4rem;flex-wrap:wrap">
+              <span class="pill" style="--c:var(--p-bassa)"><i></i>Bassa</span>
+              <span class="pill" style="--c:var(--p-media)"><i></i>Media</span>
+              <span class="pill" style="--c:var(--p-alta)"><i></i>Alta</span>
+              <span class="pill" style="--c:var(--p-immediata)"><i></i>Immediata</span>
+            </p>
+            <ul>
+              <li>Stato: da valutare, da definire, confermato</li>
+              <li>Scadenza facoltativa, con evidenza di quelle vicine o passate</li>
+              <li>Etichette personalizzate per nome e colore <span class="badge" style="--c:#d64545">Bug</span> <span class="badge" style="--c:#9b7bd6">Cliente</span></li>
+              <li>Filtri per periodo, stato, priorità, utente ed etichetta</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/new-item-dark.png" width="1600" height="1000" alt="Finestra di creazione di un nuovo elemento, tema scuro" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3>Domande, risposte e commenti dove servono</h3>
+            <p>Ogni elemento ha il suo spazio di discussione. Tagga un collega con <b>@</b>, rispondi alle domande, e chi ha chiesto segna «risolta» quando ha avuto la risposta.</p>
+            <ul>
+              <li>Titolo e descrizione, modificabili con un pulsante Salva</li>
+              <li>Gli elementi completati o cestinati diventano di sola lettura</li>
+              <li>Chi aspetta una risposta lo vede in prima pagina</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/project-detail.png" width="1600" height="1000" alt="Pannello di dettaglio di un elemento con domanda, menzione e commento" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3>Allegati che si aprono nell'app</h3>
+            <p>File sul server, pagine web, documenti di Google Drive: organizzati in cartelle con il nome che decidi tu e visualizzabili direttamente nell'applicazione, con un click per l'originale.</p>
+            <ul>
+              <li>Anteprima di immagini, PDF, testo e pagine web</li>
+              <li>Replica in sola lettura di una cartella di Google Drive (accesso con il tuo account, token cifrato sul PC)</li>
+              <li>I documenti Google si vedono come PDF</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/attachments.png" width="1600" height="1000" alt="Allegati di un progetto organizzati in cartelle" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3>Sotto controllo: notifiche, ruoli, cronologia</h3>
+            <p>Scegli quali novità ricevere (nuovi elementi, cambi di stato, completamenti, domande, risposte, commenti, menzioni). Gli amministratori hanno un registro di chi ha creato, completato, cestinato o eliminato cosa.</p>
+            <ul>
+              <li>Ruoli: Amministratore, Cleaner, Membro</li>
+              <li>Cestino per elementi e per interi progetti, con ripristino</li>
+              <li>Cronologia filtrabile per progetto, operazione e utente</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/audit.png" width="1600" height="1000" alt="Cronologia delle operazioni divisa per progetto" /></figure>
+        </article>
+      </div>
+    </section>
+
+    <section id="schermate">
+      <div class="wrap">
+        <h2 class="sec__title">Schermate</h2>
+        <p class="sec__lead">Dati di esempio, interfaccia reale.</p>
+        <div class="gallery">
+          <figure><div class="window"><img loading="lazy" src="assets/screens/home.png" width="1600" height="1000" alt="Pagina iniziale del workspace con le cose da tenere d'occhio e le domande aperte" /></div><figcaption><b>Il workspace.</b> Scadenze vicine, elementi immediati e domande aperte di tutti i progetti.</figcaption></figure>
+          <figure><div class="window"><img loading="lazy" src="assets/screens/project-dark.png" width="1600" height="1000" alt="Progetto in tema scuro" /></div><figcaption><b>Tema scuro.</b> Stessi colori di priorità, accento celeste, meno luce la sera.</figcaption></figure>
+          <figure><div class="window"><img loading="lazy" src="assets/screens/create-workspace.png" width="1600" height="1000" alt="Creazione di un workspace condiviso in rete con password" /></div><figcaption><b>Condivisione in rete.</b> Una cartella sul server e una password: i colleghi entrano, tu amministri.</figcaption></figure>
+          <figure><div class="window"><img loading="lazy" src="assets/screens/welcome.png" width="1600" height="1000" alt="Schermata iniziale con i workspace recenti" /></div><figcaption><b>Avvio.</b> I workspace recenti, l'ultimo si riapre da solo.</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="wrap download">
+        <div>
+          <h2 class="sec__title">Scarica Project Goal Manager</h2>
+          <p class="sec__lead">Un installer per Windows, oppure l'eseguibile da copiare dove vuoi. L'app non chiede registrazioni e non invia dati a nessuno.</p>
+          <ul class="req">
+            <li>Windows 10 o 11, 64 bit</li>
+            <li>Microsoft Edge WebView2 (già presente in Windows; l'installer lo aggiunge se manca)</li>
+            <li>Per condividere: una cartella di rete raggiungibile da tutti (UNC o unità mappata)</li>
+          </ul>
+        </div>
+        <div class="dl-box" data-download data-releases="https://github.com/Nisiix/Project-goal-manager/releases">
+          <h3>Windows</h3>
+          <div class="ver">Versione 0.1.0 · Windows 10/11 (64 bit)</div>
+          <div class="row">
+            <a class="btn btn--primary" data-kind="msi" href="https://github.com/Nisiix/Project-goal-manager/releases">Installer (.msi)</a>
+            <a class="btn btn--outline" data-kind="exe" href="https://github.com/Nisiix/Project-goal-manager/releases">Setup (.exe)</a>
+          </div>
+          <div class="dl-note">Il server di download è in preparazione: nel frattempo gli installer sono pubblicati nelle Release su GitHub.</div>
+          <p style="margin:1rem 0 0;font-size:.85rem;color:var(--ink-3)">Scaricando accetti le <a href="condizioni.html">condizioni di utilizzo</a>. Codice e verifiche di integrità sono pubblici nel repository.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Project Goal Manager</span>
+      <nav class="foot__links" aria-label="Note legali">
+        <a href="termini.html">Termini di utilizzo</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="condizioni.html">Condizioni di utilizzo</a>
+        <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

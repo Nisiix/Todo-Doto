@@ -1,0 +1,43 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permessi della finestra principale: filesystem (incluse cartelle di rete), dialog, apertura allegati, identità macchina.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-set-title",
+    "dialog:default",
+    "os:default",
+    "window-state:default",
+    "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-read-file",
+    "fs:allow-write-text-file",
+    "fs:allow-read-dir",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
+    "fs:allow-rename",
+    "fs:allow-remove",
+    "fs:allow-stat",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
+    {
+      "identifier": "fs:scope",
+      "allow": [{ "path": "**" }, { "path": "$APPDATA/**" }, { "path": "$APPDATA" }]
+    },
+    "http:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://*.googleapis.com/*" },
+        { "url": "https://oauth2.googleapis.com/*" },
+        { "url": "https://accounts.google.com/*" }
+      ]
+    },
+    "opener:allow-open-url",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "**" }]
+    }
+  ]
+}
