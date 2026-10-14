@@ -66,7 +66,6 @@ async function submit() {
     name: name.value,
     description: description.value.trim(),
     folderId: folderId.value,
-    categoryId: null,
     members: access.value === 'restricted' && ws.isNetwork ? restrictedMembers : [],
   }
   if (props.project) {
@@ -136,7 +135,7 @@ async function submit() {
     </form>
     <template #footer>
       <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-      <BaseButton variant="primary" @click="submit">{{ isEdit ? 'Salva modifiche' : 'Crea progetto' }}</BaseButton>
+      <BaseButton variant="primary" @click="submit">{{ isEdit ? 'Salva' : 'Crea progetto' }}</BaseButton>
     </template>
   </BaseDialog>
 </template>

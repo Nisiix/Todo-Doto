@@ -76,13 +76,6 @@ export const FolderSchema = z.object({
 })
 export type Folder = z.infer<typeof FolderSchema>
 
-export const CategorySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  color: z.string().default('#4FB3E8'),
-})
-export type Category = z.infer<typeof CategorySchema>
-
 /** Etichetta/badge applicabile a un elemento; definita a livello di workspace. */
 export const LabelSchema = z.object({
   id: z.string(),
@@ -91,12 +84,19 @@ export const LabelSchema = z.object({
 })
 export type Label = z.infer<typeof LabelSchema>
 
-export const TreeFileSchema = z.object({
-  folders: z.array(FolderSchema).default([]),
-  categories: z.array(CategorySchema).default([]),
-  labels: z.array(LabelSchema).default([]),
-})
-export type TreeFile = z.infer<typeof TreeFileSchema>
+/**
+ * tree.json: cartelle ed etichette del workspace.
+ * `categories` è un campo DEPRECATO (sostituito dalle cartelle): i file scritti
+ * dalle prime versioni possono ancora contenerlo, viene letto e scartato.
+ */
+export const TreeFileSchema = z
+  .object({
+    folders: z.array(FolderSchema).default([]),
+    labels: z.array(LabelSchema).default([]),
+    categories: z.array(z.unknown()).optional(),
+  })
+  .transform(({ categories: _legacy, ...tree }) => tree)
+export type TreeFile = z.output<typeof TreeFileSchema>
 
 export const CommentSchema = z.object({
   id: z.string(),
@@ -241,7 +241,8 @@ export const ProjectSchema = z.object({
   name: z.string(),
   description: z.string().default(''),
   folderId: z.string().nullable().default(null),
-  categoryId: z.string().nullable().default(null),
+  /** @deprecated Campo delle prime versioni (categorie): ignorato, resta solo per leggere i file esistenti. */
+  categoryId: z.string().nullable().optional(),
   members: z.array(z.string()).default([]),
   version: z.number().default(0),
   createdAt: iso,
@@ -404,10 +405,11 @@ export interface ItemFilter {
   to: string | null
   statuses: Status[]
   priorities: Priority[]
-  userId: string | null // creato da oppure assegnato a
+  assigneeId: string | null // assegnato a
+  createdBy: string | null // creato da
   labelId: string | null
 }
-export const EMPTY_FILTER: ItemFilter = { from: null, to: null, statuses: [], priorities: [], userId: null, labelId: null }
+export const EMPTY_FILTER: ItemFilter = { from: null, to: null, statuses: [], priorities: [], assigneeId: null, createdBy: null, labelId: null }
 export type LocalConfig = z.infer<typeof LocalConfigSchema>
 
 export const CredentialsFileSchema = z.object({

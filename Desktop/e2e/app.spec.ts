@@ -33,7 +33,7 @@ async function addItem(page: Page, title: string, priority = 'media', opts: { no
   if (opts.notes) await page.fill('#i-notes', opts.notes)
   await dialog(page).locator('select[title^="Priorità"]').selectOption(priority)
   if (opts.label) await dialog(page).getByLabel('Etichetta').selectOption({ label: opts.label })
-  await dialog(page).getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(dialog(page)).toBeHidden()
   await expect(page.getByText(title, { exact: true })).toBeVisible()
 }
@@ -83,9 +83,12 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
   // Preferito: stella nell'intestazione → sezione Preferiti
   await page.getByRole('button', { name: 'Aggiungi ai preferiti' }).click()
   await expect(aside.locator('section').first().getByText('Beta')).toBeVisible()
-  // Recenti: ultimi modificati, il più recente in alto
+  // Recenti: compare solo con almeno 5 progetti (con pochi è rumore)
+  await expect(aside.locator('section', { hasText: 'Recenti' })).toHaveCount(0)
+  for (const n of ['Gamma', 'Delta', 'Epsilon']) await createProject(page, n)
   const recenti = aside.locator('section', { hasText: 'Recenti' })
-  await expect(recenti.locator('li').first()).toContainText('Beta')
+  await expect(recenti.locator('li').first()).toContainText('Epsilon')
+  await aside.getByText('Beta', { exact: true }).first().click()
 
   // Sposta nel cestino dall'intestazione del progetto
   await page.getByRole('button', { name: 'Sposta nel cestino' }).click()
@@ -119,7 +122,7 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await page.fill('#i-notes', 'prima riga')
   await page.locator('#i-notes').press('Enter')
   await page.locator('#i-notes').type('seconda riga')
-  await dialog(page).getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(rows(page).first()).toContainText('Refactor mapping NHibernate')
   await expect(rows(page).first()).not.toContainText('seconda riga')
   await addItem(page, 'Login SPID', 'immediata')
@@ -180,7 +183,7 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Etichette')
   await newItemButton(page).click()
-  await dialog(page).getByLabel('Etichetta').selectOption('__manage__')
+  await dialog(page).getByRole('button', { name: 'Gestisci etichette…' }).click()
   const labels = page.getByRole('dialog').filter({ hasText: 'Badge da assegnare' })
   await expect(labels).toBeVisible()
   await labels.getByPlaceholder('Nuova etichetta').fill('Bug')
@@ -190,8 +193,13 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   await expect(labels).toBeHidden()
   await page.fill('#i-title', 'Crash all’avvio')
   await dialog(page).getByLabel('Etichetta').selectOption({ label: 'Bug' })
-  await dialog(page).getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(rows(page).first().getByTitle('Etichetta: Bug').first()).toBeVisible()
+  // Le etichette si gestiscono anche dal menu del workspace
+  await page.getByRole('button', { name: /Roadmap Sviluppo/ }).first().click()
+  await page.getByRole('menuitem', { name: 'Etichette' }).click()
+  await expect(labels.locator('input[aria-label="Nome etichetta Bug"]')).toBeVisible()
+  await labels.getByRole('button', { name: 'Chiudi', exact: true }).last().click()
   // Filtro per etichetta
   await page.getByRole('group', { name: 'Filtri' }).getByLabel('Etichetta').selectOption({ label: 'Bug' })
   await expect(rows(page)).toHaveCount(1)
@@ -210,14 +218,14 @@ test('allegati: cartelle, link, file e anteprima interna', async ({ page }) => {
   await page.fill('#a-target', 'figma.com/file/abc')
   await page.fill('#a-name', 'Mockup')
   await page.selectOption('#a-folder', { label: 'Specifiche' })
-  await page.getByRole('button', { name: 'Aggiungi' }).click()
+  await page.getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(page.getByText('https://figma.com/file/abc')).toBeVisible()
 
   await page.getByRole('button', { name: 'Allegato', exact: true }).click()
   await page.getByRole('radio', { name: 'File' }).click()
   await page.getByRole('button', { name: 'Sfoglia' }).click()
   await expect(page.locator('#a-name')).toHaveValue('documento.pdf')
-  await page.getByRole('button', { name: 'Aggiungi' }).click()
+  await page.getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(page.getByText('documento.pdf', { exact: true })).toBeVisible()
 
   // Anteprima interna del link: riquadro incorporato + pulsante per il browser
@@ -228,8 +236,10 @@ test('allegati: cartelle, link, file e anteprima interna', async ({ page }) => {
   await page.getByRole('dialog').locator('button:has-text("Chiudi")').last().click()
 })
 
-test('ricerca e scorciatoie da tastiera', async ({ page }) => {
+test('ricerca globale e scorciatoie da tastiera', async ({ page }) => {
   await createLocalWorkspace(page)
+  await createProject(page, 'Altro progetto')
+  await addItem(page, 'Voce altrove')
   await createProject(page, 'Ricerca')
   await page.keyboard.press('n')
   await expect(page.locator('#i-title')).toBeFocused()
@@ -237,10 +247,30 @@ test('ricerca e scorciatoie da tastiera', async ({ page }) => {
   await page.keyboard.press('Control+Enter')
   await expect(rows(page)).toHaveCount(1)
   await addItem(page, 'Seconda cosa')
+
+  // Ricerca in tutti i progetti: risultati raggruppati, Invio apre l'elemento
   await page.keyboard.press('Control+k')
-  await page.keyboard.type('seconda')
-  await expect(page.getByText('Seconda cosa')).toBeVisible()
-  await expect(page.getByText('Prima cosa')).toBeHidden()
+  await page.keyboard.type('voce')
+  const results = page.getByRole('listbox', { name: 'Risultati della ricerca' })
+  await expect(results).toContainText('Altro progetto')
+  await expect(results).toContainText('Voce altrove')
+  await expect(results).not.toContainText('Prima cosa')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('heading', { name: 'Altro progetto' })).toBeVisible()
+  await expect(page.getByLabel('Titolo')).toHaveValue('Voce altrove')
+  await page.keyboard.press('Escape') // chiude il pannello
+
+  // Tastiera nella lista: ↓ va alla prima riga, C completa, ? mostra l'elenco
+  await page.locator('aside').first().getByText('Ricerca', { exact: true }).click()
+  await expect(rows(page)).toHaveCount(2)
+  await page.keyboard.press('ArrowDown')
+  await expect(rows(page).first()).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(rows(page).nth(1)).toBeFocused()
+  await page.keyboard.press('c')
+  await expect(rows(page)).toHaveCount(1)
+  await page.keyboard.press('?')
+  await expect(page.getByRole('dialog')).toContainText('Scorciatoie da tastiera')
 })
 
 test('pagina Drive: nel browser spiega che serve l’app desktop', async ({ page }) => {
@@ -303,11 +333,11 @@ test('sezioni del progetto: Stack con procedura guidata, Strumenti AI; Analisi p
 
   // Strumenti AI: skill incollata, visibile nel visualizzatore
   await page.getByRole('button', { name: 'Strumenti AI' }).click()
-  await page.getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await page.getByRole('button', { name: 'Nuovo strumento' }).click()
   await page.getByRole('menuitem', { name: 'Skill' }).click()
   await page.fill('#ai-name', 'frontend-design')
   await page.locator('textarea[placeholder^="…oppure incolla"]').fill('# Frontend Design\nLinee guida')
-  await dialog(page).getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
   await expect(page.getByTitle('Vedi SKILL.md')).toBeVisible()
   await page.getByTitle('Vedi SKILL.md').click()
   await expect(dialog(page).locator('pre')).toContainText('Linee guida')

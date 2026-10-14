@@ -116,9 +116,9 @@ Il pattern **read-before-write** è la garanzia di coerenza fra più PC: due mod
 È l'unico punto in cui i dati del workspace vengono modificati. Espone:
 
 - **stato**: `status` (`closed | opening | locked | open | unreachable`), `meta`, `users`, `tree`, `projects` (dizionario per id), `lastError`;
-- **derivati**: `currentUser`, `isAdmin`, `isNetwork`, `visibleProjects` (filtro membri), `foldersByParent`, `categoriesById`, `userName(id)`;
+- **derivati**: `currentUser`, `isAdmin`, `isNetwork`, `isCleaner`, `canPurge`, `canTrashItem(item)`, `visibleProjects` (filtro membri), `trashedProjects`, `recentProjects`, `favoriteProjects`, `foldersByParent`, `labelsById`, `userName(id)`;
 - **ciclo di vita**: `open(path)` → eventualmente `unlock(password)` → `close()`; `create(opts)`;
-- **mutazioni** raggruppate per dominio (progetti, elementi, commenti/domande, allegati, cartelle/categorie, utenti/accesso).
+- **mutazioni** raggruppate per dominio (progetti, elementi, commenti/domande, allegati, cartelle, etichette, stack/strumenti AI, utenti/accesso).
 
 Tutte le mutazioni passano da tre helper interni, che è il modo in cui si aggiunge una nuova operazione senza duplicare codice:
 
@@ -128,13 +128,19 @@ mutateItem(projectId, itemId, (it, p) => { ... })  // un elemento (aggiorna upda
 mutateQuestion(projectId, itemId, qId, (q) => { ... })
 ```
 
-`guard(fn)` incapsula ogni accesso al disco: in caso di errore mostra un toast e registra `lastError`, senza far cadere l'app. `record(action, project, item)` aggiunge una voce alla cronologia dopo le operazioni che la riguardano; `canPurge` (admin o Cleaner) protegge le eliminazioni definitive sia nella UI sia nello store.
+`guard(fn)` incapsula ogni accesso al disco: in caso di errore mostra un toast e registra `lastError`, senza far cadere l'app. `record(action, project, item)` aggiunge una voce alla cronologia dopo le operazioni che la riguardano.
+
+**Permessi, in un posto solo.** Le regole stanno nello store e la UI le consuma: `canPurge` (solo admin) per le eliminazioni definitive; `canTrashItem(item)` (assegnatario, creatore se non assegnato, Cleaner, admin) per spostare nel cestino; `canSee(p)` per la visibilità dei progetti. **Stack e Strumenti AI sono modificabili solo dagli admin** per scelta: sono la "verità" del progetto (con cosa è fatto, come si configura, quali strumenti si usano), a differenza di allegati e cartelle che sono materiale di lavoro di tutti. Le viste mostrano ai membri una nota ("l'amministratore non ha ancora…") invece di una pagina vuota.
 
 **Aggiornamento live.** `startWatching()` attiva watcher + polling (4 s) + refresh al focus della finestra. `refresh()` confronta la firma dei file con l'ultima nota e ricarica **solo** i file cambiati; se il cambiamento viene da un altro utente mostra "Aggiornato da …" e fa lampeggiare le righe toccate. Le chiamate concorrenti vengono accodate, non perse, e una lettura iniziata prima di una scrittura locale non può sovrascrivere lo stato più recente: ogni scrittura locale incrementa `writeGen` e il refresh scarta i risultati letti con una generazione più vecchia (più il controllo su `version` per i progetti). Dalle differenze fra versione precedente e nuova (`services/changes.ts`) nascono le **notifiche** per i progetti di cui si fa parte. Questi casi limite sono coperti dai test dello store.
 
+**Notifiche e cronologia sono due pipeline distinte, e complementari.** La cronologia (`audit.json`, `record()`) è il registro condiviso, scritto da chi compie l'operazione, limitato alle operazioni sugli elementi e sui progetti. Le notifiche sono per utente e per macchina (localStorage) e hanno due sorgenti: a workspace aperto, il diff dei progetti (copre tutto: domande, risposte, commenti, descrizioni, assegnazioni); all'apertura, `notifications.ingestAudit()` rilegge la cronologia e trasforma in notifiche le operazioni altrui successive all'ultimo istante "visto" (`touchSeen()`, aggiornato a ogni refresh riuscito). Così chi era offline ritrova almeno creazioni, completamenti e cestinazioni; gli id delle notifiche derivate (`aud:<id voce>`) le rendono idempotenti. Se un giorno servisse recuperare anche domande e commenti offline, la strada è registrarli nella cronologia, non una terza pipeline.
+
+**Campi deprecati.** `tree.json` delle prime versioni conteneva `categories` e i progetti `categoryId`: le categorie sono state sostituite dalle cartelle. Lo schema zod li legge e li scarta (`TreeFileSchema` con `transform`, `categoryId` opzionale), così i file esistenti restano validi; lo store e la UI non li conoscono più. Non vanno riutilizzati.
+
 ### 3.5 `stores/session.ts` e `stores/ui.ts`
 
-`session` conosce l'identità locale (`utente@macchina`, da Rust) e la configurazione per macchina (tema, workspace recenti). `ui` tiene ciò che è solo visuale: tema, toast, elemento selezionato, testo di ricerca, righe da far lampeggiare. Nessuno dei due tocca il disco del workspace.
+`session` conosce l'identità locale (`utente@macchina`, da Rust) e la configurazione per macchina (tema, workspace recenti). `ui` tiene ciò che è solo visuale: tema, toast, elemento selezionato, testo della ricerca globale, righe da far lampeggiare. Nessuno dei due tocca il disco del workspace.
 
 ### 3.6 Componenti
 
@@ -152,11 +158,15 @@ mutateQuestion(projectId, itemId, qId, (q) => { ... })
 | `ToastHost`, `ConfirmHost` | host globali montati una volta in `App.vue` |
 | `BrandMark` | il segno dell'app (quattro barre di priorità) |
 
-**`components/board/`** — la lista: `ItemRow` (riga con barra di priorità, azioni, selettori inline), `ItemComposer` (campo di creazione rapida), `PrioritySelect`, `StatusSelect`, `DueDateField` (riusati anche nel pannello di dettaglio), `AttachmentsBoard`.
+**`components/board/`** — la lista: `ItemRow` (riga con barra di priorità, selettori inline e tastiera: ↑/↓, Invio, C, Canc), `ItemRowActions` (il menu "⋯" della riga), `FilterBar` (scadenza, stato, priorità, **Assegnato a** e **Creato da** come filtri distinti, etichetta), `PrioritySelect`, `StatusSelect`, `DueDateField`, `LabelSelect`, `AssigneeSelect` (riusati nel dialog di creazione e nel pannello di dettaglio), `AttachmentsBoard`.
+
+**`composables/useItemActions.ts`** — le azioni su un elemento (completa, riapri, cestina con "Annulla", elimina definitivamente), il menu che le espone e le scorciatoie, in un unico posto: `ItemRow`, `ItemRowActions` e `DetailPanel` lo usano, così permessi, conferme e messaggi sono identici ovunque. Una nuova azione sull'elemento si aggiunge qui e compare in tutti e tre.
+
+**`components/layout/`** — `TopBar` (menu del workspace: Impostazioni, Etichette, Membri, Analisi e Cronologia per gli admin, Scorciatoie; Drive; notifiche; tema), `GlobalSearch` (ricerca in tutti i progetti: nome del progetto, elementi, allegati; risultati raggruppati, ↑/↓ e Invio; `services/items.searchAll`), `SideRail` (Preferiti, Recenti — solo da 5 progetti in su —, Progetti, Cestino), `DetailPanel`.
 
 **`components/detail/`** — `MentionTextarea` (textarea con autocompletamento `@utente`, Invio per inviare), `RichText` (menzioni e link evidenziati), `ItemComments`, `ItemQuestions`.
 
-**`components/dialogs/`** — ogni form modale è autonomo: riceve `v-model:open` e, se serve, l'entità da modificare; chiama lo store e chiude. `NameDialog` è il form generico "chiedi un nome (e un colore)" usato per cartelle, categorie e cartelle di allegati.
+**`components/dialogs/`** — ogni form modale è autonomo: riceve `v-model:open` e, se serve, l'entità da modificare; chiama lo store e chiude. `NameDialog` è il form generico "chiedi un nome (e un colore)" usato per cartelle e cartelle di allegati. `ShortcutsDialog` elenca le scorciatoie (tasto `?`). Convenzione sui verbi: **Crea** quando si inserisce, **Salva** quando si modifica, in tutti i dialog.
 
 ### 3.7 Stile e tema
 
@@ -186,12 +196,13 @@ watcher o polling → `ws.refresh()` → `storage.signature()` → per ogni file
 | Voglio… | Dove intervenire |
 |---|---|
 | un nuovo campo sull'elemento (es. `stima`) | `types/index.ts` (schema con `.default`), `ItemRow`/`DetailPanel` per mostrarlo, eventualmente `services/items.ts` per ordinarlo. I file esistenti restano validi grazie al default. |
-| una nuova azione (es. "duplica elemento") | una funzione nello store costruita con `mutateProject`/`mutateItem`; una voce nel `menu` di `ItemRow`. |
+| una nuova azione (es. "duplica elemento") | una funzione nello store costruita con `mutateProject`/`mutateItem`; una voce nel `menu` di `composables/useItemActions.ts` (compare in riga, menu e pannello). |
 | un nuovo tipo di allegato | `AttachmentSchema.kind`, `AttachmentDialog` (segmento), `AttachmentsBoard` (icona), `fs.openExternal`. |
-| una nuova pagina | `views/NuovaView.vue` + rotta figlia di `/w` in `router/index.ts` + link in `TopBar` o `SideRail`. |
+| una nuova pagina | `views/NuovaView.vue` + rotta figlia di `/w` in `router/index.ts` (`meta: { admin: true }` se riservata agli admin: il router rimanda alla home gli altri) + link in `TopBar` o `SideRail`. |
 | una nuova sezione del progetto | un componente in `components/project/`, una voce in `SECTIONS` di `ProjectView` (la rotta `p/:id/:section?` è già pronta). |
 | un nuovo dialog | copia `NameDialog` come modello: `v-model:open`, `watch(open)` per inizializzare, `BaseDialog` con slot `footer`. |
-| una regola pura (ordinamento, filtri, date) | `services/items.ts`, con test in `items.test.ts`. |
+| una regola pura (ordinamento, filtri, ricerca, date) | `services/items.ts`, con test in `items.test.ts`. |
+| una scorciatoia da tastiera | il gestore dove ha senso (`ItemRow` per la riga, `ProjectView` per la pagina, `GlobalSearch`/`TopBar` per tutto) e la riga corrispondente in `ShortcutsDialog`. |
 | cambiare i colori | solo le variabili in `style.css`. |
 
 Convenzioni: Composition API con `<script setup lang="ts">`; prop/emit tipizzati; testi dell'interfaccia in italiano, in sentence case, con verbi d'azione ("Crea progetto" → toast "Creato"); nessun accesso diretto al disco fuori da `services/`.

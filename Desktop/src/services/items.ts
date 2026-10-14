@@ -3,7 +3,7 @@
  * Nessuna dipendenza da Vue o dallo store: facile da testare e riusare.
  */
 import dayjs from 'dayjs'
-import { PRIORITY_RANK, type Bucket, type Item, type ItemFilter, type Project } from '@/types'
+import { PRIORITY_RANK, type Attachment, type Bucket, type Item, type ItemFilter, type Project } from '@/types'
 
 export const todayKey = (now = dayjs()) => now.format('YYYY-MM-DD')
 
@@ -49,7 +49,7 @@ export function matchesSearch(item: Item, query: string): boolean {
 }
 
 export const isFilterActive = (f: ItemFilter) =>
-  !!(f.from || f.to || f.statuses.length || f.priorities.length || f.userId || f.labelId)
+  !!(f.from || f.to || f.statuses.length || f.priorities.length || f.assigneeId || f.createdBy || f.labelId)
 
 /** Applica il filtro: le date agiscono sulla scadenza (chi non ne ha viene escluso). */
 export function applyFilter(items: Item[], f: ItemFilter): Item[] {
@@ -60,10 +60,49 @@ export function applyFilter(items: Item[], f: ItemFilter): Item[] {
     if (f.to && i.dueDate! > f.to) return false
     if (f.statuses.length && !f.statuses.includes(i.status)) return false
     if (f.priorities.length && !f.priorities.includes(i.priority)) return false
-    if (f.userId && i.createdBy !== f.userId && i.assigneeId !== f.userId) return false
+    if (f.assigneeId && i.assigneeId !== f.assigneeId) return false
+    if (f.createdBy && i.createdBy !== f.createdBy) return false
     if (f.labelId && i.labelId !== f.labelId) return false
     return true
   })
+}
+
+export interface SearchHit {
+  project: Project
+  /** Il nome del progetto corrisponde alla ricerca. */
+  nameMatch: boolean
+  /** Elementi che corrispondono (titolo o descrizione). */
+  items: Item[]
+  /** Allegati che corrispondono (nome o destinazione). */
+  attachments: Attachment[]
+}
+
+/**
+ * Ricerca in tutti i progetti: nome del progetto, titolo e descrizione degli
+ * elementi, nome e destinazione degli allegati. Risultati raggruppati per
+ * progetto; dentro ogni gruppo prima gli elementi da fare (nell'ordine della
+ * lista), poi completati e cestinati, infine gli allegati.
+ */
+export function searchAll(projects: Project[], query: string, maxPerProject = 8): SearchHit[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const rank: Record<Bucket, number> = { todo: 0, done: 1, trash: 2 }
+  const hits: SearchHit[] = []
+  for (const project of projects) {
+    const nameMatch = project.name.toLowerCase().includes(q)
+    const items = project.items
+      .filter((i) => matchesSearch(i, q))
+      .sort((a, b) => rank[a.bucket] - rank[b.bucket] || (a.bucket === 'todo' ? compareTodo(a, b) : compareRecent(a, b)))
+      .slice(0, maxPerProject)
+    const attachments = project.attachments.filter((a) => a.name.toLowerCase().includes(q) || a.target.toLowerCase().includes(q)).slice(0, maxPerProject)
+    if (nameMatch || items.length || attachments.length) hits.push({ project, nameMatch, items, attachments })
+  }
+  return hits.sort(
+    (a, b) =>
+      Number(b.nameMatch) - Number(a.nameMatch) ||
+      b.items.length + b.attachments.length - (a.items.length + a.attachments.length) ||
+      a.project.name.localeCompare(b.project.name, 'it'),
+  )
 }
 
 /** Prima riga del titolo, per le liste a riga singola. */

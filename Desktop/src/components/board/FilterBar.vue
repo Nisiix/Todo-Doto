@@ -14,7 +14,7 @@ import {
   type Status,
 } from '@/types'
 
-/** Barra dei filtri della lista: scadenza da/a, stato, priorità, utente. */
+/** Barra dei filtri della lista: scadenza da/a, stato, priorità, assegnatario, autore, etichetta. */
 const model = defineModel<ItemFilter>({ required: true })
 const ws = useWorkspaceStore()
 
@@ -72,8 +72,13 @@ const chip =
       </button>
     </div>
 
-    <select class="field field-sm h-6 w-40 py-0" :value="model.userId ?? ''" aria-label="Utente (creato da o assegnato a)" @change="set('userId', ($event.target as HTMLSelectElement).value || null)">
-      <option value="">Tutti gli utenti</option>
+    <select class="field field-sm h-6 w-48 py-0" :value="model.assigneeId ?? ''" aria-label="Assegnato a" title="Assegnato a" @change="set('assigneeId', ($event.target as HTMLSelectElement).value || null)">
+      <option value="">Assegnato a: chiunque</option>
+      <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
+    </select>
+
+    <select class="field field-sm h-6 w-44 py-0" :value="model.createdBy ?? ''" aria-label="Creato da" title="Creato da" @change="set('createdBy', ($event.target as HTMLSelectElement).value || null)">
+      <option value="">Creato da: chiunque</option>
       <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
     </select>
 

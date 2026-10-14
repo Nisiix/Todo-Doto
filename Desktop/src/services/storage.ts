@@ -80,7 +80,7 @@ export class WorkspaceStorage {
     await this.fs.mkdir(this.paths.projectsDir)
     await this.writeJson(this.paths.workspace, meta)
     await this.writeJson(this.paths.users, users)
-    await this.writeJson(this.paths.tree, { folders: [], categories: [], labels: [] } satisfies TreeFile)
+    await this.writeJson(this.paths.tree, { folders: [], labels: [] } satisfies TreeFile)
   }
 
   // --- lettura -------------------------------------------------------------

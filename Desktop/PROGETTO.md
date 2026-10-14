@@ -59,7 +59,7 @@ Un'app leggera, veloce e bella da usare che permetta in pochi click di:
 │  ┌──────────────┐ ┌──────────────────────┐ ┌───────────────┐ │
 │  │ Rail sinistra │ │ Board del progetto   │ │ Pannello      │ │
 │  │ cartelle      │ │ Da fare / Completati │ │ dettaglio     │ │
-│  │ categorie     │ │ / Cestino            │ │ commenti,     │ │
+│  │ preferiti     │ │ / Cestino            │ │ commenti,     │ │
 │  │ progetti      │ │                      │ │ domande,      │ │
 │  └──────────────┘ └──────────────────────┘ │ allegati      │ │
 │                                             └───────────────┘ │
@@ -82,7 +82,7 @@ Tutta la logica vive nel frontend; Rust espone solo un comando (`get_identity`: 
 <workspace>/
   workspace.json          identità del workspace, modalità, hash password
   users.json              utenti registrati nel workspace e ruolo
-  tree.json               cartelle/sottocartelle e categorie
+  tree.json               cartelle/sottocartelle ed etichette (il vecchio campo `categories` viene ignorato)
   projects/
     <projectId>.json      un file per progetto (todo, allegati, membri…)
 ```
@@ -133,7 +133,7 @@ Azioni registrate: `item_created | item_completed | item_reopened | item_trashed
 ```jsonc
 {
   "schema": 1, "id": "prj_…", "name": "Bilancio Europeo Web",
-  "description": "…", "folderId": "fld_…", "categoryId": "cat_…",
+  "description": "…", "folderId": "fld_…",
   "members": ["usr_…"],              // vuoto = visibile a tutti i membri del workspace
   "version": 42, "updatedAt": "…", "updatedBy": "usr_…",
   "items": [ {
@@ -173,10 +173,10 @@ Le notifiche ricevute restano in localStorage, per workspace e utente.
 - **Crea**: nome, cartella (dialog nativo), modalità Locale o Rete. In modalità Rete è obbligatoria una password (min 6 caratteri); chi crea diventa admin.
 - **Apri**: se `mode = network` e l'utente non è ancora in `users.json`, chiede la password; se corretta, l'utente viene aggiunto come `member` e la password viene salvata cifrata in locale (non richiesta ai prossimi avvii). L'admin può **cambiare la password** dalle impostazioni; i membri la reinseriscono al prossimo accesso.
 
-### 5.2 Cartelle, categorie, progetti
-- Albero cartelle a profondità libera nella rail sinistra; drag non necessario: ogni progetto ha un menu "Sposta in…".
-- Categorie: nome e colore scelti dall'utente; filtro per categoria nella rail.
-- Progetto: nome, descrizione, cartella, categoria, membri. Eliminazione con conferma.
+### 5.2 Cartelle, etichette, progetti
+- Albero cartelle a profondità libera nella rail sinistra (le categorie delle prime versioni sono state rimosse: le cartelle bastano).
+- Etichette: nome e colore, a livello di workspace; si gestiscono dal menu del workspace ("Etichette") o dal link "Gestisci etichette…" nei dialog.
+- Progetto: nome, descrizione, cartella, membri. Spostamento nel cestino con conferma implicita (toast "Annulla").
 
 ### 5.3 Elementi da fare
 - Creazione rapida con un solo campo (Invio per salvare); priorità/stato/scadenza modificabili inline dalla riga.
@@ -239,7 +239,10 @@ Errori di rete (percorso non raggiungibile) → banner "Cartella non raggiungibi
 ```
 - Allineamento a sinistra ovunque; niente card nidificate: righe, separatori e spazio bianco.
 - Tutto raggiungibile in ≤ 3 click: nuovo elemento (1), completa (1), commento (2), allegato (2), nuovo progetto (2).
-- Scorciatoie: `N` nuovo elemento, `Ctrl+K` cerca, `Ctrl+Shift+L` tema, `Esc` chiude il pannello.
+- Ricerca **globale** (`Ctrl+K` o `/`): cerca in tutti i progetti visibili (nome del progetto, titolo e descrizione degli elementi, allegati) e mostra i risultati raggruppati per progetto sotto il campo; `↑/↓` e `Invio` aprono l'elemento nel suo progetto.
+- Filtri della lista: scadenza da/a, stato, priorità, **Assegnato a**, **Creato da** (due filtri distinti), etichetta.
+- Scorciatoie: `N` nuovo elemento, `Ctrl+K` o `/` ricerca, `↓` dalla pagina alla prima riga e poi `↑/↓` per scorrere, `Invio` apre, `C` completa/riapre, `Canc` cestina, `Ctrl+Invio` crea dal dialog, `Ctrl+S` salva nel dettaglio, `Ctrl+Shift+L` tema, `Esc` chiude, `?` mostra l'elenco (anche dal menu del workspace).
+- Verbi dei pulsanti: **Crea** quando si inserisce qualcosa, **Salva** quando si modifica.
 - Motion solo in risposta ad azioni (apertura pannello, completamento riga). Rispetta `prefers-reduced-motion`.
 
 ---
@@ -259,7 +262,7 @@ Project goal manager/
     types/       index.ts  (schemi zod + tipi)
     components/  ui/ (Button, Dialog, Menu, Select, Input, Toast…)
                  layout/ (TopBar, SideRail, DetailPanel)
-                 board/  (ItemRow, ItemComposer, BucketTabs, PriorityPill…)
+                 board/  (ItemRow, ItemRowActions, FilterBar, PrioritySelect, StatusSelect, LabelSelect…)
                  detail/ (Comments, Questions, Attachments)
                  dialogs/ (NewProject, NewWorkspace, Members, Settings…)
     views/       WelcomeView.vue  WorkspaceView.vue  ProjectView.vue  MembersView.vue
@@ -287,7 +290,7 @@ L'eseguibile si distribuisce copiandolo o tramite installer; i dati restano nell
 ## 9b. Ruoli, notifiche, cronologia, Google Drive
 
 - **Ruoli**: `admin` (tutto, unico a poter eliminare definitivamente elementi e progetti e a svuotare i cestini), `cleaner` (come un membro, ma può spostare nel cestino qualsiasi elemento), `member` (crea, modifica, ripristina; può cestinare solo gli elementi assegnati a lui o creati da lui se non assegnati). In un workspace di rete un elemento può essere assegnato a qualunque membro. In un workspace locale si è sempre amministratori.
-- **Notifiche**: generate dal confronto fra la versione precedente e quella nuova di un progetto quando un altro utente lo modifica (nuovo elemento, cambio stato, completato/riaperto, cestinato/ripristinato, descrizione, domanda, risposta, commento, menzione). Ogni utente sceglie quali tipi ricevere; le proprie azioni non generano notifiche.
+- **Notifiche**: generate dal confronto fra la versione precedente e quella nuova di un progetto quando un altro utente lo modifica (nuovo elemento, cambio stato, completato/riaperto, cestinato/ripristinato, descrizione, domanda, risposta, commento, menzione). Ogni utente sceglie quali tipi ricevere; le proprie azioni non generano notifiche. All'apertura del workspace, le operazioni sugli elementi compiute da altri mentre si era offline vengono recuperate dalla cronologia e proposte come notifiche (una sola volta).
 - **Cronologia**: pagina riservata agli amministratori, divisa per progetto, con filtri per progetto, operazione e utente.
 - **Google Drive**: l'utente crea un ID client OAuth "App desktop" nella Google Cloud Console; l'app apre il browser di sistema per il consenso (scope `drive.readonly`, PKCE) e riceve il codice su `http://127.0.0.1:<porta>` grazie a un piccolo ricevitore in Rust. La struttura della cartella scelta viene salvata nel workspace (visibile a tutti), mentre token e account restano cifrati sulla macchina: per aprire un documento ciascuno usa il proprio accesso. I documenti Google (Docs, Sheets, Slides) vengono esportati in PDF per l'anteprima.
 

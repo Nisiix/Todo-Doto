@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import dayjs from 'dayjs'
-import { applyFilter, compareTodo, countByBucket, dueState, firstLine, formatDue, isFilterActive, matchesSearch, sortForBucket, spotlight } from './items'
+import { applyFilter, compareTodo, countByBucket, dueState, firstLine, formatDue, isFilterActive, matchesSearch, searchAll, sortForBucket, spotlight } from './items'
 import { EMPTY_FILTER, type Item, type Project } from '@/types'
 
 const base: Item = {
@@ -93,7 +93,7 @@ describe('da tenere d’occhio', () => {
 describe('filtri della lista', () => {
   const list = [
     item({ id: 'a', dueDate: '2026-10-10', status: 'confermato', priority: 'alta', createdBy: 'u1', labelId: 'l1' }),
-    item({ id: 'b', dueDate: '2026-10-20', status: 'da_valutare', priority: 'bassa', createdBy: 'u2' }),
+    item({ id: 'b', dueDate: '2026-10-20', status: 'da_valutare', priority: 'bassa', createdBy: 'u2', assigneeId: 'u1' }),
     item({ id: 'c', dueDate: null, status: 'da_definire', priority: 'immediata', createdBy: 'u1' }),
   ]
   const ids = (r: Item[]) => r.map((i) => i.id)
@@ -107,16 +107,47 @@ describe('filtri della lista', () => {
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, to: '2026-10-15' }))).toEqual(['a'])
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, from: '2026-10-01', to: '2026-10-31' }))).toEqual(['a', 'b'])
   })
-  it('per stato, priorità, utente ed etichetta, combinabili', () => {
+  it('per stato, priorità, assegnatario, autore ed etichetta, combinabili', () => {
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, statuses: ['da_valutare', 'da_definire'] }))).toEqual(['b', 'c'])
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, priorities: ['immediata'] }))).toEqual(['c'])
-    expect(ids(applyFilter(list, { ...EMPTY_FILTER, userId: 'u1' }))).toEqual(['a', 'c'])
+    // "Creato da" e "Assegnato a" sono filtri distinti: b è creato da u2 ma assegnato a u1
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, createdBy: 'u1' }))).toEqual(['a', 'c'])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, assigneeId: 'u1' }))).toEqual(['b'])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, createdBy: 'u2', assigneeId: 'u1' }))).toEqual(['b'])
     expect(ids(applyFilter(list, { ...EMPTY_FILTER, labelId: 'l1' }))).toEqual(['a'])
-    expect(ids(applyFilter(list, { ...EMPTY_FILTER, userId: 'u1', priorities: ['alta'] }))).toEqual(['a'])
+    expect(ids(applyFilter(list, { ...EMPTY_FILTER, createdBy: 'u1', priorities: ['alta'] }))).toEqual(['a'])
   })
   it('prima riga del titolo', () => {
     expect(firstLine('Prima\nSeconda')).toBe('Prima')
     expect(firstLine('\n  \nTerza')).toBe('Terza')
     expect(firstLine('')).toBe('')
+  })
+})
+
+describe('ricerca globale', () => {
+  const project = (id: string, name: string, items: Item[], attachments: { name: string; target: string }[] = []) =>
+    ({ id, name, items, attachments }) as unknown as Project
+  const projects = [
+    project('p1', 'Bilancio Europeo', [item({ id: 'x1', title: 'Export XBRL' }), item({ id: 'x2', title: 'Vecchio export', bucket: 'done' }), item({ id: 'y', title: 'Login SPID' })]),
+    project('p2', 'Export dati', [item({ id: 'z', title: 'Altro' })]),
+    project('p3', 'Nulla', [], [{ name: 'Tracciato export.pdf', target: 'Z:\\doc.pdf' }]),
+  ]
+
+  it('vuota senza testo', () => {
+    expect(searchAll(projects, '  ')).toEqual([])
+  })
+  it('raggruppa per progetto, nome del progetto compreso, da fare prima dei completati', () => {
+    const hits = searchAll(projects, 'export')
+    expect(hits.map((h) => h.project.id)).toEqual(['p2', 'p1', 'p3'])
+    expect(hits[0]!.nameMatch).toBe(true)
+    expect(hits[0]!.items).toEqual([])
+    expect(hits[1]!.items.map((i) => i.id)).toEqual(['x1', 'x2'])
+    expect(hits[2]!.attachments.map((a) => a.name)).toEqual(['Tracciato export.pdf'])
+  })
+  it('cerca anche nella descrizione e limita i risultati per progetto', () => {
+    const many = project('p9', 'Tanti', Array.from({ length: 20 }, (_, i) => item({ id: `m${i}`, title: `Voce ${i}`, notes: 'parola chiave' })))
+    const hits = searchAll([many], 'chiave', 5)
+    expect(hits).toHaveLength(1)
+    expect(hits[0]!.items).toHaveLength(5)
   })
 })

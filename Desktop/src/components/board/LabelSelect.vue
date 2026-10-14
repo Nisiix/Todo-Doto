@@ -4,24 +4,13 @@ import { useWorkspaceStore } from '@/stores/workspace'
 
 /**
  * Menu a tendina per l'etichetta di un elemento, nello stesso stile dei
- * selettori di priorità e stato. L'ultima voce apre la gestione delle etichette.
+ * selettori di priorità e stato. La gestione delle etichette sta nel menu
+ * del workspace e nel link "Gestisci etichette" dei dialog.
  */
 const model = defineModel<string | null>({ required: true })
-const emit = defineEmits<{ manage: [] }>()
 const ws = useWorkspaceStore()
 
-const MANAGE = '__manage__'
 const current = computed(() => (model.value ? ws.labelsById[model.value] : null))
-
-function onChange(e: Event) {
-  const v = (e.target as HTMLSelectElement).value
-  if (v === MANAGE) {
-    ;(e.target as HTMLSelectElement).value = model.value ?? ''
-    emit('manage')
-    return
-  }
-  model.value = v || null
-}
 </script>
 
 <template>
@@ -36,12 +25,10 @@ function onChange(e: Event) {
       :title="current ? `Etichetta: ${current.name}` : 'Etichetta'"
       aria-label="Etichetta"
       @click.stop
-      @change="onChange"
+      @change="model = ($event.target as HTMLSelectElement).value || null"
     >
       <option value="">Nessuna etichetta</option>
       <option v-for="l in ws.tree.labels" :key="l.id" :value="l.id">{{ l.name }}</option>
-      <option disabled>──────</option>
-      <option :value="MANAGE">Gestisci etichette…</option>
     </select>
   </span>
 </template>

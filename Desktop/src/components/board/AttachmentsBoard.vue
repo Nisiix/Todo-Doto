@@ -23,9 +23,7 @@ const confirm = useConfirm()
 onMounted(() => void drive.init())
 
 const groups = computed(() => {
-  const q = ui.search.trim().toLowerCase()
-  const match = (a: Attachment) => !q || a.name.toLowerCase().includes(q) || a.target.toLowerCase().includes(q)
-  const byFolder = (fid: string | null) => props.project.attachments.filter((a) => a.folderId === fid && match(a))
+  const byFolder = (fid: string | null) => props.project.attachments.filter((a) => a.folderId === fid)
   return [
     ...props.project.attachmentFolders.map((f) => ({ folder: f as AttachmentFolder | null, items: byFolder(f.id) })),
     { folder: null, items: byFolder(null) },

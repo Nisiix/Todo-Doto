@@ -43,7 +43,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const status = ref<WsStatus>('closed')
   const meta = ref<WorkspaceMeta | null>(null)
   const users = ref<User[]>([])
-  const tree = ref<TreeFile>({ folders: [], categories: [], labels: [] })
+  const tree = ref<TreeFile>({ folders: [], labels: [] })
   const drive = ref<DriveFile>({ schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] })
   const audit = ref<AuditEntry[]>([])
   const projects = ref<Record<string, Project>>({})
@@ -173,6 +173,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     status.value = 'open'
     lastError.value = null
     notifications.load(meta.value!.id, currentUser.value?.id ?? 'anon')
+    // Cosa è successo mentre si era offline: dalla cronologia condivisa
+    notifications.ingestAudit(audit.value, currentUser.value?.id ?? null, (pid) => {
+      const p = projects.value[pid]
+      return !!p && canSee(p)
+    })
     await session.touchRecent({ id: meta.value!.id, name: meta.value!.name, path: s.root, mode: meta.value!.mode })
     startWatching()
   }
@@ -195,7 +200,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     storage.value = null
     meta.value = null
     users.value = []
-    tree.value = { folders: [], categories: [], labels: [] }
+    tree.value = { folders: [], labels: [] }
     drive.value = { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] }
     audit.value = []
     notifications.clearSession()
@@ -284,6 +289,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         status.value = 'open'
         ui.toast('Cartella di nuovo raggiungibile.', 'success')
       }
+      // La cartella è raggiungibile e lo stato è allineato: da qui in poi le
+      // notifiche arrivano dal diff dei progetti, non dalla cronologia.
+      notifications.touchSeen()
       if (changedKeys.size === 0) return
 
       const me = currentUser.value?.id
@@ -435,7 +443,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   // --- progetti ---------------------------------------------------------------------
-  async function createProject(data: Pick<Project, 'name' | 'description' | 'folderId' | 'categoryId' | 'members'>) {
+  async function createProject(data: Pick<Project, 'name' | 'description' | 'folderId' | 'members'>) {
     const s = storage.value
     const me = currentUser.value?.id ?? 'unknown'
     if (!s) return
@@ -466,7 +474,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return ok ? p : undefined
   }
 
-  const updateProject = (id: string, data: Partial<Pick<Project, 'name' | 'description' | 'folderId' | 'categoryId' | 'members'>>) =>
+  const updateProject = (id: string, data: Partial<Pick<Project, 'name' | 'description' | 'folderId' | 'members'>>) =>
     mutateProject(id, (p) => void Object.assign(p, data))
 
   /** Sposta il progetto nel cestino del workspace (recuperabile). */
@@ -694,7 +702,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       })
     })
 
-  // --- cartelle e categorie --------------------------------------------------------
+  // --- cartelle --------------------------------------------------------
   const addFolder = (name: string, parentId: string | null) =>
     mutateTree((t) => {
       const siblings = t.folders.filter((f) => f.parentId === parentId)

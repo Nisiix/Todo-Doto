@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
-/** Dialog generico per chiedere un nome (cartelle, categorie, cartelle allegati…). */
+/** Dialog generico per chiedere un nome (cartelle, cartelle allegati…). */
 const props = withDefaults(
   defineProps<{
     title: string

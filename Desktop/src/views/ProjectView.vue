@@ -18,7 +18,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { BUCKET_LABEL, EMPTY_FILTER, type Bucket, type ItemFilter } from '@/types'
-import { applyFilter, countByBucket, isFilterActive, matchesSearch, sortForBucket } from '@/services/items'
+import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
 
 const props = defineProps<{ id: string; section?: string }>()
 const ws = useWorkspaceStore()
@@ -57,27 +57,27 @@ const sectionHint = computed(() => ({
 type Tab = Bucket | 'attachments'
 const tab = ref<Tab>('todo')
 const filter = ref<ItemFilter>({ ...EMPTY_FILTER })
+/** Apertura diretta di un elemento (?item=) o di un contenitore (?tab=) da link, notifica o ricerca. */
+function applyQuery() {
+  const q = route.query.item
+  const it = typeof q === 'string' ? project.value?.items.find((i) => i.id === q) : undefined
+  if (it) {
+    tab.value = it.bucket
+    ui.selectedItemId = it.id
+  } else if (route.query.tab === 'attachments') tab.value = 'attachments'
+}
+// Cambio di progetto: si riparte da "Da fare" senza selezione né filtri, salvo
+// che il link non indichi cosa aprire (la route cambia prima delle props).
 watch(
   () => props.id,
   () => {
     tab.value = 'todo'
     ui.selectedItemId = null
     filter.value = { ...EMPTY_FILTER }
+    applyQuery()
   },
 )
-
-// Apertura diretta di un elemento da link (?item=)
-watch(
-  () => route.query.item,
-  (q) => {
-    if (typeof q === 'string' && project.value?.items.some((i) => i.id === q)) {
-      const it = project.value.items.find((i) => i.id === q)!
-      tab.value = it.bucket
-      ui.selectedItemId = q
-    }
-  },
-  { immediate: true },
-)
+watch(() => [route.query.item, route.query.tab], applyQuery, { immediate: true })
 
 const counts = computed(() => countByBucket(project.value?.items ?? []))
 const filterActive = computed(() => isFilterActive(filter.value))
@@ -85,7 +85,7 @@ const filterActive = computed(() => isFilterActive(filter.value))
 const items = computed(() => {
   if (!project.value || tab.value === 'attachments') return []
   const bucket = tab.value
-  const inBucket = project.value.items.filter((i) => i.bucket === bucket && matchesSearch(i, ui.search))
+  const inBucket = project.value.items.filter((i) => i.bucket === bucket)
   return sortForBucket(applyFilter(inBucket, filter.value), bucket)
 })
 
@@ -126,6 +126,7 @@ async function emptyTrash() {
     await ws.emptyTrash(project.value.id)
 }
 // --- scorciatoie ----------------------------------------------------------------
+const listEl = ref<HTMLElement | null>(null)
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
   const t = e.target as HTMLElement | null
   if (t?.closest('input, textarea, select, [contenteditable], [role=dialog]')) return
@@ -133,6 +134,13 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     e.preventDefault()
     tab.value = 'todo'
     showNewItem.value = true
+  } else if (e.key === 'ArrowDown' && section.value === 'todo' && !t?.closest('[data-item-row]')) {
+    // Dalla pagina alla lista: ↓ porta il fuoco sulla prima riga (poi ↑/↓ scorrono)
+    const first = listEl.value?.querySelector<HTMLElement>('[data-item-row]')
+    if (first) {
+      e.preventDefault()
+      first.focus()
+    }
   }
 })
 
@@ -234,11 +242,13 @@ const tabs: { id: Tab; label: string }[] = [
         <ProjectAiTools v-else-if="section === 'ai'" :project="project" :read-only="trashed" />
         <AttachmentsBoard v-else-if="tab === 'attachments'" :project="project" :read-only="trashed" />
         <template v-else>
-          <TransitionGroup name="fade" tag="div" class="space-y-px">
-            <ItemRow v-for="it in items" :key="it.id" :item="it" :project-id="project.id" :read-only="trashed" @manage-labels="showLabels = true" />
-          </TransitionGroup>
+          <div ref="listEl">
+            <TransitionGroup name="fade" tag="div" class="space-y-px">
+              <ItemRow v-for="it in items" :key="it.id" :item="it" :project-id="project.id" :read-only="trashed" />
+            </TransitionGroup>
+          </div>
           <p v-if="!items.length" class="mt-6 max-w-md text-[13.5px] leading-relaxed text-ink-3">
-            <template v-if="ui.search || filterActive">Nessun elemento corrisponde alla ricerca o ai filtri.</template>
+            <template v-if="filterActive">Nessun elemento corrisponde ai filtri.</template>
             <template v-else-if="tab === 'todo'">Lista vuota. Premi «Nuovo elemento» (o il tasto N) per aggiungere la prima cosa da fare.</template>
             <template v-else-if="tab === 'done'">Ancora nessun elemento completato. Spunta il cerchio accanto a un elemento per portarlo qui.</template>
             <template v-else>Il cestino è vuoto. Gli elementi cestinati restano qui finché non li elimini definitivamente.</template>

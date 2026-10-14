@@ -121,7 +121,7 @@ async function submit() {
     </form>
     <template #footer>
       <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-      <BaseButton variant="primary" @click="submit">{{ attachment ? 'Salva' : 'Aggiungi' }}</BaseButton>
+      <BaseButton variant="primary" @click="submit">{{ attachment ? 'Salva' : 'Crea' }}</BaseButton>
     </template>
   </BaseDialog>
 </template>

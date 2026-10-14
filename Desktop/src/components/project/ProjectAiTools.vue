@@ -131,11 +131,15 @@ const menu = (t: AiTool) => [
         <p class="mt-0.5 text-[13px] text-ink-2">Connettori, plugin e skill usati per lavorare a questo progetto, con le skill allegate pronte da riusare.</p>
       </div>
       <BaseMenu v-if="canEdit" :items="AI_TOOL_KINDS.map((k) => ({ label: AI_TOOL_LABEL[k], icon: ICON[k] as never, onSelect: () => startAdd(k) }))">
-        <BaseButton size="sm" variant="primary"><Plus :size="14" /> Aggiungi</BaseButton>
+        <BaseButton size="sm" variant="primary"><Plus :size="14" /> Nuovo strumento</BaseButton>
       </BaseMenu>
     </div>
 
-    <section v-for="g in groups" :key="g.kind">
+    <div v-if="!project.aiTools.length && !canEdit" class="max-w-lg rounded-lg border border-dashed border-line-strong p-5 text-[13.5px] text-ink-2">
+      L'amministratore non ha ancora indicato connettori, plugin o skill per questo progetto.
+    </div>
+
+    <section v-for="g in groups" v-else :key="g.kind">
       <h3 class="mb-1 flex items-center gap-2 text-[13px] font-semibold text-ink-2">
         <component :is="ICON[g.kind]" :size="14" class="text-accent" /> {{ AI_TOOL_LABEL[g.kind] }}
         <span class="tabular-nums text-ink-3">{{ g.items.length || '' }}</span>
@@ -191,7 +195,7 @@ const menu = (t: AiTool) => [
       </form>
       <template #footer>
         <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-        <BaseButton variant="primary" @click="submit">{{ editing ? 'Salva' : 'Aggiungi' }}</BaseButton>
+        <BaseButton variant="primary" @click="submit">{{ editing ? 'Salva' : 'Crea' }}</BaseButton>
       </template>
     </BaseDialog>
 

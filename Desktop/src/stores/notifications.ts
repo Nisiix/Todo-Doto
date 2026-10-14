@@ -4,21 +4,28 @@ import { nanoid } from 'nanoid'
 import { saveConfig } from '@/services/config'
 import type { Change } from '@/services/changes'
 import { useSessionStore } from './session'
-import { NOTIFICATION_TYPES, type Notification, type NotificationType, type Project } from '@/types'
+import { NOTIFICATION_TYPES, type AuditEntry, type Notification, type NotificationType, type Project } from '@/types'
 
 const MAX = 300
 
 /**
- * Notifiche interne, per macchina. Vengono generate dalle modifiche remote ai
- * progetti di cui si fa parte (vedi workspace.refresh) e conservate in
- * localStorage per workspace+utente. Le preferenze (quali tipi ricevere) sono
- * nella configurazione locale.
+ * Notifiche interne, per macchina, conservate in localStorage per workspace+utente.
+ * Due sorgenti, complementari:
+ * - a workspace aperto, le modifiche remote ai progetti (diffProjects in
+ *   workspace.refresh): coprono tutto, domande e commenti compresi;
+ * - all'apertura, la cronologia condivisa (audit.json) per ciò che è successo
+ *   mentre si era offline: copre le operazioni sugli elementi (creato,
+ *   completato, cestinato…), che sono le uniche registrate lì.
+ * Le preferenze (quali tipi ricevere) sono nella configurazione locale.
  */
 export const useNotificationsStore = defineStore('notifications', () => {
   const session = useSessionStore()
   const items = ref<Notification[]>([])
   const open = ref(false)
   let storageKey = ''
+  let seenKey = ''
+  /** Ultimo istante in cui questo utente ha visto il workspace aggiornato (ISO). */
+  let lastSeen = ''
 
   const unread = computed(() => items.value.filter((n) => !n.read).length)
   const muted = computed(() => new Set(session.config.mutedNotifications))
@@ -26,10 +33,23 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   function load(workspaceId: string, userId: string) {
     storageKey = `pgm:notif:${workspaceId}:${userId}`
+    seenKey = `pgm:notif-seen:${workspaceId}:${userId}`
     try {
       items.value = JSON.parse(localStorage.getItem(storageKey) ?? '[]') as Notification[]
+      lastSeen = localStorage.getItem(seenKey) ?? ''
     } catch {
       items.value = []
+      lastSeen = ''
+    }
+  }
+  /** Da chiamare a ogni aggiornamento riuscito: tutto ciò che è prima di "ora" è stato visto. */
+  function touchSeen(at = new Date().toISOString()) {
+    lastSeen = at
+    if (!seenKey) return
+    try {
+      localStorage.setItem(seenKey, at)
+    } catch {
+      /* ignorato */
     }
   }
   function persist() {
@@ -43,6 +63,46 @@ export const useNotificationsStore = defineStore('notifications', () => {
   function clearSession() {
     items.value = []
     storageKey = ''
+    seenKey = ''
+    lastSeen = ''
+  }
+
+  /** Mappa azione della cronologia → tipo di notifica e testo. */
+  const AUDIT_TO_NOTIFICATION: Partial<Record<AuditEntry['action'], { type: NotificationType; text: string }>> = {
+    item_created: { type: 'item_created', text: 'ha aggiunto un elemento' },
+    item_completed: { type: 'item_completed', text: 'ha completato l’elemento' },
+    item_reopened: { type: 'item_completed', text: 'ha riaperto l’elemento' },
+    item_trashed: { type: 'item_trashed', text: 'ha spostato l’elemento nel cestino' },
+    item_restored: { type: 'item_trashed', text: 'ha ripristinato l’elemento dal cestino' },
+  }
+
+  /**
+   * All'apertura del workspace: trasforma in notifiche le operazioni registrate
+   * nella cronologia da altri utenti dopo l'ultima volta che si è stati online,
+   * sui progetti di cui si fa parte. Idempotente (l'id deriva dalla voce di audit).
+   */
+  function ingestAudit(entries: AuditEntry[], meId: string | null, canSee: (projectId: string) => boolean) {
+    if (!lastSeen) {
+      // Prima apertura su questa macchina: niente da recuperare, si parte da ora.
+      touchSeen()
+      return 0
+    }
+    const known = new Set(items.value.map((n) => n.id))
+    const fresh: Notification[] = []
+    for (const e of entries) {
+      if (e.at <= lastSeen || e.userId === meId || !e.itemId || !canSee(e.projectId)) continue
+      const map = AUDIT_TO_NOTIFICATION[e.action]
+      if (!map || !isEnabled(map.type)) continue
+      const id = `aud:${e.id}`
+      if (known.has(id)) continue
+      fresh.push({ id, at: e.at, type: map.type, projectId: e.projectId, projectName: e.projectName, itemId: e.itemId, itemTitle: e.itemTitle ?? '', byId: e.userId, text: map.text, read: false })
+    }
+    if (fresh.length) {
+      items.value = [...fresh.sort((a, b) => b.at.localeCompare(a.at)), ...items.value].slice(0, MAX)
+      persist()
+    }
+    touchSeen()
+    return fresh.length
   }
 
   /** Trasforma le modifiche di un progetto in notifiche, rispettando le preferenze. */
@@ -100,5 +160,5 @@ export const useNotificationsStore = defineStore('notifications', () => {
     await saveConfig(session.config)
   }
 
-  return { items, unread, open, isEnabled, load, clearSession, ingest, markAllRead, markRead, clear, setEnabled }
+  return { items, unread, open, isEnabled, load, touchSeen, clearSession, ingest, ingestAudit, markAllRead, markRead, clear, setEnabled }
 })

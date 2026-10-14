@@ -14,12 +14,19 @@ import ItemComments from '@/components/detail/ItemComments.vue'
 import ItemQuestions from '@/components/detail/ItemQuestions.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
+import { useItemActions } from '@/composables/useItemActions'
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Project } from '@/types'
 
 const props = defineProps<{ project: Project; item: Item; readOnly?: boolean }>()
 const emit = defineEmits<{ manageLabels: [] }>()
 const ws = useWorkspaceStore()
 const ui = useUiStore()
+/** Stesse azioni (e stessi permessi) della riga e del suo menu. */
+const actions = useItemActions(
+  () => props.item,
+  () => props.project.id,
+  () => props.readOnly,
+)
 
 /** Elementi completati o cestinati (e progetti nel cestino) sono in sola lettura. */
 const locked = computed(() => props.readOnly || props.item.bucket !== 'todo')
@@ -84,15 +91,11 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
     <div class="flex items-center gap-1 border-b border-line px-3 py-2">
       <span class="h-5 w-1 rounded-full" :class="`bg-p-${item.priority}`" />
       <span class="ml-1 flex-1 truncate text-[12px] text-ink-3">{{ project.name }}</span>
-      <template v-if="!readOnly">
-        <template v-if="item.bucket === 'todo'">
-          <BaseButton size="sm" variant="ghost" title="Segna come completato" @click="ws.moveItem(project.id, item.id, 'done')"><Check :size="14" /> Completa</BaseButton>
-          <BaseButton v-if="ws.canTrashItem(item)" size="icon-sm" variant="ghost" title="Sposta nel cestino" @click="ws.moveItem(project.id, item.id, 'trash')"><Trash2 :size="14" /></BaseButton>
-        </template>
-        <BaseButton v-else size="sm" variant="ghost" @click="ws.moveItem(project.id, item.id, 'todo')">
-          <RotateCcw :size="14" /> {{ item.bucket === 'done' ? 'Riapri' : 'Ripristina' }}
-        </BaseButton>
-      </template>
+      <BaseButton v-if="actions.canComplete.value" size="sm" variant="ghost" title="Segna come completato" @click="actions.complete()"><Check :size="14" /> Completa</BaseButton>
+      <BaseButton v-if="actions.canReopen.value" size="sm" variant="ghost" @click="actions.reopen()">
+        <RotateCcw :size="14" /> {{ item.bucket === 'done' ? 'Riapri' : 'Ripristina' }}
+      </BaseButton>
+      <BaseButton v-if="actions.canTrash.value" size="icon-sm" variant="ghost" title="Sposta nel cestino" @click="actions.trash()"><Trash2 :size="14" /></BaseButton>
       <BaseButton size="icon-sm" variant="ghost" title="Chiudi (Esc)" @click="close"><X :size="15" /></BaseButton>
     </div>
 
@@ -116,8 +119,9 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
             <PrioritySelect :model-value="item.priority" @update:model-value="(p) => ws.updateItem(project.id, item.id, { priority: p })" />
             <StatusSelect :model-value="item.status" @update:model-value="(s) => ws.updateItem(project.id, item.id, { status: s })" />
             <DueDateField :model-value="item.dueDate" @update:model-value="(d) => ws.updateItem(project.id, item.id, { dueDate: d })" />
-            <LabelSelect :model-value="item.labelId" @update:model-value="(l) => ws.updateItem(project.id, item.id, { labelId: l })" @manage="emit('manageLabels')" />
+            <LabelSelect :model-value="item.labelId" @update:model-value="(l) => ws.updateItem(project.id, item.id, { labelId: l })" />
             <AssigneeSelect :model-value="item.assigneeId" @update:model-value="(u) => ws.updateItem(project.id, item.id, { assigneeId: u })" />
+            <button type="button" class="text-[11.5px] font-medium text-ink-3 hover:text-accent-ink hover:underline" @click="emit('manageLabels')">Gestisci etichette…</button>
           </template>
           <template v-else>
           <LabelBadge :label-id="item.labelId" />

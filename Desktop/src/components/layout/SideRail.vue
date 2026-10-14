@@ -19,6 +19,9 @@ const confirm = useConfirm()
 const route = useRoute()
 const router = useRouter()
 
+/** Sotto questa soglia la sezione Recenti sparisce: i progetti stanno tutti sott'occhio. */
+const RECENT_MIN_PROJECTS = 5
+
 const projectsByFolder = computed(() => {
   const map: Record<string, Project[]> = {}
   for (const p of ws.visibleProjects) (map[p.folderId ?? 'root'] ??= []).push(p)
@@ -117,8 +120,8 @@ const trashMenu = (p: Project) => [
         <p v-else class="px-1 text-[12px] text-ink-3">Segna un progetto con la stella per trovarlo qui.</p>
       </section>
 
-      <!-- Recenti -->
-      <section v-if="ws.recentProjects.length" class="mb-4">
+      <!-- Recenti: utile solo quando i progetti sono tanti, altrimenti è rumore -->
+      <section v-if="ws.visibleProjects.length >= RECENT_MIN_PROJECTS" class="mb-4">
         <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">Recenti</h2>
         <ul>
           <ProjectLink v-for="p in ws.recentProjects" :key="p.id" :project="p" :depth="-1" :hint="dayjs(p.updatedAt).fromNow(true)" />

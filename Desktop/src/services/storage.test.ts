@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { WorkspaceStorage } from './storage'
+import { getFs } from './fs'
 import { EMPTY_STACK, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
 
 const meta: WorkspaceMeta = {
@@ -20,7 +21,6 @@ const project = (id: string): Project => ({
   name: id,
   description: '',
   folderId: null,
-  categoryId: null,
   members: [],
   version: 1,
   createdAt: meta.createdAt,
@@ -48,8 +48,17 @@ describe('WorkspaceStorage', () => {
     expect(await WorkspaceStorage.isWorkspace('/altrove')).toBe(false)
     expect((await s.readMeta()).name).toBe('Test')
     expect((await s.readUsers()).users).toHaveLength(1)
-    expect(await s.readTree()).toEqual({ folders: [], categories: [], labels: [] })
+    expect(await s.readTree()).toEqual({ folders: [], labels: [] })
     expect(await s.listProjectIds()).toEqual([])
+  })
+
+  it('legge un tree.json delle prime versioni scartando le categorie (campo deprecato)', async () => {
+    const s = await freshWorkspace()
+    const fs = await getFs()
+    await fs.writeTextAtomic('/ws/tree.json', JSON.stringify({ folders: [], categories: [{ id: 'cat_1', name: 'Vecchia' }], labels: [] }))
+    expect(await s.readTree()).toEqual({ folders: [], labels: [] })
+    await s.mutateTree((t) => void t.labels.push({ id: 'lbl_1', name: 'Bug', color: '#f00' }))
+    expect(JSON.parse(await fs.readText('/ws/tree.json'))).toEqual({ folders: [], labels: [{ id: 'lbl_1', name: 'Bug', color: '#f00' }] })
   })
 
   it('scrive, elenca ed elimina i progetti', async () => {

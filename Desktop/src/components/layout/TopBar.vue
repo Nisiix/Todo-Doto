@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { BarChart3, ChevronDown, Cloud, History, LogOut, Moon, Search, Settings, Sun, Users, WifiOff } from 'lucide-vue-next'
+import { BarChart3, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import SettingsDialog from '@/components/dialogs/SettingsDialog.vue'
+import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
+import ShortcutsDialog from '@/components/dialogs/ShortcutsDialog.vue'
 import NotificationsPanel from './NotificationsPanel.vue'
+import GlobalSearch from './GlobalSearch.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 
@@ -15,10 +18,12 @@ const ws = useWorkspaceStore()
 const ui = useUiStore()
 const router = useRouter()
 const showSettings = ref(false)
-const searchEl = ref<HTMLInputElement | null>(null)
+const showLabels = ref(false)
+const showShortcuts = ref(false)
 
 const menu = computed(() => [
   { label: 'Impostazioni', icon: Settings, onSelect: () => (showSettings.value = true) },
+  { label: 'Etichette', icon: Tag, onSelect: () => (showLabels.value = true) },
   { label: 'Membri', icon: Users, onSelect: () => router.push({ name: 'members' }) },
   ...(ws.isAdmin
     ? [
@@ -26,6 +31,8 @@ const menu = computed(() => [
         { label: 'Cronologia operazioni', icon: History, onSelect: () => router.push({ name: 'audit' }) },
       ]
     : []),
+  { sep: true, label: '' },
+  { label: 'Scorciatoie da tastiera', icon: Keyboard, onSelect: () => (showShortcuts.value = true) },
   { sep: true, label: '' },
   {
     label: 'Chiudi workspace',
@@ -38,10 +45,9 @@ const menu = computed(() => [
 ])
 
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
-  if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+  if (e.key === '?' && !e.ctrlKey && !e.metaKey && !(e.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable], [role=dialog]')) {
     e.preventDefault()
-    searchEl.value?.focus()
-    searchEl.value?.select()
+    showShortcuts.value = true
   }
 })
 </script>
@@ -64,17 +70,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       <WifiOff :size="14" /> Cartella non raggiungibile, riprovo…
     </span>
 
-    <div class="relative ml-auto w-72">
-      <Search :size="15" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
-      <input
-        ref="searchEl"
-        v-model="ui.search"
-        class="field field-sm h-8 pl-8 pr-14"
-        placeholder="Cerca nel progetto"
-        @keydown.esc="ui.search = ''; ($event.target as HTMLInputElement).blur()"
-      />
-      <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex gap-0.5"><span class="kbd">Ctrl</span><span class="kbd">K</span></span>
-    </div>
+    <GlobalSearch />
 
     <RouterLink
       :to="{ name: 'drive' }"
@@ -107,5 +103,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     </button>
 
     <SettingsDialog v-model:open="showSettings" />
+    <LabelsDialog v-model:open="showLabels" />
+    <ShortcutsDialog v-model:open="showShortcuts" />
   </header>
 </template>

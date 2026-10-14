@@ -77,7 +77,7 @@ describe('workspace: apertura e accesso', () => {
 describe('workspace: progetti ed elementi', () => {
   it('crea progetto, aggiunge e sposta elementi tra i contenitori', async () => {
     const ws = await openLocal()
-    const p = await ws.createProject({ name: 'Bilancio', description: '', folderId: null, categoryId: null, members: [] })
+    const p = await ws.createProject({ name: 'Bilancio', description: '', folderId: null, members: [] })
     expect(p).toBeDefined()
     const item = await ws.addItem(p!.id, { title: 'Export XBRL', priority: 'alta' })
     expect(ws.projects[p!.id]!.items).toHaveLength(1)
@@ -102,7 +102,7 @@ describe('workspace: progetti ed elementi', () => {
 
   it('svuota il cestino lasciando intatto il resto', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const a = await ws.addItem(p.id, { title: 'a' })
     const b = await ws.addItem(p.id, { title: 'b' })
     await ws.moveItem(p.id, a.id, 'trash')
@@ -112,7 +112,7 @@ describe('workspace: progetti ed elementi', () => {
 
   it('domande: risposta, risoluzione e riapertura; menzioni riconosciute', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'x' })
     const me = ws.currentUser!
     await ws.askQuestion(p.id, it.id, `Quale tassonomia? @${me.displayName}`)
@@ -133,7 +133,7 @@ describe('workspace: progetti ed elementi', () => {
 
   it('allegati e cartelle di allegati', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     await ws.addAttachmentFolder(p.id, 'Specifiche')
     const folder = ws.projects[p.id]!.attachmentFolders[0]!
     await ws.addAttachment(p.id, { kind: 'link', name: 'Figma', target: 'https://figma.com/x', folderId: folder.id })
@@ -145,7 +145,7 @@ describe('workspace: progetti ed elementi', () => {
 
   it('etichette: creazione, modifica ed eliminazione (gli elementi perdono l’etichetta)', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     await ws.addLabel('Bug', '#d64545')
     const label = ws.tree.labels[0]!
     const it = await ws.addItem(p.id, { title: 'x', labelId: label.id })
@@ -159,8 +159,8 @@ describe('workspace: progetti ed elementi', () => {
 
   it('cestino dei progetti: sposta, ripristina, elimina definitivamente, svuota', async () => {
     const ws = await openLocal()
-    const a = (await ws.createProject({ name: 'A', description: '', folderId: null, categoryId: null, members: [] }))!
-    const b = (await ws.createProject({ name: 'B', description: '', folderId: null, categoryId: null, members: [] }))!
+    const a = (await ws.createProject({ name: 'A', description: '', folderId: null, members: [] }))!
+    const b = (await ws.createProject({ name: 'B', description: '', folderId: null, members: [] }))!
     await ws.trashProject(a.id)
     expect(ws.visibleProjects.map((p) => p.id)).toEqual([b.id])
     expect(ws.trashedProjects.map((p) => p.id)).toEqual([a.id])
@@ -175,13 +175,13 @@ describe('workspace: progetti ed elementi', () => {
   it('preferiti e recenti', async () => {
     const ws = await openLocal()
     const tick = () => new Promise((r) => setTimeout(r, 3))
-    const a = (await ws.createProject({ name: 'A', description: '', folderId: null, categoryId: null, members: [] }))!
+    const a = (await ws.createProject({ name: 'A', description: '', folderId: null, members: [] }))!
     await tick()
-    const b = (await ws.createProject({ name: 'B', description: '', folderId: null, categoryId: null, members: [] }))!
+    const b = (await ws.createProject({ name: 'B', description: '', folderId: null, members: [] }))!
     await tick()
-    const c = (await ws.createProject({ name: 'C', description: '', folderId: null, categoryId: null, members: [] }))!
+    const c = (await ws.createProject({ name: 'C', description: '', folderId: null, members: [] }))!
     await tick()
-    const d = (await ws.createProject({ name: 'D', description: '', folderId: null, categoryId: null, members: [] }))!
+    const d = (await ws.createProject({ name: 'D', description: '', folderId: null, members: [] }))!
     expect(ws.recentProjects.map((p) => p.id)).toEqual([d.id, c.id, b.id])
     await new Promise((r) => setTimeout(r, 2))
     await ws.addItem(a.id, { title: 'tocca A' })
@@ -201,9 +201,9 @@ describe('workspace: progetti ed elementi', () => {
     await ws.addFolder('Web', clienti.id)
     const web = ws.tree.folders.find((f) => f.name === 'Web')!
     await ws.addFolder('Altro', null)
-    const inWeb = (await ws.createProject({ name: 'InWeb', description: '', folderId: web.id, categoryId: null, members: [] }))!
-    const inClienti = (await ws.createProject({ name: 'InClienti', description: '', folderId: clienti.id, categoryId: null, members: [] }))!
-    const outside = (await ws.createProject({ name: 'Fuori', description: '', folderId: null, categoryId: null, members: [] }))!
+    const inWeb = (await ws.createProject({ name: 'InWeb', description: '', folderId: web.id, members: [] }))!
+    const inClienti = (await ws.createProject({ name: 'InClienti', description: '', folderId: clienti.id, members: [] }))!
+    const outside = (await ws.createProject({ name: 'Fuori', description: '', folderId: null, members: [] }))!
     expect(ws.projectsInFolderTree(clienti.id).map((p) => p.id).sort()).toEqual([inWeb.id, inClienti.id].sort())
     await ws.deleteFolder(clienti.id)
     expect(ws.tree.folders.map((f) => f.name)).toEqual(['Altro'])
@@ -226,7 +226,7 @@ describe('workspace: visibilità per membri', () => {
 
   it('admin: vede tutto, anche i progetti riservati ad altri', async () => {
     const ws = await networkWithTwoUsers()
-    const p = (await ws.createProject({ name: 'Riservato', description: '', folderId: null, categoryId: null, members: ['usr_other'] }))!
+    const p = (await ws.createProject({ name: 'Riservato', description: '', folderId: null, members: ['usr_other'] }))!
     expect(ws.isAdmin).toBe(true)
     expect(ws.visibleProjects.map((x) => x.id)).toContain(p.id)
   })
@@ -234,9 +234,9 @@ describe('workspace: visibilità per membri', () => {
   it('membro non admin: non vede i progetti riservati ad altri, vede i suoi e quelli aperti a tutti', async () => {
     const ws = await networkWithTwoUsers()
     const me = ws.currentUser!
-    const forOther = (await ws.createProject({ name: 'Per altri', description: '', folderId: null, categoryId: null, members: ['usr_other'] }))!
-    const forMe = (await ws.createProject({ name: 'Per me', description: '', folderId: null, categoryId: null, members: [me.id] }))!
-    const forAll = (await ws.createProject({ name: 'Per tutti', description: '', folderId: null, categoryId: null, members: [] }))!
+    const forOther = (await ws.createProject({ name: 'Per altri', description: '', folderId: null, members: ['usr_other'] }))!
+    const forMe = (await ws.createProject({ name: 'Per me', description: '', folderId: null, members: [me.id] }))!
+    const forAll = (await ws.createProject({ name: 'Per tutti', description: '', folderId: null, members: [] }))!
     // L'utente corrente viene retrocesso a membro (da un altro admin, sul disco)
     await ws.storage!.mutateUsers((f) => void (f.users.find((u) => u.id === me.id)!.role = 'member'))
     await ws.refresh()
@@ -254,7 +254,7 @@ describe('workspace: visibilità per membri', () => {
 
   it('rimuovere un utente lo toglie dai progetti riservati', async () => {
     const ws = await networkWithTwoUsers()
-    const p = (await ws.createProject({ name: 'R', description: '', folderId: null, categoryId: null, members: ['usr_other'] }))!
+    const p = (await ws.createProject({ name: 'R', description: '', folderId: null, members: ['usr_other'] }))!
     await ws.removeUser('usr_other')
     expect(ws.projects[p.id]!.members).toEqual([])
   })
@@ -264,7 +264,7 @@ describe('workspace: aggiornamento da modifiche esterne', () => {
   it('refresh ricarica solo i file cambiati e segnala l’autore', async () => {
     const ws = await openLocal()
     const ui = useUiStore()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'originale' })
     await ws.storage!.mutateUsers((f) =>
       f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }),
@@ -274,11 +274,11 @@ describe('workspace: aggiornamento da modifiche esterne', () => {
     const other = await new WorkspaceStorage('/ws').init()
     await new Promise((r) => setTimeout(r, 2))
     await other.mutateProject(p.id, 'usr_c', (x) => void (x.items[0]!.title = 'modificato da Carla'))
-    await other.mutateTree((t) => void t.categories.push({ id: 'cat_x', name: 'Nuova', color: '#000' }))
+    await other.mutateTree((t) => void t.labels.push({ id: 'lbl_x', name: 'Nuova', color: '#000' }))
 
     await ws.refresh()
     expect(ws.findItem(it.id)?.item.title).toBe('modificato da Carla')
-    expect(ws.tree.categories.map((c) => c.name)).toEqual(['Nuova'])
+    expect(ws.tree.labels.map((l) => l.name)).toEqual(['Nuova'])
     expect(ws.users.map((u) => u.id)).toContain('usr_c')
     expect(ui.toasts.some((t) => t.text.includes('Carla'))).toBe(true)
     expect(ui.flash.has(it.id)).toBe(true)
@@ -286,7 +286,7 @@ describe('workspace: aggiornamento da modifiche esterne', () => {
 
   it('refresh rimuove i progetti cancellati da altri', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const other = await new WorkspaceStorage('/ws').init()
     await other.deleteProject(p.id)
     await ws.refresh()
@@ -296,7 +296,7 @@ describe('workspace: aggiornamento da modifiche esterne', () => {
   it('le proprie modifiche non generano segnalazioni', async () => {
     const ws = await openLocal()
     const ui = useUiStore()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     await ws.addItem(p.id, { title: 'mio' })
     await ws.refresh()
     expect(ui.toasts.filter((t) => t.text.startsWith('Aggiornato da'))).toHaveLength(0)
@@ -306,7 +306,7 @@ describe('workspace: aggiornamento da modifiche esterne', () => {
 describe('workspace: cronologia e permessi di eliminazione', () => {
   it('registra le operazioni sugli elementi e sui progetti, non commenti e domande', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'Titolo\ndettagli' })
     await ws.addComment(p.id, it.id, 'un commento')
     await ws.askQuestion(p.id, it.id, 'una domanda')
@@ -332,7 +332,7 @@ describe('workspace: cronologia e permessi di eliminazione', () => {
 
   it('svuota cestino registra il conteggio', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const a = await ws.addItem(p.id, { title: 'a' })
     const b = await ws.addItem(p.id, { title: 'b' })
     await ws.moveItem(p.id, a.id, 'trash')
@@ -345,7 +345,7 @@ describe('workspace: cronologia e permessi di eliminazione', () => {
     const ws = useWorkspaceStore()
     expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
     const me = ws.currentUser!
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'x' })
     await ws.moveItem(p.id, it.id, 'trash')
 
@@ -378,7 +378,7 @@ describe('workspace: cronologia e permessi di eliminazione', () => {
       f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' }),
     )
     await ws.refresh()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     // In rete si può assegnare a un'altra persona
     const forBea = await ws.addItem(p.id, { title: 'per Bea', assigneeId: 'usr_b' })
     const mine = await ws.addItem(p.id, { title: 'mio', assigneeId: me.id })
@@ -414,7 +414,7 @@ describe('workspace: notifiche dalle modifiche remote', () => {
     const ws = await openLocal()
     const notif = useNotificationsStore()
     const me = ws.currentUser!
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'Export' })
     await ws.storage!.mutateUsers((f) =>
       f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }),
@@ -442,6 +442,38 @@ describe('workspace: notifiche dalle modifiche remote', () => {
     await ws.refresh()
     expect(notif.items).toHaveLength(2)
   })
+
+  it('all’apertura recupera dalla cronologia le operazioni altrui avvenute mentre si era offline', async () => {
+    const ws = await openLocal()
+    const notif = useNotificationsStore()
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
+    const it = await ws.addItem(p.id, { title: 'Export' })
+    await ws.storage!.mutateUsers((f) =>
+      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }),
+    )
+    await ws.close() // chiudendo, l'ultimo istante "visto" resta registrato
+
+    // Mentre si è offline, Carla completa l'elemento e ne crea un altro (scrivendo anche la cronologia)
+    await new Promise((r) => setTimeout(r, 5))
+    const other = await new WorkspaceStorage('/ws').init()
+    await other.mutateProject(p.id, 'usr_c', (x) => void (x.items[0]!.bucket = 'done'))
+    const at = new Date().toISOString()
+    await other.appendAudit([
+      { id: 'aud_1', at, userId: 'usr_c', action: 'item_completed', projectId: p.id, projectName: 'P', itemId: it.id, itemTitle: 'Export', count: null },
+      { id: 'aud_2', at, userId: 'usr_c', action: 'item_created', projectId: p.id, projectName: 'P', itemId: 'itm_new', itemTitle: 'Nuovo', count: null },
+      { id: 'aud_3', at, userId: 'usr_c', action: 'project_created', projectId: 'prj_x', projectName: 'X', itemId: null, itemTitle: null, count: null },
+    ])
+
+    expect((await ws.open('/ws')).ok).toBe(true)
+    const mine = notif.items.filter((n) => n.id.startsWith('aud:'))
+    expect(mine.map((n) => n.type).sort()).toEqual(['item_completed', 'item_created'])
+    expect(mine.every((n) => n.byId === 'usr_c' && !n.read)).toBe(true)
+
+    // Riaprendo senza novità non si duplicano
+    await ws.close()
+    expect((await ws.open('/ws')).ok).toBe(true)
+    expect(notif.items.filter((n) => n.id.startsWith('aud:'))).toHaveLength(2)
+  })
 })
 
 describe('workspace: stack e strumenti AI (solo admin)', () => {
@@ -449,7 +481,7 @@ describe('workspace: stack e strumenti AI (solo admin)', () => {
     const ws = useWorkspaceStore()
     expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
     const me = ws.currentUser!
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     await ws.updateStack(p.id, { ...p.stack, languages: ['TypeScript'], steps: [{ id: 's1', title: 'npm install', kind: 'command', command: 'npm install', cwd: '', url: '', notes: '' }] })
     expect(ws.projects[p.id]!.stack.languages).toEqual(['TypeScript'])
     await ws.addAiTool(p.id, { kind: 'skill', name: 'frontend-design', notes: '', url: '', fileName: 'SKILL.md', content: '# skill' })
@@ -469,7 +501,7 @@ describe('workspace: stack e strumenti AI (solo admin)', () => {
 
   it('un elemento può essere assegnato; il filtro utente trova creatore e assegnatario', async () => {
     const ws = await openLocal()
-    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, categoryId: null, members: [] }))!
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'x', assigneeId: 'usr_altro' })
     expect(ws.findItem(it.id)!.item.assigneeId).toBe('usr_altro')
     await ws.updateItem(p.id, it.id, { assigneeId: null })

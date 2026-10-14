@@ -58,7 +58,7 @@ async function submit() {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" title="Nuovo workspace" description="Un workspace è una cartella che contiene categorie e progetti.">
+  <BaseDialog v-model:open="open" title="Nuovo workspace" description="Un workspace è una cartella che contiene cartelle e progetti.">
     <form class="space-y-4" @submit.prevent="submit">
       <div>
         <label class="label" for="ws-name">Nome</label>

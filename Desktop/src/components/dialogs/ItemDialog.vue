@@ -56,10 +56,10 @@ async function submit(keepOpen = false) {
     title.value = ''
     notes.value = ''
     error.value = ''
-    ui.toast(`Aggiunto «${t}»`, 'success', undefined, 1800)
+    ui.toast(`Creato «${t}»`, 'success', undefined, 1800)
   } else {
     open.value = false
-    ui.toast('Aggiunto', 'success', { label: 'Apri', run: () => (ui.selectedItemId = item.id) }, 2500)
+    ui.toast('Elemento creato', 'success', { label: 'Apri', run: () => (ui.selectedItemId = item.id) }, 2500)
   }
 }
 </script>
@@ -75,21 +75,24 @@ async function submit(keepOpen = false) {
         <label class="label" for="i-notes">Descrizione</label>
         <textarea id="i-notes" v-model="notes" class="field min-h-24 resize-y text-[13.5px] leading-relaxed" placeholder="Cosa va fatto, decisioni, riferimenti… (facoltativa)" @keydown.ctrl.enter.prevent="submit(addAnother)" />
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <PrioritySelect v-model="priority" />
-        <StatusSelect v-model="status" />
-        <DueDateField v-model="dueDate" />
-        <LabelSelect v-model="labelId" @manage="emit('manageLabels')" />
-        <AssigneeSelect v-model="assigneeId" />
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <PrioritySelect v-model="priority" />
+          <StatusSelect v-model="status" />
+          <DueDateField v-model="dueDate" />
+          <LabelSelect v-model="labelId" />
+          <AssigneeSelect v-model="assigneeId" />
+        </div>
+        <button type="button" class="mt-2 text-[12px] font-medium text-accent-ink hover:underline" @click="emit('manageLabels')">Gestisci etichette…</button>
       </div>
       <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
     </form>
     <template #footer>
       <label class="mr-auto flex items-center gap-2 text-[12.5px] text-ink-2">
-        <input v-model="addAnother" type="checkbox" class="accent-accent" /> Aggiungine un altro dopo
+        <input v-model="addAnother" type="checkbox" class="accent-accent" /> Creane un altro dopo
       </label>
       <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-      <BaseButton variant="primary" :disabled="!title.trim()" title="Ctrl+Invio" @click="submit(addAnother)">Aggiungi</BaseButton>
+      <BaseButton variant="primary" :disabled="!title.trim()" title="Ctrl+Invio" @click="submit(addAnother)">Crea</BaseButton>
     </template>
   </BaseDialog>
 </template>
