@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { WorkspaceStorage } from './storage'
+import { LockBusyError, WorkspaceStorage } from './storage'
 import { getFs } from './fs'
-import { EMPTY_STACK, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
+import { EMPTY_STACK, type Item, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
 
 const meta: WorkspaceMeta = {
   schema: 1,
@@ -34,6 +34,24 @@ const project = (id: string): Project => ({
   stack: { ...EMPTY_STACK },
   aiTools: [],
 })
+
+const ITEM: Item = {
+  id: '',
+  title: '',
+  notes: '',
+  priority: 'media',
+  status: 'da_valutare',
+  dueDate: null,
+  labelId: null,
+  assigneeId: null,
+  bucket: 'todo',
+  createdAt: meta.createdAt,
+  createdBy: 'usr_1',
+  completedAt: null,
+  trashedAt: null,
+  comments: [],
+  questions: [],
+}
 
 async function freshWorkspace(root = '/ws') {
   const s = await new WorkspaceStorage(root).init()
@@ -110,5 +128,109 @@ describe('WorkspaceStorage', () => {
     const s = await freshWorkspace()
     await s.writeProject({ ...project('prj_x'), items: [{ bad: true }] } as unknown as Project)
     await expect(s.readProject('prj_x')).rejects.toThrow()
+  })
+})
+
+describe('WorkspaceStorage: concorrenza e lock', () => {
+  /** Due "PC" che aprono la stessa cartella: due istanze indipendenti sullo stesso percorso. */
+  async function twoClients(lock?: ConstructorParameters<typeof WorkspaceStorage>[1]) {
+    const a = await freshWorkspace()
+    await a.writeProject(project('p1'))
+    const b = await new WorkspaceStorage('/ws', lock).init()
+    a.lockOwner = 'a@PC1'
+    b.lockOwner = 'b@PC2'
+    return { a, b }
+  }
+  const addItem = (s: WorkspaceStorage, title: string, actor: string) =>
+    s.mutateProject('p1', actor, (p) => {
+      p.items.push({ ...ITEM, id: title, title })
+    })
+
+  it('controprova: senza lock, letture e scritture intrecciate perdono modifiche', async () => {
+    const { a, b } = await twoClients()
+    // Il vecchio schema: rilegge, modifica, riscrive, senza nulla in mezzo.
+    const unsafe = async (s: WorkspaceStorage, title: string) => {
+      const p = await s.readProject('p1')
+      p.items.push({ ...ITEM, id: title, title })
+      await s.writeProject(p)
+    }
+    await Promise.all(Array.from({ length: 10 }, (_, i) => unsafe(i % 2 ? a : b, `x${i}`)))
+    expect((await a.readProject('p1')).items.length).toBeLessThan(10)
+  })
+
+  it('due PC che modificano lo stesso progetto insieme: nessuna modifica persa', async () => {
+    const { a, b } = await twoClients()
+    await Promise.all(Array.from({ length: 20 }, (_, i) => addItem(i % 2 ? a : b, `i${i}`, i % 2 ? 'usr_a' : 'usr_b')))
+    const p = await a.readProject('p1')
+    expect(p.items.map((i) => i.id).sort()).toEqual(Array.from({ length: 20 }, (_, i) => `i${i}`).sort())
+    expect(p.version).toBe(21)
+    expect(await (await getFs()).exists('/ws/projects/p1.json.lock')).toBe(false) // lock rilasciato
+  })
+
+  it('nello stesso processo le mutazioni sullo stesso file vanno in coda', async () => {
+    const { a } = await twoClients()
+    await Promise.all(Array.from({ length: 10 }, (_, i) => addItem(a, `q${i}`, 'usr_a')))
+    expect((await a.readProject('p1')).items).toHaveLength(10)
+  })
+
+  it('tutti i file condivisi sono protetti: utenti, albero, cronologia, workspace', async () => {
+    const { a, b } = await twoClients()
+    await Promise.all([
+      ...Array.from({ length: 6 }, (_, i) =>
+        (i % 2 ? a : b).mutateUsers((u) => void u.users.push({ ...users.users[0]!, id: `u${i}`, username: `u${i}` })),
+      ),
+      ...Array.from({ length: 6 }, (_, i) => (i % 2 ? a : b).mutateTree((t) => void t.folders.push({ id: `f${i}`, name: `F${i}`, parentId: null, order: i }))),
+      ...Array.from({ length: 6 }, (_, i) =>
+        (i % 2 ? a : b).appendAudit([{ id: `e${i}`, at: meta.createdAt, userId: 'usr_1', action: 'item_created', projectId: 'p1', projectName: 'p1', itemId: null, itemTitle: null, count: null }]),
+      ),
+      a.mutateMeta((m) => void (m.name = 'Nuovo nome')),
+    ])
+    expect((await a.readUsers()).users).toHaveLength(7)
+    expect((await a.readTree()).folders).toHaveLength(6)
+    expect((await a.readAudit()).entries).toHaveLength(6)
+    expect((await a.readMeta()).name).toBe('Nuovo nome')
+  })
+
+  it('un lock occupato fa aspettare; se resta tale oltre il timeout il salvataggio fallisce dicendo chi lo tiene', async () => {
+    const { b } = await twoClients({ staleMs: 60_000, abandonedMs: 600_000, timeoutMs: 150 })
+    const fs = await getFs()
+    await fs.writeTextAtomic('/ws/projects/p1.json.lock', JSON.stringify({ token: 't', owner: 'mario@PC3', at: new Date().toISOString() }))
+    await expect(addItem(b, 'z', 'usr_b')).rejects.toBeInstanceOf(LockBusyError)
+    await expect(addItem(b, 'z', 'usr_b')).rejects.toThrow('mario@PC3')
+    // Rilasciato il lock, il salvataggio riesce
+    await fs.remove('/ws/projects/p1.json.lock')
+    await addItem(b, 'z', 'usr_b')
+    expect((await b.readProject('p1')).items.map((i) => i.id)).toEqual(['z'])
+  })
+
+  it('un lock abbandonato (crash, rete caduta) viene riconosciuto e rimosso', async () => {
+    const { b } = await twoClients({ staleMs: 80, abandonedMs: 600_000, timeoutMs: 5_000 })
+    const fs = await getFs()
+    // Lock lasciato da un PC che non lo rilascerà mai: resta identico per staleMs
+    await fs.writeTextAtomic('/ws/projects/p1.json.lock', JSON.stringify({ token: 'morto', owner: 'x@PC9', at: new Date().toISOString() }))
+    const t0 = Date.now()
+    await addItem(b, 'dopo-crash', 'usr_b')
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(70)
+    expect((await b.readProject('p1')).items).toHaveLength(1)
+    expect(await fs.exists('/ws/projects/p1.json.lock')).toBe(false)
+  })
+
+  it('un lock che dichiara un’età oltre abandonedMs viene rimosso subito', async () => {
+    const { b } = await twoClients({ staleMs: 60_000, abandonedMs: 1_000, timeoutMs: 5_000 })
+    const fs = await getFs()
+    await fs.writeTextAtomic('/ws/projects/p1.json.lock', JSON.stringify({ token: 'vecchio', owner: 'x@PC9', at: '2020-01-01T00:00:00.000Z' }))
+    const t0 = Date.now()
+    await addItem(b, 'subito', 'usr_b')
+    expect(Date.now() - t0).toBeLessThan(500)
+  })
+
+  it('al rilascio si rimuove solo il proprio lock', async () => {
+    const { a } = await twoClients()
+    const fs = await getFs()
+    // Durante la mutazione il lock viene "rubato" (es. dichiarato abbandonato da un altro PC)
+    await a.mutateProject('p1', 'usr_a', () => {
+      void fs.writeTextAtomic('/ws/projects/p1.json.lock', JSON.stringify({ token: 'altrui', owner: 'b@PC2', at: new Date().toISOString() }))
+    })
+    expect(JSON.parse(await fs.readText('/ws/projects/p1.json.lock')).token).toBe('altrui')
   })
 })

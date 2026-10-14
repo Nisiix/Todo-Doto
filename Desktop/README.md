@@ -26,6 +26,7 @@ Per provare solo l'interfaccia nel browser, senza Rust: `npm run dev` (o `npm ru
 ```bash
 npm run tauri:build:it   # app in italiano (equivale a npm run tauri build)
 npm run tauri:build:en   # app in inglese
+npm run tauri:exe:it     # solo l'eseguibile portabile, senza installer (anche tauri:exe:en)
 ```
 
 L'installer (`.msi` e `.exe`) e l'eseguibile si trovano in `src-tauri/target/release/bundle/`. La lingua è decisa in fase di build: ogni installer contiene una sola lingua (vedi [ARCHITETTURA.md](./ARCHITETTURA.md), «Lingue»).
@@ -48,7 +49,7 @@ Il repository è `Nisiix/Project-goal-manager`: ogni push su `main` che tocca `D
 
 ### Build locale con uno script
 
-`scripts\build-windows.cmd` (doppio click) controlla Node e Rust, esegue `npm install` e `npm run tauri build`, e scrive tutto in `build.log`. Con un argomento sceglie la lingua: `scripts\build-windows.cmd en`.
+`scripts\build-windows.cmd` (doppio click) controlla Node e Rust, esegue `npm install` e `npm run tauri build`, e scrive tutto in `build.log`. Con gli argomenti sceglie la lingua e, con `exe`, compila solo l'eseguibile portabile: `scripts\build-windows.cmd en`, `scripts\build-windows.cmd it exe`.
 
 ### Schermate del sito
 
@@ -70,7 +71,7 @@ src-tauri/    backend Rust minimale: comando get_identity + plugin fs/dialog/ope
 
 1. Un utente crea un workspace scegliendo una cartella condivisa e la modalità "Condiviso in rete" con una password: diventa amministratore.
 2. I colleghi aprono la stessa cartella da "Apri cartella": alla prima apertura inseriscono la password, che viene verificata e memorizzata cifrata sul loro PC.
-3. Ogni progetto è un file JSON separato. Ogni modifica rilegge il file, applica la modifica e riscrive in modo atomico, così le modifiche di più persone si sommano.
+3. Ogni progetto è un file JSON separato. Ogni modifica prende il lock del file (`<file>.lock`, creato in modo esclusivo), lo rilegge, applica la modifica, riscrive in modo atomico e rilascia il lock: le modifiche di più persone si sommano anche se avvengono nello stesso istante. I lock lasciati da un crash vengono riconosciuti e rimossi.
 4. Un watcher sulla cartella più un controllo ogni 4 secondi ricaricano solo i file cambiati; l'interfaccia si aggiorna da sola e segnala "Aggiornato da …".
 
 ## Scorciatoie

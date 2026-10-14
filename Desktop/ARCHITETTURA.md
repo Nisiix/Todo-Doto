@@ -105,15 +105,23 @@ Ogni struttura salvata su disco ha uno **schema zod** (`ProjectSchema`, `TreeFil
 |---|---|
 | `create(meta, users)` | inizializza una cartella vuota |
 | `readMeta/readUsers/readTree/readProject/listProjectIds` | letture validate con zod |
-| `writeMeta/writeUsers/writeTree/writeProject/deleteProject` | scritture atomiche |
-| `mutateProject(id, actorId, fn)` | **rilegge** il file, applica `fn`, incrementa `version`, aggiorna `updatedAt/By`, scrive. Se `fn` ritorna `false` non scrive. |
-| `mutateTree(fn)`, `mutateUsers(fn)` | stesso schema per i file condivisi |
+| `writeProject/deleteProject` | creazione di un progetto nuovo (scrittura atomica) ed eliminazione (sotto lock) |
+| `mutateProject(id, actorId, fn)` | **sotto lock**: rilegge il file, applica `fn`, incrementa `version`, aggiorna `updatedAt/By`, scrive. Se `fn` ritorna `false` non scrive. |
+| `mutateTree(fn)`, `mutateUsers(fn)`, `mutateMeta(fn)` | stesso schema per i file condivisi |
+| `withLock(path, fn)` | esegue `fn` tenendo il lock del file (usato da tutte le mutazioni) |
 | `signature()` | mappa `file → "mtime:size"`, usata per capire cosa è cambiato |
 | `readDrive/writeDrive` | struttura Google Drive replicata (`drive.json`) |
 | `readAudit/appendAudit` | cronologia append-only (`audit.json`, ultimi 5000 eventi) |
 | `watch(cb)` | notifiche del filesystem (best effort) |
 
-Il pattern **read-before-write** è la garanzia di coerenza fra più PC: due modifiche concorrenti allo stesso progetto si sommano invece di sovrascriversi, perché ciascuna parte dall'ultima versione sul disco.
+**Concorrenza.** Ogni mutazione è un read-modify-write eseguito sotto lock, così due modifiche contemporanee allo stesso file si sommano invece di sovrascriversi:
+
+1. **Coda nel processo**: le mutazioni dell'app sullo stesso file vengono eseguite una alla volta (`serialize`).
+2. **Lock fra PC**: `<file>.lock` accanto al file, creato con `createExclusive` (in Tauri `writeTextFile(…, { createNew: true })`, atomico anche su SMB) e contenente `{ token, owner: "utente@PC", at }`. Chi lo trova occupato riprova con attese crescenti e casuali (20→400 ms); dopo `timeoutMs` (30 s) il salvataggio fallisce con `LockBusyError`, che indica chi tiene il file, e l'utente vede il toast "Salvataggio non riuscito".
+3. **Lock abbandonati** (crash, rete caduta): un lock rimasto identico per `staleMs` (12 s, misurati con l'orologio locale, quindi senza dipendere da quello degli altri PC) o che dichiara più di `abandonedMs` (5 min) viene rimosso, solo se è ancora quello osservato. Al rilascio si rimuove soltanto il proprio lock (stesso `token`).
+4. **Scrittura atomica**: file temporaneo + rename; se il rename sopra il file esistente fallisce (antivirus, share) si riprova più volte, e solo come ultima risorsa si scrive direttamente e si verifica rileggendo, tenendo il `.tmp` come copia finché la verifica non riesce.
+
+Le letture non prendono il lock: grazie al rename vedono sempre un file completo. I test di `storage.test.ts` simulano due PC sulla stessa cartella (incluso una controprova che senza lock le modifiche si perdono), lock occupati, abbandonati e rubati.
 
 ### 3.4 `stores/workspace.ts` — stato e mutazioni
 

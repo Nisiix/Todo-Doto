@@ -124,11 +124,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const labelsById = computed(() => Object.fromEntries(tree.value.labels.map((l) => [l.id, l])))
 
   // --- apertura / chiusura ------------------------------------------------------
+  /** Storage del workspace; i lock che crea dicono agli altri PC chi sta salvando. */
+  async function openStorage(path: string) {
+    const s = await new WorkspaceStorage(path).init()
+    s.lockOwner = `${session.identity.username}@${session.identity.hostname}`
+    return s
+  }
+
   async function open(path: string): Promise<OpenResult> {
     await close()
     status.value = 'opening'
     try {
-      const s = await new WorkspaceStorage(path).init()
+      const s = await openStorage(path)
       if (!(await WorkspaceStorage.isWorkspace(path))) {
         status.value = 'closed'
         return { ok: false, error: common.ws.notAWorkspace }
@@ -214,7 +221,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function create(opts: { path: string; name: string; mode: WorkspaceMode; password?: string }): Promise<OpenResult> {
     try {
-      const s = await new WorkspaceStorage(opts.path).init()
+      const s = await openStorage(opts.path)
       if (await WorkspaceStorage.isWorkspace(opts.path)) {
         return { ok: false, error: common.ws.alreadyExists }
       }
@@ -830,8 +837,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const s = storage.value
     if (!s || !meta.value || !isAdmin.value) return
     await guard(async () => {
-      const m = { ...meta.value!, auth: await hashPassword(newPassword) }
-      await s.writeMeta(m)
+      const auth = await hashPassword(newPassword)
+      const m = await s.mutateMeta((x) => void (x.auth = auth))
       meta.value = m
       await rememberPassword(m.id, newPassword, session.localSecret)
       markLocalWrite('workspace.json')
@@ -842,9 +849,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const s = storage.value
     if (!s || !meta.value || !isAdmin.value) return
     await guard(async () => {
-      const m = { ...meta.value!, name: name.trim() }
-      await s.writeMeta(m)
+      const m = await s.mutateMeta((x) => void (x.name = name.trim()))
       meta.value = m
+      markLocalWrite('workspace.json')
       await session.touchRecent({ id: m.id, name: m.name, path: s.root, mode: m.mode })
     })
   }

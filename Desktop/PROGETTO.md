@@ -204,7 +204,7 @@ Problema: due PC aprono lo stesso progetto da una cartella di rete; uno modifica
 
 Soluzione a tre livelli:
 
-1. **Scritture atomiche e read-before-write.** Ogni azione dell'utente è una *mutazione* `mutateProject(id, fn)`: si rilegge il file dal disco, si applica la modifica, si incrementa `version`, si scrive su `<id>.json.tmp` e si rinomina sopra l'originale. Non esiste mai uno stato "sporco" tenuto in memoria a lungo, quindi le modifiche di due persone si sommano invece di sovrascriversi.
+1. **Lock, read-modify-write e scritture atomiche.** Ogni azione dell'utente è una *mutazione* `mutateProject(id, fn)`: si prende il lock del file (`<id>.json.lock`, creato in modo esclusivo, con chi lo tiene; i lock abbandonati da un crash si riconoscono e si rimuovono), si rilegge il file dal disco, si applica la modifica, si incrementa `version`, si scrive su un file temporaneo e lo si rinomina sopra l'originale, poi si rilascia il lock. Lo stesso vale per utenti, cartelle/etichette, cronologia e impostazioni del workspace. Così le modifiche di due persone allo stesso file si sommano anche se avvengono nello stesso istante (dettagli in ARCHITETTURA.md, §3.3).
 2. **Watcher + polling.** Un watcher sulla cartella del workspace (plugin-fs `watch`) notifica i cambiamenti; dato che su SMB le notifiche possono non arrivare, ogni 4 s si confrontano anche `mtime`/`size` dei file. Quando un file cambia, lo store ricarica **solo quel file** e la UI si aggiorna grazie alla reattività di Vue.
 3. **Segnalazione non invasiva.** Se il progetto aperto viene aggiornato da un altro utente, compare un toast "Aggiornato da Mario Rossi" e la riga modificata lampeggia; il pannello di dettaglio aperto viene ricaricato senza perdere il testo che si sta scrivendo (i campi in editing vengono riconciliati solo alla chiusura).
 
@@ -282,7 +282,9 @@ npm install
 npm run tauri dev        # sviluppo con hot reload
 npm run tauri build      # produce .msi / .exe in src-tauri/target/release/bundle (app in italiano)
 npm run tauri:build:en   # la stessa build con l'app in inglese
+npm run tauri:exe:it     # solo l'eseguibile, senza installer (anche tauri:exe:en)
 ```
+L'eseguibile (`src-tauri/target/release/project-goal-manager.exe`) è portabile: si avvia senza installazione, purché sia presente WebView2 (incluso in Windows 10/11).
 L'app esiste in **italiano** e in **inglese**: la lingua è decisa in fase di build (`VITE_LOCALE`), quindi ogni installer contiene una sola lingua. Il sito propone l'installer della lingua scelta dal visitatore; la build automatica su GitHub produce entrambe le edizioni (`…_x64_it.msi`, `…_x64_en-setup.exe`, …).
 Prerequisiti Windows: Node 20+, Rust (rustup), Microsoft Edge WebView2 (già presente su Windows 10/11).
 L'eseguibile si distribuisce copiandolo o tramite installer; i dati restano nella cartella workspace scelta.

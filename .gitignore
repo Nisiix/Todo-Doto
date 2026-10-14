@@ -4,3 +4,6 @@ Thumbs.db
 Web/downloads/*.msi
 Web/downloads/*.exe
 Web/downloads/manifest.json
+
+# installer scaricati dalle Release (non versionati)
+installer/

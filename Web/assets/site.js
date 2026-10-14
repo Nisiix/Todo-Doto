@@ -101,7 +101,7 @@
       const f = m.files[l] || (l === 'it' && (m.files.msi || m.files.exe) ? m.files : null)
       if (f) {
         const pick = (x) => x && { url: 'downloads/' + x.name, size: x.size || '' }
-        return { source: 'server', version: m.version, date: m.date, msi: pick(f.msi), exe: pick(f.exe) }
+        return { source: 'server', version: m.version, date: m.date, msi: pick(f.msi), exe: pick(f.exe), portable: pick(f.portable) }
       }
     }
     release = release || fetch(`https://api.github.com/repos/${repo}/releases/latest`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
@@ -113,7 +113,8 @@
       }
       const msi = find(new RegExp(`_${l}\\.msi$`, 'i'))
       const exe = find(new RegExp(`_${l}-setup\\.exe$`, 'i'))
-      if (msi || exe) return { source: 'github', version: String(rel.tag_name || '').replace(/^v/, ''), date: String(rel.published_at || '').slice(0, 10), msi, exe }
+      const portable = find(new RegExp(`_${l}-portable\\.exe$`, 'i'))
+      if (msi || exe || portable) return { source: 'github', version: String(rel.tag_name || '').replace(/^v/, ''), date: String(rel.published_at || '').slice(0, 10), msi, exe, portable }
     }
     return null
   }
@@ -128,7 +129,7 @@
     box.querySelectorAll('[data-kind]').forEach((a) => {
       const file = f && f[a.dataset.kind]
       a.href = file ? file.url : releasesUrl
-      a.title = file && file.size ? file.size : ''
+      a.dataset.size = file && file.size ? file.size : ''
     })
     const ver = box.querySelector('.ver')
     if (ver && f && f.version) ver.textContent = t.version(f.version, f.date)

@@ -116,6 +116,8 @@ export const common = defineMessages({
       linkToView: 'Collega l’account Google per vedere i documenti di Drive.',
     },
     fileNotFound: (p: string) => `File non trovato: ${p}`,
+    writeNotVerified: (p: string) => `Scrittura non verificata: ${p}`,
+    lockBusy: (owner: string) => `Il file è occupato da un altro salvataggio${owner ? ` (${owner})` : ''}: riprova tra qualche secondo.`,
     script: {
       title: (name: string) => `Configurazione ${name}`,
       heading: (name: string) => `Configurazione di ${name}`,
@@ -242,6 +244,8 @@ export const common = defineMessages({
       linkToView: 'Connect the Google account to view Drive documents.',
     },
     fileNotFound: (p: string) => `File not found: ${p}`,
+    writeNotVerified: (p: string) => `Write could not be verified: ${p}`,
+    lockBusy: (owner: string) => `The file is busy with another save${owner ? ` (${owner})` : ''}: try again in a few seconds.`,
     script: {
       title: (name: string) => `Setup ${name}`,
       heading: (name: string) => `Setting up ${name}`,

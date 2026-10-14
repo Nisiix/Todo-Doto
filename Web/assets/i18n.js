@@ -114,7 +114,7 @@ window.PGM_I18N = {
     'alt.audit': 'Activity log grouped by project',
 
     'dl.title': 'Download Project Goal Manager',
-    'dl.lead': 'A Windows installer, in the language you chose for this site. The app asks for no registration and sends data to no one.',
+    'dl.lead': 'A Windows installer or the portable executable, which runs without installing anything, in the language you chose for this site. The app asks for no registration and sends data to no one.',
     'dl.r1': 'Windows 10 or 11, 64-bit',
     'dl.r2': 'Microsoft Edge WebView2 (already part of Windows; the installer adds it if missing)',
     'dl.r3': 'To share: a network folder everyone can reach (UNC path or mapped drive)',
@@ -122,6 +122,8 @@ window.PGM_I18N = {
     'dl.ver': 'Windows 10/11 (64-bit)',
     'dl.exe': 'Setup (.exe)',
     'dl.msi': 'Installer (.msi)',
+    'dl.portable': 'Portable (.exe)',
+    'dl.portableTitle': 'No installation needed',
     'dl.other': 'Need the app in Italian?',
     'dl.otherLink': 'Switch to the Italian version',
     'dl.otherLang': 'it',

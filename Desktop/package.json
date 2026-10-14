@@ -1,7 +1,7 @@
 {
   "name": "project-goal-manager",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Roadmap e todo di progetto, in locale o su cartella di rete",
   "type": "module",
   "scripts": {
@@ -14,6 +14,8 @@
     "tauri": "tauri",
     "tauri:build:it": "tauri build",
     "tauri:build:en": "tauri build --config src-tauri/tauri.en.conf.json",
+    "tauri:exe:it": "tauri build --no-bundle",
+    "tauri:exe:en": "tauri build --no-bundle --config src-tauri/tauri.en.conf.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

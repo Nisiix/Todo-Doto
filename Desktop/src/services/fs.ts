@@ -9,6 +9,8 @@ import type { Identity } from '@/types'
 import { common } from '@/i18n/common'
 import { locale } from '@/i18n'
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 export interface FileStat {
@@ -20,6 +22,12 @@ export interface FsApi {
   readText(path: string): Promise<string>
   readBinary(path: string): Promise<Uint8Array>
   writeTextAtomic(path: string, text: string): Promise<void>
+  /**
+   * Crea il file solo se non esiste già, in un'unica operazione atomica (anche
+   * su cartelle di rete): `true` se l'ha creato, `false` se esisteva. È la base
+   * dei lock fra PC diversi (vedi storage.ts).
+   */
+  createExclusive(path: string, text: string): Promise<boolean>
   exists(path: string): Promise<boolean>
   mkdir(path: string): Promise<void>
   readDir(path: string): Promise<string[]>
@@ -54,16 +62,35 @@ async function tauriFs(): Promise<FsApi> {
     readText: (p) => fs.readTextFile(p),
     readBinary: (p) => fs.readFile(p),
     async writeTextAtomic(p, text) {
+      // File temporaneo + rename: chi legge vede il file vecchio o quello nuovo, mai uno a metà.
       const tmp = `${p}.${Math.random().toString(36).slice(2, 8)}.tmp`
       await fs.writeTextFile(tmp, text)
+      // Il rename sopra un file esistente può fallire per un attimo (antivirus,
+      // indicizzazione, un lettore che lo tiene aperto sullo share): si riprova.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        try {
+          await fs.rename(tmp, p)
+          return
+        } catch {
+          await sleep(60 * (attempt + 1))
+        }
+      }
+      // Ultima risorsa, per share che rifiutano sempre il rename sopra un file:
+      // scrittura diretta verificata rileggendo. Il .tmp resta come copia
+      // completa finché la verifica non riesce, così un'interruzione a metà
+      // non fa perdere il contenuto. I lock di storage.ts impediscono che un
+      // altro PC scriva nello stesso momento.
+      await fs.writeTextFile(p, text)
+      if ((await fs.readTextFile(p)) !== text) throw new Error(common.writeNotVerified(p))
+      await fs.remove(tmp).catch(() => {})
+    },
+    async createExclusive(p, text) {
       try {
-        await fs.rename(tmp, p)
+        await fs.writeTextFile(p, text, { createNew: true })
+        return true
       } catch (e) {
-        // Alcuni share di rete rifiutano il rename sopra un file esistente:
-        // ripiego su scrittura diretta.
-        await fs.writeTextFile(p, text)
-        await fs.remove(tmp).catch(() => {})
-        if (!(e instanceof Error)) throw e
+        if (await fs.exists(p)) return false
+        throw e
       }
     },
     exists: (p) => fs.exists(p),
@@ -139,6 +166,12 @@ function memoryFs(): FsApi {
     async writeTextAtomic(p, text) {
       files.set(norm(p), { text, mtimeMs: Date.now() })
       notify(norm(p))
+    },
+    async createExclusive(p, text) {
+      if (files.has(norm(p))) return false
+      files.set(norm(p), { text, mtimeMs: Date.now() })
+      notify(norm(p))
+      return true
     },
     async exists(p) {
       const n = norm(p)
