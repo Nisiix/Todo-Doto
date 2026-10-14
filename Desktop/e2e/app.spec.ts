@@ -144,7 +144,8 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
 test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async ({ page }) => {
   await createLocalWorkspace(page)
   const aside = page.locator('aside').first()
-  await expect(aside.getByText('Segna un progetto con la stella')).toBeVisible()
+  // Nessun preferito: la sezione Preferiti non c'è
+  await expect(aside.locator('[data-favorites]')).toHaveCount(0)
   // Cestino vuoto: la sezione non c'è proprio
   await expect(aside.locator('section', { hasText: 'Cestino' })).toHaveCount(0)
 
@@ -156,7 +157,10 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
 
   // Preferito: stella nell'intestazione → sezione Preferiti
   await page.getByRole('button', { name: 'Aggiungi ai preferiti' }).click()
-  await expect(aside.locator('section').first().getByText('Beta')).toBeVisible()
+  await expect(aside.locator('[data-favorites]').getByText('Beta')).toBeVisible()
+  // Tolto l'ultimo preferito, la sezione sparisce di nuovo
+  await page.getByRole('button', { name: 'Togli dai preferiti' }).click()
+  await expect(aside.locator('[data-favorites]')).toHaveCount(0)
   // Recenti: compare solo con almeno 5 progetti (con pochi è rumore)
   await expect(aside.locator('section', { hasText: 'Recenti' })).toHaveCount(0)
   for (const n of ['Gamma', 'Delta', 'Epsilon']) await createProject(page, n)

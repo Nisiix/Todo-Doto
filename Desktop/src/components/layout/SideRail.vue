@@ -36,7 +36,6 @@ const m = defineMessages({
     createFolder: 'Crea cartella',
     folderName: 'Nome cartella',
     favorites: 'Preferiti',
-    favoritesEmpty: 'Segna un progetto con la stella per trovarlo qui.',
     recent: 'Recenti',
     projects: 'Progetti',
     projectsEmpty: 'Nessun progetto. Creane uno con il pulsante qui sopra.',
@@ -63,7 +62,6 @@ const m = defineMessages({
     createFolder: 'Create folder',
     folderName: 'Folder name',
     favorites: 'Favorites',
-    favoritesEmpty: 'Star a project to find it here.',
     recent: 'Recent',
     projects: 'Projects',
     projectsEmpty: 'No projects. Create one with the button above.',
@@ -169,13 +167,12 @@ const trashMenu = (p: Project) => [
     </div>
 
     <div class="flex-1 overflow-y-auto px-2 pb-4 pt-3">
-      <!-- Preferiti -->
-      <section class="mb-4">
+      <!-- Preferiti: la sezione c'è solo se almeno un progetto è segnato con la stella -->
+      <section v-if="ws.favoriteProjects.length" class="mb-4" data-favorites>
         <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">{{ m.favorites }}</h2>
-        <ul v-if="ws.favoriteProjects.length">
+        <ul>
           <ProjectLink v-for="p in ws.favoriteProjects" :key="p.id" :project="p" :depth="-1" />
         </ul>
-        <p v-else class="px-1 text-[12px] text-ink-3">{{ m.favoritesEmpty }}</p>
       </section>
 
       <!-- Recenti: utile solo quando i progetti sono tanti, altrimenti è rumore -->
