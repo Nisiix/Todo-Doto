@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: { assignedTo: (n: string) => `Assegnato a ${n}`, assign: 'Assegna a…', assignee: 'Assegnato a', unassigned: 'Non assegnato' },
+  en: { assignedTo: (n: string) => `Assigned to ${n}`, assign: 'Assign to…', assignee: 'Assigned to', unassigned: 'Unassigned' },
+})
 
 /** Menu a tendina "assegnato a", nello stile degli altri selettori della riga. */
 const model = defineModel<string | null>({ required: true })
@@ -27,12 +33,12 @@ const initials = computed(() =>
     <select
       class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-6 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
       :value="model ?? ''"
-      :title="current ? `Assegnato a ${current.displayName}` : 'Assegna a…'"
-      aria-label="Assegnato a"
+      :title="current ? m.assignedTo(current.displayName) : m.assign"
+      :aria-label="m.assignee"
       @click.stop
       @change="model = ($event.target as HTMLSelectElement).value || null"
     >
-      <option value="">Non assegnato</option>
+      <option value="">{{ m.unassigned }}</option>
       <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
     </select>
   </span>

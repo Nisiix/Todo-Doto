@@ -33,7 +33,10 @@ Regola delle dipendenze: **le frecce vanno solo verso il basso**. Un componente 
 
 ```
 src/
-  main.ts                  bootstrap: Pinia, router, dayjs (locale it), stile
+  main.ts                  bootstrap: Pinia, router, dayjs e <html lang> nella lingua della build, stile
+  i18n/
+    index.ts               lingua della build (VITE_LOCALE), defineMessages, formati di data, confronto alfabetico
+    common.ts              testi condivisi: etichette delle enumerazioni, messaggi di store e servizi
   App.vue                  shell: riapertura ultimo workspace, host di toast e conferme
   style.css                token di tema (chiaro/scuro), classi di base (.field, .menu-*)
   router/index.ts          rotte: / (welcome) · /w (workspace) → home, p/:id, members
@@ -47,6 +50,7 @@ src/
     changes.ts             confronto fra due versioni di un progetto → elenco di modifiche (per le notifiche)
     preview.ts             tipo di anteprima da nome/MIME e costruzione del contenuto (blob URL / testo)
     analytics.ts           riepilogo numerico del workspace (pagina Analisi) e script .cmd di configurazione (sezione Stack)
+    scaffold.ts            stack come modello: copia fra progetti, segnaposto {{name}}/{{slug}}, file e scrittura della cartella del progetto
     drive.ts               client Google Drive: PKCE, token, elenco ricorsivo, download/esportazione
     http.ts                fetch per API esterne (plugin http in Tauri, window.fetch altrove)
     ids.ts                 generazione id con prefisso (prj_, itm_, …) e timestamp
@@ -168,13 +172,19 @@ mutateQuestion(projectId, itemId, qId, (q) => { ... })
 
 **`components/dialogs/`** — ogni form modale è autonomo: riceve `v-model:open` e, se serve, l'entità da modificare; chiama lo store e chiude. `NameDialog` è il form generico "chiedi un nome (e un colore)" usato per cartelle e cartelle di allegati. `ShortcutsDialog` elenca le scorciatoie (tasto `?`). Convenzione sui verbi: **Crea** quando si inserisce, **Salva** quando si modifica, in tutti i dialog.
 
+### 3.6b Lingue (italiano e inglese)
+
+La lingua dell'interfaccia è fissata **in fase di build** da `VITE_LOCALE` (`it` predefinito, `en` con `vite --mode en`, che legge `.env.en`): ogni installer contiene l'app in una sola lingua. `src-tauri/tauri.en.conf.json` si sovrappone alla configurazione di base per la build inglese (frontend con `npm run build:en`, installer MSI/NSIS in inglese); `npm run tauri:build:it` / `tauri:build:en` producono le due edizioni.
+
+I testi stanno vicino al codice che li usa: in ogni componente `const m = defineMessages({ it: {...}, en: {...} })` restituisce i testi della lingua corrente, e TypeScript verifica che le due versioni abbiano le stesse chiavi (i testi con parametri sono funzioni, es. `removeTitle: (n: string) => …`). I testi usati in più punti (priorità, stati, ruoli, azioni comuni, messaggi degli store) sono in `i18n/common.ts`; le mappe `PRIORITY_LABEL`, `STATUS_LABEL`, … di `types/index.ts` puntano lì. Date con i formati di `DATE` (es. `dayjs(d).format(DATE.date)`), ordinamenti con `compareText`. I valori salvati su disco (enumerazioni come `immediata`, `da_valutare`) non cambiano con la lingua: un workspace si apre con entrambe le edizioni.
+
 ### 3.7 Stile e tema
 
 `style.css` definisce i colori come variabili CSS su `:root` e `.dark`, esposte a Tailwind con `@theme inline` (`bg-surface`, `text-ink-2`, `bg-p-alta`, …). Il tema si cambia aggiungendo/togliendo la classe `dark` su `<html>` (`ui.setTheme`), e `index.html` lo applica prima del primo paint per evitare il flash. Le classi costruite dinamicamente (`bg-p-${priority}`) sono dichiarate con `@source inline(...)` così Tailwind le genera sempre.
 
 ### 3.8 Backend Rust
 
-`src-tauri/src/lib.rs` registra i plugin (`fs`, `dialog`, `opener`, `os`, `http`, `window-state`) e tre comandi: `get_identity`, `oauth_start` (apre una porta su 127.0.0.1) e `oauth_wait` (attende il redirect di Google e restituisce codice e stato). Il parser del redirect ha test unitari Rust (`cargo test`). I permessi sono in `capabilities/default.json`: il frontend può leggere/scrivere ovunque (`fs:scope **`, necessario per cartelle di rete scelte dall'utente), aprire URL e file. Aggiungere un comando Rust = funzione `#[tauri::command]` + `generate_handler!` + `invoke()` in `services/fs.ts`.
+`src-tauri/src/lib.rs` registra i plugin (`fs`, `dialog`, `opener`, `os`, `http`, `window-state`) e tre comandi: `get_identity`, `oauth_start` (apre una porta su 127.0.0.1) e `oauth_wait` (attende il redirect di Google e restituisce codice e stato; riceve la lingua dell'interfaccia per la pagina di conferma). Il parser del redirect ha test unitari Rust (`cargo test`). I permessi sono in `capabilities/default.json`: il frontend può leggere/scrivere ovunque (`fs:scope **`, necessario per cartelle di rete scelte dall'utente), aprire URL e file. Aggiungere un comando Rust = funzione `#[tauri::command]` + `generate_handler!` + `invoke()` in `services/fs.ts`.
 
 ---
 
@@ -199,13 +209,14 @@ watcher o polling → `ws.refresh()` → `storage.signature()` → per ogni file
 | una nuova azione (es. "duplica elemento") | una funzione nello store costruita con `mutateProject`/`mutateItem`; una voce nel `menu` di `composables/useItemActions.ts` (compare in riga, menu e pannello). |
 | un nuovo tipo di allegato | `AttachmentSchema.kind`, `AttachmentDialog` (segmento), `AttachmentsBoard` (icona), `fs.openExternal`. |
 | una nuova pagina | `views/NuovaView.vue` + rotta figlia di `/w` in `router/index.ts` (`meta: { admin: true }` se riservata agli admin: il router rimanda alla home gli altri) + link in `TopBar` o `SideRail`. |
+| un nuovo testo nell'interfaccia | la chiave in `defineMessages` del componente, in italiano e in inglese (il typecheck segnala quella mancante); se serve in più punti, in `i18n/common.ts`. |
 | una nuova sezione del progetto | un componente in `components/project/`, una voce in `SECTIONS` di `ProjectView` (la rotta `p/:id/:section?` è già pronta). |
 | un nuovo dialog | copia `NameDialog` come modello: `v-model:open`, `watch(open)` per inizializzare, `BaseDialog` con slot `footer`. |
 | una regola pura (ordinamento, filtri, ricerca, date) | `services/items.ts`, con test in `items.test.ts`. |
 | una scorciatoia da tastiera | il gestore dove ha senso (`ItemRow` per la riga, `ProjectView` per la pagina, `GlobalSearch`/`TopBar` per tutto) e la riga corrispondente in `ShortcutsDialog`. |
 | cambiare i colori | solo le variabili in `style.css`. |
 
-Convenzioni: Composition API con `<script setup lang="ts">`; prop/emit tipizzati; testi dell'interfaccia in italiano, in sentence case, con verbi d'azione ("Crea progetto" → toast "Creato"); nessun accesso diretto al disco fuori da `services/`.
+Convenzioni: Composition API con `<script setup lang="ts">`; prop/emit tipizzati; testi dell'interfaccia sempre tramite `defineMessages` (italiano e inglese), in sentence case, con verbi d'azione ("Crea progetto" → toast "Creato"); nessun accesso diretto al disco fuori da `services/`.
 
 ---
 
@@ -215,10 +226,10 @@ Tre livelli, tutti senza Rust e senza toccare il disco (filesystem in memoria):
 
 | Livello | Strumento | File | Cosa garantisce |
 |---|---|---|---|
-| Unit — servizi | Vitest | `services/*.test.ts` | crittografia (hash/verifica, cifratura locale), storage (read-before-write, versioni, firma, validazione), regole su elementi (ordinamento, scadenze, ricerca, filtri, conteggi), differenze fra versioni di un progetto (notifiche) |
+| Unit — servizi | Vitest | `services/*.test.ts` | crittografia (hash/verifica, cifratura locale), storage (read-before-write, versioni, firma, validazione), regole su elementi (ordinamento, scadenze, ricerca, filtri, conteggi), differenze fra versioni di un progetto (notifiche), stack come modello (copia, segnaposto, percorsi sicuri, file e cartella del progetto) |
 | Unit — store | Vitest + Pinia | `stores/workspace.test.ts` | flussi reali: creazione workspace locale/rete con password, progetti, elementi fra i contenitori, cestino di elementi e progetti, etichette, preferiti e recenti, cartelle a cascata, domande/risposte/risoluzione, menzioni, allegati, visibilità per membri (admin e non admin), ruoli e permessi di eliminazione (Cleaner), cronologia, notifiche con preferenze, **aggiornamento da modifiche esterne** |
 | Componenti | Vitest + Vue Test Utils + happy-dom | `components/components.test.ts` | `BaseButton`, `SegmentedControl`, `UserAvatar`, `StatusSelect`, `PrioritySelect`, `RichText`, `MentionTextarea` (autocompletamento, Invio/Shift+Invio) |
-| End-to-end | Playwright (Chromium) sulla build Vite | `e2e/app.spec.ts` | schermata iniziale e tema; workspace di rete e scelta dell'accesso ai progetti; sidebar (preferiti, recenti, cestino, cartelle a cascata); elementi via dialog, filtri, ordine dei tab, sola lettura dei completati, Salva nel dettaglio, cestino; etichette; allegati con anteprima interna; ricerca e scorciatoie; cronologia, notifiche e impostazioni; pagina Drive |
+| End-to-end | Playwright (Chromium) sulla build Vite | `e2e/app.spec.ts` | schermata iniziale e tema; workspace di rete e scelta dell'accesso ai progetti; sidebar (preferiti, recenti, cestino, cartelle a cascata); elementi via dialog, filtri, ordine dei tab, sola lettura dei completati, Salva nel dettaglio, cestino; etichette; allegati con anteprima interna; ricerca e scorciatoie; cronologia, notifiche e impostazioni; pagina Drive; Stack, Strumenti AI e Analisi; nuovo progetto da uno stack, cartella del progetto e importazione |
 
 Comandi:
 

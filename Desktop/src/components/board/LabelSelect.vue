@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: { label: 'Etichetta', labelNamed: (n: string) => `Etichetta: ${n}`, none: 'Nessuna etichetta' },
+  en: { label: 'Label', labelNamed: (n: string) => `Label: ${n}`, none: 'No label' },
+})
 
 /**
  * Menu a tendina per l'etichetta di un elemento, nello stesso stile dei
@@ -22,12 +28,12 @@ const current = computed(() => (model.value ? ws.labelsById[model.value] : null)
     <select
       class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-5 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
       :value="model ?? ''"
-      :title="current ? `Etichetta: ${current.name}` : 'Etichetta'"
-      aria-label="Etichetta"
+      :title="current ? m.labelNamed(current.name) : m.label"
+      :aria-label="m.label"
       @click.stop
       @change="model = ($event.target as HTMLSelectElement).value || null"
     >
-      <option value="">Nessuna etichetta</option>
+      <option value="">{{ m.none }}</option>
       <option v-for="l in ws.tree.labels" :key="l.id" :value="l.id">{{ l.name }}</option>
     </select>
   </span>

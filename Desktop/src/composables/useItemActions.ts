@@ -6,6 +6,7 @@ import { useUiStore } from '@/stores/ui'
 import { useConfirm } from './useConfirm'
 import { firstLine } from '@/services/items'
 import type { Item } from '@/types'
+import { common } from '@/i18n/common'
 
 /**
  * Le azioni su un elemento (completa, riapri, cestina con "Annulla", elimina
@@ -14,6 +15,7 @@ import type { Item } from '@/types'
  * permessi, conferme e messaggi sono sempre gli stessi.
  */
 export function useItemActions(item: MaybeRefOrGetter<Item>, projectId: MaybeRefOrGetter<string>, readOnly: MaybeRefOrGetter<boolean | undefined> = false) {
+  const m = common.item
   const ws = useWorkspaceStore()
   const ui = useUiStore()
   const confirm = useConfirm()
@@ -32,13 +34,13 @@ export function useItemActions(item: MaybeRefOrGetter<Item>, projectId: MaybeRef
     const id = it().id
     const p = pid()
     ws.moveItem(p, id, 'trash')
-    ui.toast('Spostato nel cestino', 'info', { label: 'Annulla', run: () => ws.moveItem(p, id, 'todo') })
+    ui.toast(m.movedToTrash, 'info', { label: common.actions.undo, run: () => ws.moveItem(p, id, 'todo') })
   }
   async function deleteForever() {
     const ok = await confirm({
-      title: `Eliminare definitivamente «${firstLine(it().title)}»?`,
-      message: 'Commenti, domande e tutto il resto andranno persi. Non si può annullare.',
-      confirmLabel: 'Elimina per sempre',
+      title: m.deleteForeverTitle(firstLine(it().title)),
+      message: m.deleteForeverMessage,
+      confirmLabel: m.deleteForeverConfirm,
       danger: true,
     })
     if (ok) {
@@ -51,12 +53,12 @@ export function useItemActions(item: MaybeRefOrGetter<Item>, projectId: MaybeRef
   const menu = computed<MenuItem[]>(() => {
     if (locked.value) return []
     const b = it().bucket
-    const trashEntry: MenuItem[] = canTrash.value ? [{ label: 'Sposta nel cestino', icon: Trash2, danger: true, onSelect: trash }] : []
-    if (b === 'todo') return [{ label: 'Segna come completato', icon: Check, onSelect: complete }, ...trashEntry]
-    if (b === 'done') return [{ label: 'Riapri', icon: Undo2, onSelect: reopen }, ...trashEntry]
+    const trashEntry: MenuItem[] = canTrash.value ? [{ label: m.moveToTrash, icon: Trash2, danger: true, onSelect: trash }] : []
+    if (b === 'todo') return [{ label: m.markDone, icon: Check, onSelect: complete }, ...trashEntry]
+    if (b === 'done') return [{ label: m.reopen, icon: Undo2, onSelect: reopen }, ...trashEntry]
     return [
-      { label: 'Ripristina in Da fare', icon: RotateCcw, onSelect: reopen },
-      ...(canDelete.value ? [{ label: 'Elimina definitivamente', icon: X, danger: true, onSelect: deleteForever } satisfies MenuItem] : []),
+      { label: m.restoreTodo, icon: RotateCcw, onSelect: reopen },
+      ...(canDelete.value ? [{ label: m.deleteForever, icon: X, danger: true, onSelect: deleteForever } satisfies MenuItem] : []),
     ]
   })
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="it" data-lang="it">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -25,6 +25,10 @@
       <nav class="nav" aria-label="Sezioni">
         <a href="index.html#funzionalita">Funzionalità</a>
         <a href="index.html#download">Scarica</a>
+        <div class="lang" role="group" aria-label="Lingua">
+          <a href="privacy.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="privacy-policy.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
         <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         </button>
@@ -43,20 +47,20 @@
 
       <h2>2. L'applicazione desktop</h2>
       <h2 style="font-size:1.05rem;margin-top:1rem">2.1 Dati che inserisci</h2>
-      <p>Progetti, elementi, descrizioni, domande, commenti, allegati (come riferimenti a file o link), etichette, membri del workspace e cronologia delle operazioni sono salvati come file JSON nella cartella del workspace. Non vengono trasmessi a noi né ad alcun servizio esterno. In un workspace di rete sono accessibili alle persone che hanno accesso a quella cartella.</p>
+      <p>Progetti, elementi, descrizioni, domande, commenti, allegati (come riferimenti a file o link), etichette, stack del progetto, membri del workspace e cronologia delle operazioni sono salvati come file JSON nella cartella del workspace. Non vengono trasmessi a noi né ad alcun servizio esterno. In un workspace di rete sono accessibili alle persone che hanno accesso a quella cartella.</p>
       <h2 style="font-size:1.05rem;margin-top:1rem">2.2 Identità locale</h2>
       <p>Per attribuire le modifiche, l'Applicazione legge il nome utente e il nome del computer dal sistema operativo e li salva nel file degli utenti del workspace, insieme al nome visibile che scegli. Non raccoglie indirizzo e-mail, numeri di telefono o altri identificativi.</p>
       <h2 style="font-size:1.05rem;margin-top:1rem">2.3 Password del workspace</h2>
       <p>La password di un workspace di rete è conservata nel workspace solo come hash (PBKDF2-SHA256 con salt casuale). Sul tuo computer viene memorizzata cifrata (AES-GCM) con una chiave derivata dalla tua identità locale, così da non doverla reinserire a ogni avvio. Puoi eliminarla chiudendo il workspace o cancellando i file di configurazione locali.</p>
       <h2 style="font-size:1.05rem;margin-top:1rem">2.4 Dati locali</h2>
-      <p>Nella cartella dati dell'utente (<code>%APPDATA%\com.nisos.projectgoalmanager</code>) l'Applicazione conserva: tema, elenco dei workspace recenti, preferiti, preferenze sulle notifiche, password cifrate e, se usi Google Drive, le credenziali OAuth cifrate. Le notifiche ricevute restano nello storage locale dell'Applicazione. Puoi cancellare tutto eliminando quella cartella.</p>
+      <p>Nella cartella dati dell'utente (<code>%APPDATA%\com.nisos.projectgoalmanager</code>) l'Applicazione conserva: tema, elenco dei workspace recenti, preferiti, preferenze sulle notifiche, password cifrate e, se usi Google Drive, le credenziali OAuth cifrate. Le notifiche ricevute restano nello storage locale dell'Applicazione. Le cartelle di progetto create con «Crea cartella del progetto» vengono scritte solo dove scegli tu. Puoi cancellare tutto eliminando quella cartella.</p>
       <h2 style="font-size:1.05rem;margin-top:1rem">2.5 Google Drive (facoltativo)</h2>
       <p>Se colleghi un account Google, l'Applicazione dialoga direttamente con le API di Google dal tuo computer, con il tuo consenso e con il solo permesso di lettura (<code>drive.readonly</code>). Nel workspace condiviso viene salvata soltanto la struttura della cartella sincronizzata (nomi, identificativi, tipi e link dei file), visibile agli altri membri; il contenuto dei documenti viene scaricato solo quando lo apri e non viene salvato nel workspace. Il token di accesso resta cifrato sul tuo computer. Il trattamento da parte di Google è descritto nell'informativa privacy di Google.</p>
       <h2 style="font-size:1.05rem;margin-top:1rem">2.6 Nessuna telemetria</h2>
       <p>L'Applicazione non contiene strumenti di analisi, tracciamento o segnalazione automatica degli errori e non contatta alcun nostro server. Le uniche connessioni di rete sono quelle verso Google che attivi tu con la funzione Drive.</p>
 
       <h2>3. Questo sito</h2>
-      <p>Il sito è composto da pagine statiche. Non usa cookie di profilazione né strumenti di analisi. Il salvataggio della preferenza sul tema chiaro/scuro avviene nel tuo browser (localStorage) e non viene trasmesso. I caratteri tipografici sono caricati da Google Fonts: nel farlo, il tuo browser invia a Google il tuo indirizzo IP, secondo l'informativa di Google. Il server che ospita il sito e l'eventuale server di download possono registrare nei log tecnici indirizzo IP, data e ora e pagina richiesta, per sicurezza e manutenzione, per il tempo strettamente necessario.</p>
+      <p>Il sito è composto da pagine statiche. Non usa cookie di profilazione né strumenti di analisi. Le preferenze sul tema chiaro/scuro e sulla lingua sono salvate nel tuo browser (localStorage) e non vengono trasmesse. I caratteri tipografici sono caricati da Google Fonts: nel farlo, il tuo browser invia a Google il tuo indirizzo IP, secondo l'informativa di Google. La sezione download può interrogare l'API pubblica di GitHub per trovare l'ultima versione pubblicata. Il server che ospita il sito e l'eventuale server di download possono registrare nei log tecnici indirizzo IP, data e ora e pagina richiesta, per sicurezza e manutenzione, per il tempo strettamente necessario.</p>
 
       <h2>4. Base giuridica e conservazione</h2>
       <p>Per quanto riguarda il sito, il trattamento dei log tecnici si fonda sul legittimo interesse a garantirne la sicurezza e il funzionamento; i log sono conservati per un periodo limitato. Per l'Applicazione, i dati sono trattati esclusivamente sui tuoi dispositivi e sotto il tuo controllo: tu decidi dove sono, chi vi accede e per quanto tempo conservarli.</p>

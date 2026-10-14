@@ -132,12 +132,12 @@ Azioni registrate: `item_created | item_completed | item_reopened | item_trashed
 ### projects/<id>.json
 ```jsonc
 {
-  "schema": 1, "id": "prj_…", "name": "Bilancio Europeo Web",
+  "schema": 1, "id": "prj_…", "name": "Progetto di test",
   "description": "…", "folderId": "fld_…",
   "members": ["usr_…"],              // vuoto = visibile a tutti i membri del workspace
   "version": 42, "updatedAt": "…", "updatedBy": "usr_…",
   "items": [ {
-      "id": "itm_…", "title": "Export XBRL", "notes": "…",
+      "id": "itm_…", "title": "Esportazione dei dati in CSV", "notes": "…",
       "priority": "alta",             // bassa | media | alta | immediata
       "status": "confermato",         // da_valutare | da_definire | confermato
       "dueDate": "2026-11-30",        // facoltativa
@@ -227,14 +227,14 @@ Errori di rete (percorso non raggiungibile) → banner "Cartella non raggiungibi
 ┌───────────────────────────────────────────────────────────────────┐
 │ ⌂ Roadmap Sviluppo        🔍 cerca…            👥 Membri   ☾/☀   │
 ├──────────┬───────────────────────────────────────┬────────────────┤
-│ Cartelle │ Bilancio Europeo Web        12 · 4 · 1 │ Export XBRL    │
+│ Cartelle │ Progetto di test            12 · 4 · 1 │ Export CSV     │
 │ ▸ Clienti│ [Da fare] [Completati] [Cestino]       │ priorità alta  │
-│   ▸ Web  │ ┃ Export XBRL      alta  ● conf  30/11│ scadenza 30/11 │
-│ Categorie│ ┃ Login SPID       imm.  ○ val.       │ ───────────── │
-│ ● Gestio.│ ┃ Refactor NH      bassa ◐ def.       │ Commenti (2)   │
+│   ▸ Web  │ ┃ Export CSV       alta  ● conf  30/11│ scadenza 30/11 │
+│          │ ┃ Pagina accesso   imm.  ○ val.       │ ───────────── │
+│          │ ┃ Tema scuro       bassa ◐ def.       │ Commenti (2)   │
 │          │ + aggiungi…                            │ Domande (1)    │
 │ Progetti │                                        │ Allegati (3)   │
-│ ○ BEW    │                                        │                │
+│ ○ Demo   │                                        │                │
 └──────────┴───────────────────────────────────────┴────────────────┘
 ```
 - Allineamento a sinistra ovunque; niente card nidificate: righe, separatori e spazio bianco.
@@ -280,8 +280,10 @@ Project goal manager/
 ```bash
 npm install
 npm run tauri dev        # sviluppo con hot reload
-npm run tauri build      # produce .msi / .exe in src-tauri/target/release/bundle
+npm run tauri build      # produce .msi / .exe in src-tauri/target/release/bundle (app in italiano)
+npm run tauri:build:en   # la stessa build con l'app in inglese
 ```
+L'app esiste in **italiano** e in **inglese**: la lingua è decisa in fase di build (`VITE_LOCALE`), quindi ogni installer contiene una sola lingua. Il sito propone l'installer della lingua scelta dal visitatore; la build automatica su GitHub produce entrambe le edizioni (`…_x64_it.msi`, `…_x64_en-setup.exe`, …).
 Prerequisiti Windows: Node 20+, Rust (rustup), Microsoft Edge WebView2 (già presente su Windows 10/11).
 L'eseguibile si distribuisce copiandolo o tramite installer; i dati restano nella cartella workspace scelta.
 
@@ -300,9 +302,11 @@ Dentro un progetto una barra a sinistra divide tre sezioni.
 
 - **Todo**: la lista descritta sopra (filtri, contenitori, dettaglio).
 - **Stack**: compilato dall'admin (gli altri lo leggono). Campi: tipo di applicazione (web/desktop/mobile/backend), linguaggi, framework, repository, cartella del progetto (locale o di rete, con "Apri cartella"), note, **prerequisiti** (nome, versione, link, comando di verifica), **passi** ordinati (comando con cartella di esecuzione, link o operazione manuale) e **variabili d'ambiente**. La parte "Configura sul tuo PC" mostra la procedura come checklist: ogni utente spunta i passi fatti (progresso salvato in locale), copia i comandi con un click, apre i link; "Genera script Windows" produce un `.cmd` che esegue in sequenza verifiche e comandi e si ferma al primo errore. L'app non esegue comandi da sola: lo script lo lancia l'utente.
+- **Stack come modello**: lo stack di un progetto si copia in un altro. Alla creazione di un progetto l'admin sceglie "Stack e configurazione iniziale → Copia da «…»", oppure dalla sezione Stack usa "Nuovo progetto con questo stack" (gli viene chiesto solo il nome); in modifica, "Importa da…" copia lo stack di un altro progetto in quello aperto. Nella copia il nome del progetto di origine (anche nella forma `slug`, es. `progetto-di-test`) diventa quello nuovo in comandi, link, note e file; la cartella locale non viene copiata. Lo stack può contenere **file iniziali** (percorso relativo + contenuto, es. `package.json`, `.gitignore`) con i segnaposto `{{name}}` e `{{slug}}`, che valgono anche nei passi.
+- **Cartella del progetto**: "Crea cartella del progetto" chiede dove crearla e scrive `<destinazione>/<slug>/` con `README.md` (stack, prerequisiti, passi, variabili), `.env.example`, lo script `setup-<slug>.cmd` e i file iniziali (che hanno la precedenza a parità di percorso; percorsi assoluti o con `..` sono ignorati). Se la cartella esiste chiede conferma prima di sovrascrivere i file con lo stesso nome. La prima cartella creata da un admin diventa la "Cartella del progetto" dello stack.
 - **Strumenti AI**: connettori, plugin e skill del progetto; per le skill si allega il file (es. `SKILL.md`, fino a 512 KB) o si incolla il contenuto, che resta nel file del progetto e si può vedere, copiare o salvare.
 
-Dati nel file del progetto: `stack` e `aiTools` (vedi schemi in `types/index.ts`); gli elementi hanno `assigneeId`.
+Dati nel file del progetto: `stack` (con `files` per i file iniziali) e `aiTools` (vedi schemi in `types/index.ts`); gli elementi hanno `assigneeId`.
 
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 

@@ -1,0 +1,11 @@
+[14/10/2026 11:43:08,56] Avvio build in E:\Utility\Project goal manager\Desktop 
+STATUS=RUNNING 
+Lingua dell'app: it 
+=== Prerequisiti === 
+C:\Program Files\nodejs\node.exe
+node v24.13.0 
+INFORMAZIONI: impossibile trovare file corrispondenti ai 
+criteri di ricerca indicati.
+ERRORE: Rust/cargo non trovato nel PATH. Installa rustup da https://rustup.rs e i Visual Studio Build Tools (workload "Desktop development with C++"). 
+STATUS=FAIL 
+[14/10/2026 11:43:08,73] Build fallita 

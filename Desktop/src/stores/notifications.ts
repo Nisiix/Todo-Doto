@@ -5,6 +5,7 @@ import { saveConfig } from '@/services/config'
 import type { Change } from '@/services/changes'
 import { useSessionStore } from './session'
 import { NOTIFICATION_TYPES, type AuditEntry, type Notification, type NotificationType, type Project } from '@/types'
+import { common } from '@/i18n/common'
 
 const MAX = 300
 
@@ -69,11 +70,11 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   /** Mappa azione della cronologia → tipo di notifica e testo. */
   const AUDIT_TO_NOTIFICATION: Partial<Record<AuditEntry['action'], { type: NotificationType; text: string }>> = {
-    item_created: { type: 'item_created', text: 'ha aggiunto un elemento' },
-    item_completed: { type: 'item_completed', text: 'ha completato l’elemento' },
-    item_reopened: { type: 'item_completed', text: 'ha riaperto l’elemento' },
-    item_trashed: { type: 'item_trashed', text: 'ha spostato l’elemento nel cestino' },
-    item_restored: { type: 'item_trashed', text: 'ha ripristinato l’elemento dal cestino' },
+    item_created: { type: 'item_created', text: common.activity.created },
+    item_completed: { type: 'item_completed', text: common.activity.completed },
+    item_reopened: { type: 'item_completed', text: common.activity.reopened },
+    item_trashed: { type: 'item_trashed', text: common.activity.trashed },
+    item_restored: { type: 'item_trashed', text: common.activity.restored },
   }
 
   /**

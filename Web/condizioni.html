@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="it" data-lang="it">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -25,6 +25,10 @@
       <nav class="nav" aria-label="Sezioni">
         <a href="index.html#funzionalita">Funzionalità</a>
         <a href="index.html#download">Scarica</a>
+        <div class="lang" role="group" aria-label="Lingua">
+          <a href="condizioni.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="conditions.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
         <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         </button>
@@ -39,7 +43,7 @@
       <p>Queste condizioni si applicano al download e all'installazione di <b>Project Goal Manager</b> da questo sito o dalle Release pubblicate nel repository GitHub, e integrano i <a href="termini.html">Termini di utilizzo</a>.</p>
 
       <h2>1. Download</h2>
-      <p>Gli installer (<code>.msi</code>, setup <code>.exe</code>) e l'eseguibile sono resi disponibili gratuitamente. Scarica l'Applicazione solo da questo sito o dalle Release ufficiali su GitHub: copie ottenute altrove potrebbero essere modificate. Quando disponibili, verifica le impronte (checksum) pubblicate accanto ai file.</p>
+      <p>Gli installer (<code>.msi</code>, setup <code>.exe</code>) e l'eseguibile sono resi disponibili gratuitamente, in edizione italiana e inglese: la lingua dell'applicazione è quella dell'installer che scarichi. Scarica l'Applicazione solo da questo sito o dalle Release ufficiali su GitHub: copie ottenute altrove potrebbero essere modificate. Quando disponibili, verifica le impronte (checksum) pubblicate accanto ai file.</p>
 
       <h2>2. Requisiti</h2>
       <ul>
@@ -50,7 +54,7 @@
       <p>Sei responsabile di verificare che il tuo sistema soddisfi questi requisiti e che l'installazione sia consentita dalle politiche della tua organizzazione.</p>
 
       <h2>3. Installazione e permessi</h2>
-      <p>L'installer scrive l'Applicazione nella cartella dei programmi dell'utente e crea i collegamenti di avvio. L'Applicazione richiede l'accesso in lettura e scrittura alle cartelle dei workspace che scegli e, se usi gli allegati, apre i file con i programmi di sistema. Non modifica impostazioni di sistema, non installa servizi in esecuzione automatica e non aggiunge componenti al browser.</p>
+      <p>L'installer scrive l'Applicazione nella cartella dei programmi dell'utente e crea i collegamenti di avvio. L'Applicazione richiede l'accesso in lettura e scrittura alle cartelle dei workspace che scegli e alle cartelle in cui chiedi di creare la cartella di un progetto (con «Crea cartella del progetto»); se usi gli allegati, apre i file con i programmi di sistema. Non modifica impostazioni di sistema, non installa servizi in esecuzione automatica e non aggiunge componenti al browser.</p>
 
       <h2>4. Avvisi di Windows</h2>
       <p>Le versioni non firmate con un certificato riconosciuto possono far comparire l'avviso SmartScreen «PC protetto da Windows». È un comportamento normale per software gratuito distribuito senza certificato a pagamento: puoi procedere scegliendo «Ulteriori informazioni → Esegui comunque», dopo aver verificato di aver scaricato il file dalle fonti ufficiali.</p>

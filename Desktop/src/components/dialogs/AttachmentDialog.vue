@@ -8,6 +8,53 @@ import { getFs } from '@/services/fs'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useDriveStore } from '@/stores/drive'
 import type { Attachment, Project } from '@/types'
+import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    pickFile: 'Scegli il file da collegare',
+    errUrl: 'Inserisci un indirizzo.',
+    errFile: 'Scegli un file.',
+    errDrive: 'Scegli un file di Drive.',
+    errName: 'Dai un nome all’allegato.',
+    editTitle: 'Modifica allegato',
+    newTitle: 'Nuovo allegato',
+    description: 'Un file sul PC o in rete, un indirizzo web, oppure un documento della cartella Drive sincronizzata.',
+    driveFile: 'File su Google Drive',
+    driveSearch: 'Cerca per nome nella cartella sincronizzata',
+    driveEmpty: 'Nessun file: sincronizza la cartella dalla pagina Drive.',
+    url: 'Indirizzo',
+    path: 'Percorso',
+    pathPlaceholder: 'Z:\\Documenti\\analisi.pdf',
+    file: 'File',
+    name: 'Nome',
+    namePlaceholder: 'Come lo vedrai in lista',
+    folder: 'Cartella',
+    noFolder: 'Senza cartella',
+  },
+  en: {
+    pickFile: 'Choose the file to link',
+    errUrl: 'Enter an address.',
+    errFile: 'Choose a file.',
+    errDrive: 'Choose a Drive file.',
+    errName: 'Give the attachment a name.',
+    editTitle: 'Edit attachment',
+    newTitle: 'New attachment',
+    description: 'A file on your PC or the network, a web address, or a document from the synced Drive folder.',
+    driveFile: 'File on Google Drive',
+    driveSearch: 'Search by name in the synced folder',
+    driveEmpty: 'No files: sync the folder from the Drive page.',
+    url: 'Address',
+    path: 'Path',
+    pathPlaceholder: 'Z:\\Documents\\analysis.pdf',
+    file: 'File',
+    name: 'Name',
+    namePlaceholder: 'How it will appear in the list',
+    folder: 'Folder',
+    noFolder: 'No folder',
+  },
+})
 
 const props = defineProps<{ project: Project; attachment?: Attachment | null; defaultFolderId?: string | null }>()
 const open = defineModel<boolean>('open', { default: false })
@@ -24,7 +71,7 @@ const driveSearch = ref('')
 
 const kinds = computed(() => [
   { value: 'link' as Kind, label: 'Link' },
-  { value: 'file' as Kind, label: 'File' },
+  { value: 'file' as Kind, label: m.file },
   ...(drive.rootFolderId ? [{ value: 'drive' as Kind, label: 'Google Drive' }] : []),
 ])
 const driveFiles = computed(() => {
@@ -45,7 +92,7 @@ watch(open, (o) => {
 
 async function pickFile() {
   const fs = await getFs()
-  const p = await fs.pickFile('Scegli il file da collegare')
+  const p = await fs.pickFile(m.pickFile)
   if (p) {
     target.value = p
     if (!name.value) name.value = p.split(/[\\/]/).pop() ?? ''
@@ -69,9 +116,9 @@ function guessName() {
 
 async function submit() {
   guessName()
-  if (!target.value.trim()) return (error.value = kind.value === 'link' ? 'Inserisci un indirizzo.' : kind.value === 'file' ? 'Scegli un file.' : 'Scegli un file di Drive.')
+  if (!target.value.trim()) return (error.value = kind.value === 'link' ? m.errUrl : kind.value === 'file' ? m.errFile : m.errDrive)
   if (kind.value === 'link' && !/^https?:\/\//i.test(target.value.trim())) target.value = `https://${target.value.trim()}`
-  if (!name.value.trim()) return (error.value = 'Dai un nome all\'allegato.')
+  if (!name.value.trim()) return (error.value = m.errName)
   const data = { kind: kind.value, name: name.value, target: target.value.trim(), folderId: folderId.value }
   if (props.attachment) await ws.updateAttachment(props.project.id, props.attachment.id, data)
   else await ws.addAttachment(props.project.id, data)
@@ -80,13 +127,13 @@ async function submit() {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" :title="attachment ? 'Modifica allegato' : 'Nuovo allegato'" description="Un file sul PC o in rete, un indirizzo web, oppure un documento della cartella Drive sincronizzata.">
+  <BaseDialog v-model:open="open" :title="attachment ? m.editTitle : m.newTitle" :description="m.description">
     <form class="space-y-4" @submit.prevent="submit">
       <SegmentedControl v-model="kind" :options="kinds" />
 
       <div v-if="kind === 'drive'">
-        <label class="label" for="a-drive-search">File su Google Drive</label>
-        <input id="a-drive-search" v-model="driveSearch" class="field field-sm" placeholder="Cerca per nome nella cartella sincronizzata" data-autofocus />
+        <label class="label" for="a-drive-search">{{ m.driveFile }}</label>
+        <input id="a-drive-search" v-model="driveSearch" class="field field-sm" :placeholder="m.driveSearch" data-autofocus />
         <ul class="mt-1 max-h-44 divide-y divide-line overflow-y-auto rounded-md border border-line">
           <li v-for="f in driveFiles" :key="f.id">
             <button type="button" class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[13px] hover:bg-surface-2" :class="{ 'bg-accent-soft text-accent-ink': target === f.id }" @click="pickDrive(f.id)">
@@ -94,25 +141,25 @@ async function submit() {
               <span class="truncate text-[11px] text-ink-3">{{ drive.pathOf(f.id) }}</span>
             </button>
           </li>
-          <li v-if="!driveFiles.length" class="px-2 py-2 text-[12.5px] text-ink-3">Nessun file: sincronizza la cartella dalla pagina Drive.</li>
+          <li v-if="!driveFiles.length" class="px-2 py-2 text-[12.5px] text-ink-3">{{ m.driveEmpty }}</li>
         </ul>
       </div>
       <div v-else>
-        <label class="label" for="a-target">{{ kind === 'link' ? 'Indirizzo' : 'Percorso' }}</label>
+        <label class="label" for="a-target">{{ kind === 'link' ? m.url : m.path }}</label>
         <div class="flex gap-2">
-          <input id="a-target" v-model="target" class="field font-mono text-[12.5px]" :placeholder="kind === 'link' ? 'https://…' : 'Z:\\Documenti\\analisi.pdf'" data-autofocus @blur="guessName" />
-          <BaseButton v-if="kind === 'file'" @click="pickFile"><FolderOpen :size="15" /> Sfoglia</BaseButton>
+          <input id="a-target" v-model="target" class="field font-mono text-[12.5px]" :placeholder="kind === 'link' ? 'https://…' : m.pathPlaceholder" data-autofocus @blur="guessName" />
+          <BaseButton v-if="kind === 'file'" @click="pickFile"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
         </div>
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="label" for="a-name">Nome</label>
-          <input id="a-name" v-model="name" class="field" placeholder="Come lo vedrai in lista" />
+          <label class="label" for="a-name">{{ m.name }}</label>
+          <input id="a-name" v-model="name" class="field" :placeholder="m.namePlaceholder" />
         </div>
         <div>
-          <label class="label" for="a-folder">Cartella</label>
+          <label class="label" for="a-folder">{{ m.folder }}</label>
           <select id="a-folder" v-model="folderId" class="field">
-            <option :value="null">Senza cartella</option>
+            <option :value="null">{{ m.noFolder }}</option>
             <option v-for="f in project.attachmentFolders" :key="f.id" :value="f.id">{{ f.name }}</option>
           </select>
         </div>
@@ -120,8 +167,8 @@ async function submit() {
       <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
     </form>
     <template #footer>
-      <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-      <BaseButton variant="primary" @click="submit">{{ attachment ? 'Salva' : 'Crea' }}</BaseButton>
+      <BaseButton variant="ghost" @click="open = false">{{ common.actions.cancel }}</BaseButton>
+      <BaseButton variant="primary" @click="submit">{{ attachment ? common.actions.save : common.actions.create }}</BaseButton>
     </template>
   </BaseDialog>
 </template>

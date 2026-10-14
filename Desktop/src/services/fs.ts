@@ -6,6 +6,8 @@
  * l'interfaccia si può provare senza compilare il backend.
  */
 import type { Identity } from '@/types'
+import { common } from '@/i18n/common'
+import { locale } from '@/i18n'
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
@@ -108,7 +110,7 @@ async function tauriFs(): Promise<FsApi> {
     },
     identity: () => invoke<Identity>('get_identity'),
     oauthStart: () => invoke<number>('oauth_start'),
-    oauthWait: () => invoke('oauth_wait'),
+    oauthWait: () => invoke('oauth_wait', { locale }),
   }
 }
 
@@ -126,12 +128,12 @@ function memoryFs(): FsApi {
   return {
     async readText(p) {
       const f = files.get(norm(p))
-      if (!f) throw new Error(`File non trovato: ${p}`)
+      if (!f) throw new Error(common.fileNotFound(p))
       return f.text
     },
     async readBinary(p) {
       const f = files.get(norm(p))
-      if (!f) throw new Error(`File non trovato: ${p}`)
+      if (!f) throw new Error(common.fileNotFound(p))
       return new TextEncoder().encode(f.text)
     },
     async writeTextAtomic(p, text) {
@@ -189,10 +191,10 @@ function memoryFs(): FsApi {
       return { username: 'anteprima', hostname: 'BROWSER' }
     },
     async oauthStart() {
-      throw new Error('Il collegamento a Google è disponibile solo nell’app desktop.')
+      throw new Error(common.drive.desktopOnly)
     },
     async oauthWait() {
-      throw new Error('Il collegamento a Google è disponibile solo nell’app desktop.')
+      throw new Error(common.drive.desktopOnly)
     },
   }
 }

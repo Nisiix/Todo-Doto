@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { MoreHorizontal } from 'lucide-vue-next'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({ it: { actions: 'Azioni' }, en: { actions: 'Actions' } })
 
 /**
  * Pulsante "⋯" che apre un BaseMenu. Di norma è invisibile finché il
  * contenitore (con classe `group`) non è in hover, oppure finché il menu è aperto.
  */
 withDefaults(defineProps<{ label?: string; size?: number; alwaysVisible?: boolean }>(), {
-  label: 'Azioni',
+
   size: 15,
   alwaysVisible: false,
 })
@@ -17,7 +20,7 @@ withDefaults(defineProps<{ label?: string; size?: number; alwaysVisible?: boolea
     type="button"
     class="shrink-0 rounded-md p-1 text-ink-3 hover:bg-surface-3 hover:text-ink focus-visible:opacity-100 data-[state=open]:opacity-100"
     :class="alwaysVisible ? '' : 'opacity-0 group-hover:opacity-100'"
-    :aria-label="label"
+    :aria-label="label ?? m.actions"
     @click.stop
   >
     <MoreHorizontal :size="size" />

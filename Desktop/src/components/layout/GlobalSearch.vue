@@ -7,6 +7,24 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { firstLine, searchAll, type SearchHit } from '@/services/items'
 import { BUCKET_LABEL, type Attachment, type Item, type Project } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: {
+    placeholder: 'Cerca in tutti i progetti',
+    results: 'Risultati della ricerca',
+    noResults: (q: string) => `Nessun risultato per «${q}».`,
+    inTrash: 'nel cestino',
+    attachment: 'allegato',
+  },
+  en: {
+    placeholder: 'Search all projects',
+    results: 'Search results',
+    noResults: (q: string) => `No results for “${q}”.`,
+    inTrash: 'in the trash',
+    attachment: 'attachment',
+  },
+})
 
 /**
  * Ricerca in tutti i progetti visibili (nome del progetto, titolo e
@@ -81,9 +99,9 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
       ref="inputEl"
       v-model="ui.search"
       class="field field-sm h-8 pl-8 pr-14"
-      placeholder="Cerca in tutti i progetti"
+      :placeholder="m.placeholder"
       role="combobox"
-      aria-label="Cerca in tutti i progetti"
+      :aria-label="m.placeholder"
       :aria-expanded="show"
       aria-controls="global-search-results"
       @focus="focused = true"
@@ -98,10 +116,10 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
       id="global-search-results"
       class="absolute left-0 right-0 top-full z-30 mt-1 max-h-[70vh] overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-lg"
       role="listbox"
-      aria-label="Risultati della ricerca"
+      :aria-label="m.results"
       @mousedown.prevent
     >
-      <p v-if="!hits.length" class="px-3 py-3 text-[13px] text-ink-3">Nessun risultato per «{{ ui.search.trim() }}».</p>
+      <p v-if="!hits.length" class="px-3 py-3 text-[13px] text-ink-3">{{ m.noResults(ui.search.trim()) }}</p>
       <section v-for="h in hits" :key="h.project.id" class="py-1">
         <button
           class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] font-semibold text-ink-2"
@@ -112,7 +130,7 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
           @click="h.nameMatch && open({ key: h.project.id, project: h.project })"
         >
           <span class="truncate">{{ h.project.name }}</span>
-          <span v-if="h.project.trashedAt" class="text-[11px] font-medium text-ink-3">nel cestino</span>
+          <span v-if="h.project.trashedAt" class="text-[11px] font-medium text-ink-3">{{ m.inTrash }}</span>
         </button>
         <button
           v-for="it in h.items"
@@ -138,7 +156,7 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
         >
           <Paperclip :size="12" class="shrink-0 text-ink-3" />
           <span class="min-w-0 flex-1 truncate">{{ a.name }}</span>
-          <span class="shrink-0 text-[11px] text-ink-3">allegato</span>
+          <span class="shrink-0 text-[11px] text-ink-3">{{ m.attachment }}</span>
         </button>
       </section>
     </div>

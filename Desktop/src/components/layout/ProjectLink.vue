@@ -4,6 +4,9 @@ import { RouterLink } from 'vue-router'
 import { Star } from 'lucide-vue-next'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { Project } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({ it: { urgent: 'Contiene elementi immediati' }, en: { urgent: 'Contains urgent items' } })
 
 const props = defineProps<{ project: Project; depth: number; hint?: string }>()
 const ws = useWorkspaceStore()
@@ -22,7 +25,7 @@ const urgent = computed(() => props.project.items.some((i) => i.bucket === 'todo
     >
       <span class="truncate">{{ project.name }}</span>
       <Star v-if="ws.isFavorite(project.id)" :size="11" class="shrink-0 fill-p-media text-p-media" />
-      <span v-if="urgent" class="h-1.5 w-1.5 shrink-0 rounded-full bg-p-immediata" title="Contiene elementi immediati" />
+      <span v-if="urgent" class="h-1.5 w-1.5 shrink-0 rounded-full bg-p-immediata" :title="m.urgent" />
       <span class="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-ink-3">{{ hint ?? (openCount || '') }}</span>
     </RouterLink>
   </li>

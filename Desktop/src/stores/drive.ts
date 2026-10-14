@@ -9,6 +9,8 @@ import { useSessionStore } from './session'
 import { useWorkspaceStore } from './workspace'
 import { useUiStore } from './ui'
 import { DRIVE_FOLDER_MIME, type DriveNode } from '@/types'
+import { common } from '@/i18n/common'
+import { compareText } from '@/i18n'
 
 export type DriveStatus = 'unconfigured' | 'disconnected' | 'connecting' | 'connected'
 
@@ -37,7 +39,7 @@ export const useDriveStore = defineStore('drive', () => {
   const childrenOf = (parentId: string | null) =>
     nodes.value
       .filter((n) => n.parentId === parentId)
-      .sort((a, b) => Number(b.mimeType === DRIVE_FOLDER_MIME) - Number(a.mimeType === DRIVE_FOLDER_MIME) || a.name.localeCompare(b.name, 'it'))
+      .sort((a, b) => Number(b.mimeType === DRIVE_FOLDER_MIME) - Number(a.mimeType === DRIVE_FOLDER_MIME) || compareText(a.name, b.name))
   const isFolder = (n: DriveNode) => n.mimeType === DRIVE_FOLDER_MIME
   const files = computed(() => nodes.value.filter((n) => !isFolder(n)))
 
@@ -96,14 +98,14 @@ export const useDriveStore = defineStore('drive', () => {
       const state = randomState()
       await fs.openExternal(buildAuthUrl({ clientId: auth.value.clientId, redirectUri, state, challenge }), 'link')
       const cb = await fs.oauthWait()
-      if (cb.error) throw new DriveError(cb.error === 'access_denied' ? 'Accesso annullato.' : cb.error)
-      if (!cb.code || cb.state !== state) throw new DriveError('Risposta di Google non valida (stato non corrispondente).')
+      if (cb.error) throw new DriveError(cb.error === 'access_denied' ? common.drive.accessCancelled : cb.error)
+      if (!cb.code || cb.state !== state) throw new DriveError(common.drive.badState)
       await client.value.exchangeCode(cb.code, verifier, redirectUri)
       const who = await client.value.whoAmI()
       auth.value = { ...auth.value, tokens: auth.value.tokens, account: who }
       await saveDriveAuth(auth.value, session.localSecret)
       status.value = 'connected'
-      ui.toast(`Google Drive collegato come ${who.email}`, 'success')
+      ui.toast(common.drive.linkedAs(who.email), 'success')
     } catch (e) {
       status.value = auth.value?.tokens ? 'connected' : 'disconnected'
       error.value = e instanceof Error ? e.message : String(e)
@@ -122,10 +124,10 @@ export const useDriveStore = defineStore('drive', () => {
   /** Imposta la cartella da replicare (link o id) e sincronizza. */
   async function setRootFolder(linkOrId: string) {
     const id = parseFolderId(linkOrId)
-    if (!id) throw new DriveError('Incolla il link di una cartella di Google Drive (…/folders/ID) o il suo id.')
-    if (!client.value) throw new DriveError('Collega prima l’account Google.')
+    if (!id) throw new DriveError(common.drive.pasteFolder)
+    if (!client.value) throw new DriveError(common.drive.linkFirst)
     const info = await client.value.folderInfo(id)
-    if (info.mimeType !== DRIVE_FOLDER_MIME) throw new DriveError('Il link non è una cartella.')
+    if (info.mimeType !== DRIVE_FOLDER_MIME) throw new DriveError(common.drive.notAFolder)
     await ws.writeDrive({ ...ws.drive, rootFolderId: info.id, rootName: info.name, nodes: [], syncedAt: null, syncedBy: null })
     await sync()
   }
@@ -142,10 +144,10 @@ export const useDriveStore = defineStore('drive', () => {
       const info = await c.folderInfo(rootId)
       const list = await c.walkFolder(rootId, (n) => (syncProgress.value = n))
       await ws.writeDrive({ schema: 1, rootFolderId: rootId, rootName: info.name, nodes: list, syncedAt: nowIso(), syncedBy: ws.currentUser?.id ?? null })
-      ui.toast(`Drive sincronizzato: ${list.length} elementi`, 'success')
+      ui.toast(common.drive.synced(list.length), 'success')
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
-      ui.toast(`Sincronizzazione non riuscita: ${error.value}`, 'error', undefined, 6000)
+      ui.toast(common.drive.syncFailed(error.value), 'error', undefined, 6000)
     } finally {
       syncing.value = false
     }
@@ -160,7 +162,7 @@ export const useDriveStore = defineStore('drive', () => {
 
   /** Contenuto per l'anteprima (scaricato o esportato), con cache per versione. */
   async function fetchForPreview(fileId: string) {
-    if (!client.value) throw new DriveError('Collega l’account Google per vedere i documenti di Drive.')
+    if (!client.value) throw new DriveError(common.drive.linkToView)
     const node = nodesById.value[fileId]
     const key = `${fileId}:${node?.modifiedTime ?? ''}`
     const hit = cache.get(key)

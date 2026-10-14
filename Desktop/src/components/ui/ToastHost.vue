@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useUiStore } from '@/stores/ui'
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-vue-next'
+import { common } from '@/i18n/common'
 
 const ui = useUiStore()
 const icons = { info: Info, success: CheckCircle2, warning: AlertTriangle, error: XCircle }
@@ -25,7 +26,7 @@ const colors = { info: 'text-accent', success: 'text-ok', warning: 'text-warn', 
         >
           {{ t.action.label }}
         </button>
-        <button class="text-ink-3 hover:text-ink" aria-label="Chiudi" @click="ui.dismissToast(t.id)">×</button>
+        <button class="text-ink-3 hover:text-ink" :aria-label="common.actions.close" @click="ui.dismissToast(t.id)">×</button>
       </div>
     </TransitionGroup>
   </div>

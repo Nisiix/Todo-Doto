@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { STATUSES, STATUS_LABEL, type Status } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({ it: { status: (s: string) => `Stato: ${s}` }, en: { status: (s: string) => `Status: ${s}` } })
 
 const model = defineModel<Status>({ required: true })
 // Cerchio vuoto → mezzo pieno → pieno: lo stato avanza verso la conferma.
@@ -16,7 +19,7 @@ const dot: Record<Status, string> = {
     <select
       v-model="model"
       class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-5.5 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
-      :title="`Stato: ${STATUS_LABEL[model]}`"
+      :title="m.status(STATUS_LABEL[model])"
       @click.stop
     >
       <option v-for="s in STATUSES" :key="s" :value="s">{{ STATUS_LABEL[s] }}</option>

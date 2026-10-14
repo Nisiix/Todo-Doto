@@ -14,6 +14,28 @@ import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
 import { dueState, firstLine, formatDue, openQuestions as openQuestionsOf } from '@/services/items'
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority, type Status } from '@/types'
+import { DATE, defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: {
+    assignedTo: (n: string) => `Assegnato a ${n}`,
+    createdBy: (n: string) => `Creato da ${n}`,
+    markDone: 'Segna come completato (C)',
+    openQuestions: 'Domande aperte',
+    comments: 'Commenti',
+    completed: 'completato',
+    trashed: 'cestinato',
+  },
+  en: {
+    assignedTo: (n: string) => `Assigned to ${n}`,
+    createdBy: (n: string) => `Created by ${n}`,
+    markDone: 'Mark as completed (C)',
+    openQuestions: 'Open questions',
+    comments: 'Comments',
+    completed: 'completed',
+    trashed: 'trashed',
+  },
+})
 
 /**
  * Una riga della lista. Mostra titolo, persona, contatori e gli attributi
@@ -36,7 +58,7 @@ const editable = computed(() => !props.readOnly && props.item.bucket === 'todo')
 const compact = computed(() => ui.selectedItemId !== null)
 const label = computed(() => (props.item.labelId ? ws.labelsById[props.item.labelId] : null))
 const personName = computed(() => ws.userName(props.item.assigneeId ?? props.item.createdBy))
-const personLabel = computed(() => (props.item.assigneeId ? `Assegnato a ${personName.value}` : `Creato da ${personName.value}`))
+const personLabel = computed(() => (props.item.assigneeId ? m.assignedTo(personName.value) : m.createdBy(personName.value)))
 const barHeight: Record<Priority, string> = { bassa: 'h-2', media: 'h-3.5', alta: 'h-5', immediata: 'h-7' }
 
 const setPriority = (p: Priority) => ws.updateItem(props.projectId, props.item.id, { priority: p })
@@ -89,7 +111,7 @@ function onKeydown(e: KeyboardEvent) {
     <button
       v-if="item.bucket === 'todo'"
       class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-line-strong text-transparent transition-colors enabled:hover:border-ok enabled:hover:text-ok disabled:opacity-50"
-      title="Segna come completato (C)"
+      :title="m.markDone"
       :disabled="readOnly"
       tabindex="-1"
       @click.stop="actions.complete()"
@@ -109,8 +131,8 @@ function onKeydown(e: KeyboardEvent) {
     </span>
 
     <span v-if="item.comments.length || openQuestions" class="flex shrink-0 items-center gap-2 text-[11.5px] tabular-nums text-ink-3">
-      <span v-if="openQuestions" class="flex items-center gap-0.5 text-p-media" title="Domande aperte"><CircleHelp :size="13" /> {{ openQuestions }}</span>
-      <span v-if="item.comments.length" class="flex items-center gap-0.5" title="Commenti"><MessageSquare :size="13" /> {{ item.comments.length }}</span>
+      <span v-if="openQuestions" class="flex items-center gap-0.5 text-p-media" :title="m.openQuestions"><CircleHelp :size="13" /> {{ openQuestions }}</span>
+      <span v-if="item.comments.length" class="flex items-center gap-0.5" :title="m.comments"><MessageSquare :size="13" /> {{ item.comments.length }}</span>
     </span>
 
     <template v-if="editable && !compact">
@@ -125,11 +147,11 @@ function onKeydown(e: KeyboardEvent) {
       <span class="h-2.5 w-2.5 rounded-full" :class="`bg-p-${item.priority}`" />
     </span>
     <span v-else class="flex shrink-0 items-center gap-2 whitespace-nowrap text-[12px] text-ink-3">
-      <span v-if="item.dueDate" class="tabular-nums">{{ dayjs(item.dueDate).format('D MMM') }}</span>
+      <span v-if="item.dueDate" class="tabular-nums">{{ dayjs(item.dueDate).format(DATE.dayMonth) }}</span>
       <span>{{ STATUS_LABEL[item.status] }}</span>
       <span>{{ PRIORITY_LABEL[item.priority] }}</span>
       <span v-if="item.bucket !== 'todo'">
-        · {{ item.bucket === 'done' ? 'completato' : 'cestinato' }} {{ dayjs(item.completedAt ?? item.trashedAt ?? item.createdAt).fromNow() }}
+        · {{ item.bucket === 'done' ? m.completed : m.trashed }} {{ dayjs(item.completedAt ?? item.trashedAt ?? item.createdAt).fromNow() }}
       </span>
     </span>
 

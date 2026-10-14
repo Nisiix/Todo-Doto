@@ -3,6 +3,12 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { CalendarDays } from 'lucide-vue-next'
 import { dueState, formatDue, type DueState } from '@/services/items'
+import { DATE, defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: { due: (d: string) => `Scadenza ${d}`, add: 'Aggiungi scadenza' },
+  en: { due: (d: string) => `Due ${d}`, add: 'Add due date' },
+})
 
 const props = defineProps<{ done?: boolean }>()
 const model = defineModel<string | null>({ required: true })
@@ -21,7 +27,7 @@ const label = computed(() => (model.value ? formatDue(model.value) : ''))
   <label
     class="relative inline-flex h-6 shrink-0 cursor-default items-center gap-1 whitespace-nowrap rounded-full px-1.5 text-[12px] tabular-nums hover:bg-surface-2"
     :class="tone"
-    :title="model ? `Scadenza ${dayjs(model).format('D MMMM YYYY')}` : 'Aggiungi scadenza'"
+    :title="model ? m.due(dayjs(model).format(DATE.dateLong)) : m.add"
     @click.stop
   >
     <CalendarDays :size="13" />

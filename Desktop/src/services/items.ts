@@ -4,6 +4,7 @@
  */
 import dayjs from 'dayjs'
 import { PRIORITY_RANK, type Attachment, type Bucket, type Item, type ItemFilter, type Project } from '@/types'
+import { compareText, DATE } from '@/i18n'
 
 export const todayKey = (now = dayjs()) => now.format('YYYY-MM-DD')
 
@@ -40,7 +41,7 @@ export function dueState(dueDate: string | null | undefined, soonDays = 3, now =
 /** Formato breve della data: "30 nov" nell'anno corrente, "30 nov 2027" altrimenti. */
 export function formatDue(dueDate: string, now = dayjs()): string {
   const d = dayjs(dueDate)
-  return d.year() === now.year() ? d.format('D MMM') : d.format('D MMM YYYY')
+  return d.year() === now.year() ? d.format(DATE.dayMonth) : d.format(DATE.date)
 }
 
 export function matchesSearch(item: Item, query: string): boolean {
@@ -101,7 +102,7 @@ export function searchAll(projects: Project[], query: string, maxPerProject = 8)
     (a, b) =>
       Number(b.nameMatch) - Number(a.nameMatch) ||
       b.items.length + b.attachments.length - (a.items.length + a.attachments.length) ||
-      a.project.name.localeCompare(b.project.name, 'it'),
+      compareText(a.project.name, b.project.name),
   )
 }
 

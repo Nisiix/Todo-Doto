@@ -6,6 +6,31 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import { getFs } from '@/services/fs'
 import { previewFromBytes, type PreviewContent } from '@/services/preview'
 import { useDriveStore } from '@/stores/drive'
+import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    loading: 'Caricamento…',
+    cannotShow: 'Non riesco a mostrare questo documento',
+    embedHint: 'Alcuni siti non si lasciano incorporare: in quel caso usa «Apri nel browser».',
+    noPreview: 'Anteprima non disponibile per questo tipo di file',
+    noPreviewHint: 'Immagini, PDF e file di testo si vedono qui; per il resto apri il documento con l’applicazione di sistema.',
+    openSystem: 'Apri con l’app di sistema',
+    openDrive: 'Apri su Google Drive',
+    openBrowser: 'Apri nel browser',
+  },
+  en: {
+    loading: 'Loading…',
+    cannotShow: 'Cannot display this document',
+    embedHint: 'Some sites refuse to be embedded: in that case use “Open in the browser”.',
+    noPreview: 'Preview not available for this file type',
+    noPreviewHint: 'Images, PDFs and text files are shown here; for anything else open the document with the system application.',
+    openSystem: 'Open with the system app',
+    openDrive: 'Open on Google Drive',
+    openBrowser: 'Open in the browser',
+  },
+})
 
 /**
  * Visualizzatore interno: immagini, PDF e testo si aprono nell'app; le pagine
@@ -76,11 +101,11 @@ async function openOriginal() {
   <BaseDialog v-model:open="open" :title="item?.name ?? ''" :description="item?.kind === 'drive' ? 'Google Drive' : item?.target" width="xl">
     <div class="relative h-[70vh] overflow-hidden rounded-md border border-line bg-surface-2">
       <div v-if="loading" class="flex h-full items-center justify-center gap-2 text-ink-2">
-        <Loader2 :size="18" class="animate-spin" /> Caricamento…
+        <Loader2 :size="18" class="animate-spin" /> {{ m.loading }}
       </div>
       <div v-else-if="error" class="flex h-full flex-col items-center justify-center gap-2 px-8 text-center text-ink-2">
         <FileWarning :size="28" class="text-danger" />
-        <p class="font-semibold text-ink">Non riesco a mostrare questo documento</p>
+        <p class="font-semibold text-ink">{{ m.cannotShow }}</p>
         <p class="max-w-md text-[13px]">{{ error }}</p>
       </div>
       <template v-else-if="content">
@@ -90,21 +115,21 @@ async function openOriginal() {
         <template v-else-if="content.kind === 'web'">
           <iframe :src="content.url" class="h-full w-full bg-white" :title="item?.name" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" />
           <p class="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-ink/80 px-3 py-1 text-[11.5px] text-white">
-            Alcuni siti non si lasciano incorporare: in quel caso usa «Apri nel browser».
+            {{ m.embedHint }}
           </p>
         </template>
         <div v-else class="flex h-full flex-col items-center justify-center gap-2 px-8 text-center text-ink-2">
           <FileWarning :size="28" />
-          <p class="font-semibold text-ink">Anteprima non disponibile per questo tipo di file</p>
-          <p class="max-w-md text-[13px]">Immagini, PDF e file di testo si vedono qui; per il resto apri il documento con l'applicazione di sistema.</p>
+          <p class="font-semibold text-ink">{{ m.noPreview }}</p>
+          <p class="max-w-md text-[13px]">{{ m.noPreviewHint }}</p>
         </div>
       </template>
     </div>
     <template #footer>
-      <BaseButton variant="ghost" @click="open = false">Chiudi</BaseButton>
+      <BaseButton variant="ghost" @click="open = false">{{ common.actions.close }}</BaseButton>
       <BaseButton variant="primary" @click="openOriginal">
         <ExternalLink :size="14" />
-        {{ item?.kind === 'file' ? 'Apri con l’app di sistema' : item?.kind === 'drive' ? 'Apri su Google Drive' : 'Apri nel browser' }}
+        {{ item?.kind === 'file' ? m.openSystem : item?.kind === 'drive' ? m.openDrive : m.openBrowser }}
       </BaseButton>
     </template>
   </BaseDialog>

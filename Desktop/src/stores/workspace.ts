@@ -27,6 +27,8 @@ import type {
   WorkspaceMeta,
   WorkspaceMode,
 } from '@/types'
+import { common } from '@/i18n/common'
+import { compareText } from '@/i18n'
 
 export type OpenResult = { ok: true } | { ok: false; needsPassword: true } | { ok: false; error: string }
 export type WsStatus = 'closed' | 'opening' | 'locked' | 'open' | 'unreachable'
@@ -82,7 +84,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return item.assigneeId ? item.assigneeId === me : item.createdBy === me
   }
   const usersById = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])))
-  const userName = (id: string | null | undefined) => (id ? (usersById.value[id]?.displayName ?? 'Utente rimosso') : '—')
+  const userName = (id: string | null | undefined) => (id ? (usersById.value[id]?.displayName ?? common.ws.removedUser) : '—')
 
   /** L'utente corrente può vedere il progetto (membro, o progetto aperto a tutti, o admin). */
   function canSee(p: Project) {
@@ -92,7 +94,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const accessibleProjects = computed(() => Object.values(projects.value).filter(canSee))
   /** Progetti attivi (non nel cestino), in ordine alfabetico. */
   const visibleProjects = computed(() =>
-    accessibleProjects.value.filter((p) => !p.trashedAt).sort((a, b) => a.name.localeCompare(b.name, 'it')),
+    accessibleProjects.value.filter((p) => !p.trashedAt).sort((a, b) => compareText(a.name, b.name)),
   )
   /** Progetti nel cestino del workspace, i più recenti prima. */
   const trashedProjects = computed(() =>
@@ -115,7 +117,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const k = f.parentId ?? 'root'
       ;(map[k] ??= []).push(f)
     }
-    for (const k in map) map[k]!.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'it'))
+    for (const k in map) map[k]!.sort((a, b) => a.order - b.order || compareText(a.name, b.name))
     return map
   })
 
@@ -129,7 +131,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const s = await new WorkspaceStorage(path).init()
       if (!(await WorkspaceStorage.isWorkspace(path))) {
         status.value = 'closed'
-        return { ok: false, error: 'La cartella scelta non contiene un workspace.' }
+        return { ok: false, error: common.ws.notAWorkspace }
       }
       storage.value = s
       meta.value = await s.readMeta()
@@ -153,8 +155,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   /** Secondo passo dell'apertura di un workspace di rete. */
   async function unlock(password: string): Promise<OpenResult> {
-    if (!storage.value || !meta.value?.auth) return { ok: false, error: 'Nessun workspace da sbloccare.' }
-    if (!(await verifyPassword(password, meta.value.auth))) return { ok: false, error: 'Password non corretta.' }
+    if (!storage.value || !meta.value?.auth) return { ok: false, error: common.ws.nothingToUnlock }
+    if (!(await verifyPassword(password, meta.value.auth))) return { ok: false, error: common.ws.wrongPassword }
     await rememberPassword(meta.value.id, password, session.localSecret)
     await finishOpen()
     return { ok: true }
@@ -214,7 +216,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const s = await new WorkspaceStorage(opts.path).init()
       if (await WorkspaceStorage.isWorkspace(opts.path)) {
-        return { ok: false, error: 'In questa cartella esiste già un workspace: aprilo invece di crearne uno nuovo.' }
+        return { ok: false, error: common.ws.alreadyExists }
       }
       const admin: User = {
         id: newId('usr'),
@@ -287,7 +289,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       if (status.value === 'unreachable') {
         status.value = 'open'
-        ui.toast('Cartella di nuovo raggiungibile.', 'success')
+        ui.toast(common.ws.reachableAgain, 'success')
       }
       // La cartella è raggiungibile e lo stato è allineato: da qui in poi le
       // notifiche arrivano dal diff dei progetti, non dalla cronologia.
@@ -348,7 +350,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       signature = Object.fromEntries(Object.entries(applied).filter(([, v]) => v !== undefined)) as Signature
       if (remoteAuthors.size > 0) {
         const names = [...remoteAuthors].map(userName).join(', ')
-        ui.toast(`Aggiornato da ${names}`, 'info')
+        ui.toast(common.ws.updatedBy(names), 'info')
       }
     } catch (e) {
       if (status.value === 'open') {
@@ -375,7 +377,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       return r
     } catch (e) {
       lastError.value = describe(e)
-      ui.toast(`Salvataggio non riuscito: ${lastError.value}`, 'error', undefined, 6000)
+      ui.toast(common.ws.saveFailed(lastError.value), 'error', undefined, 6000)
       return undefined
     }
   }
@@ -500,7 +502,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const p = projects.value[id]
     if (!s || !p) return
     if (!canPurge.value) {
-      ui.toast('Solo gli amministratori possono eliminare definitivamente.', 'warning')
+      ui.toast(common.ws.onlyAdminsPurge, 'warning')
       return
     }
     const ok = await guard(async () => {
@@ -558,7 +560,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (bucket === 'trash') {
       const found = projects.value[projectId]?.items.find((i) => i.id === itemId)
       if (found && !canTrashItem(found)) {
-        ui.toast('Puoi cestinare solo gli elementi assegnati a te (o creati da te se non assegnati).', 'warning', undefined, 5000)
+        ui.toast(common.ws.cannotTrash, 'warning', undefined, 5000)
         return
       }
     }
@@ -581,7 +583,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function deleteItemForever(projectId: string, itemId: string) {
     if (!canPurge.value) {
-      ui.toast('Solo gli amministratori possono eliminare definitivamente.', 'warning')
+      ui.toast(common.ws.onlyAdminsPurge, 'warning')
       return
     }
     let removed: Item | undefined
@@ -597,7 +599,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function emptyTrash(projectId: string) {
     if (!canPurge.value) {
-      ui.toast('Solo gli amministratori possono eliminare definitivamente.', 'warning')
+      ui.toast(common.ws.onlyAdminsPurge, 'warning')
       return
     }
     let count = 0

@@ -3,14 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Project Goal Manager — la roadmap dei tuoi progetti, in una cartella</title>
-  <meta name="description" content="App desktop per Windows che gestisce la roadmap di uno o più progetti: cose da fare con priorità e scadenze, domande e commenti, allegati, condivisione in rete locale senza server." />
+  <title data-i18n="meta.title">Project Goal Manager — la roadmap dei tuoi progetti, in una cartella</title>
+  <meta name="description" data-i18n-content="meta.description" content="App desktop per Windows che gestisce la roadmap di uno o più progetti: cose da fare con priorità, scadenze e assegnatari, domande e commenti, allegati, stack tecnologico con configurazione guidata, condivisione in rete locale senza server." />
+  <link rel="alternate" hreflang="it" href="?lang=it" />
+  <link rel="alternate" hreflang="en" href="?lang=en" />
   <link rel="icon" href="assets/icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/site.css" />
-  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <script>
+    // Tema e lingua prima del primo paint (la lingua: ?lang=, scelta salvata, lingua del browser).
+    try {
+      var t = localStorage.getItem('pgm-site:theme'); if (t) document.documentElement.setAttribute('data-theme', t)
+      var q = new URLSearchParams(location.search).get('lang'), s = localStorage.getItem('pgm-site:lang')
+      var nav = (navigator.languages || [navigator.language || 'it']).some(function (l) { return /^it\b/i.test(l) }) ? 'it' : 'en'
+      var l = q === 'it' || q === 'en' ? q : s === 'it' || s === 'en' ? s : nav
+      document.documentElement.setAttribute('data-lang', l)
+      if (l !== 'it') { document.documentElement.lang = l; document.documentElement.classList.add('i18n-pending') }
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="top">
@@ -22,13 +34,16 @@
         </svg>
         Project Goal Manager
       </a>
-      <nav class="nav" aria-label="Sezioni">
-        <a href="#perche">Perché</a>
-        <a href="#come-funziona">Come funziona</a>
-        <a href="#funzionalita">Funzionalità</a>
-        <a href="#schermate">Schermate</a>
-        <a class="btn btn--primary btn--sm" href="#download">Scarica</a>
-        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+      <nav class="nav" aria-label="Sezioni" data-i18n-aria-label="nav.label">
+        <a href="#perche" data-i18n="nav.why">Perché</a>
+        <a href="#come-funziona" data-i18n="nav.how">Come funziona</a>
+        <a href="#funzionalita" data-i18n="nav.features">Funzionalità</a>
+        <a class="btn btn--primary btn--sm" href="#download" data-i18n="nav.download">Scarica</a>
+        <div class="lang" role="group" aria-label="Lingua" data-i18n-aria-label="nav.language">
+          <button type="button" data-set-lang="it" lang="it" title="Italiano">IT</button>
+          <button type="button" data-set-lang="en" lang="en" title="English">EN</button>
+        </div>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" data-i18n-aria-label="nav.theme" title="Tema (Ctrl+Shift+L)" data-i18n-title="nav.themeTitle">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         </button>
       </nav>
@@ -39,41 +54,41 @@
     <section class="hero">
       <div class="wrap hero__grid">
         <div>
-          <h1>La roadmap dei tuoi progetti, in una cartella.</h1>
-          <p>Da fare, completati, cestino. Priorità, scadenze, domande e allegati. Sul tuo PC o su una cartella di rete condivisa con i colleghi: nessun server da installare, nessun abbonamento.</p>
+          <h1 data-i18n="hero.title">La roadmap dei tuoi progetti, in una cartella.</h1>
+          <p data-i18n="hero.lead">Da fare, completati, cestino. Priorità, scadenze, assegnatari, domande e allegati. E per ogni progetto lo stack tecnologico, con la configurazione guidata. Sul tuo PC o su una cartella di rete condivisa con i colleghi: nessun server da installare, nessun abbonamento.</p>
           <div class="hero__cta">
-            <a class="btn btn--primary" href="#download">Scarica per Windows</a>
-            <a class="btn btn--outline" href="#come-funziona">Guarda come funziona</a>
+            <a class="btn btn--primary" href="#download" data-i18n="hero.cta">Scarica per Windows</a>
+            <a class="btn btn--outline" href="#come-funziona" data-i18n="hero.how">Guarda come funziona</a>
           </div>
-          <p class="hero__meta">Gratuita · Windows 10/11 · i dati restano tuoi, in file leggibili</p>
+          <p class="hero__meta" data-i18n="hero.meta">Gratuita · Windows 10/11 · in italiano e in inglese · i dati restano tuoi, in file leggibili</p>
         </div>
         <figure class="window" style="margin:0">
           <div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div>
-          <img src="assets/screens/project-list.png" width="1600" height="1000" alt="La lista Da fare di un progetto: elementi ordinati per priorità, con etichette, scadenze e autore" />
+          <img data-shot src="assets/screens/it/project-list.png" width="1600" height="1000" alt="La lista Da fare di un progetto: elementi ordinati per priorità, con assegnatario, etichetta, scadenza e stato" data-i18n-alt="alt.hero" />
         </figure>
       </div>
     </section>
 
     <section id="perche">
       <div class="wrap">
-        <h2 class="sec__title">Pensata per chi lavora su più progetti insieme</h2>
-        <p class="sec__lead">Uno strumento leggero per tenere traccia di cosa c'è da fare, deciderlo insieme e non perdere nulla per strada. Senza infrastruttura: la sorgente di verità è una cartella.</p>
+        <h2 class="sec__title" data-i18n="why.title">Pensata per chi lavora su più progetti insieme</h2>
+        <p class="sec__lead" data-i18n="why.lead">Uno strumento leggero per tenere traccia di cosa c'è da fare, deciderlo insieme e non perdere nulla per strada. Senza infrastruttura: la sorgente di verità è una cartella.</p>
         <div class="strengths">
           <div class="strength" style="--bar: var(--p-immediata)">
-            <h3>Nessun server, nessun account</h3>
-            <p>I dati sono file JSON in una cartella. Locale per lavorare da soli; su un server di rete (anche come unità mappata, <code>Z:\Roadmap</code>) per condividerli con l'ufficio.</p>
+            <h3 data-i18n="why.s1.t">Nessun server, nessun account</h3>
+            <p data-i18n="why.s1.p">I dati sono file JSON in una cartella. Locale per lavorare da soli; su un server di rete (anche come unità mappata, <code>Z:\Roadmap</code>) per condividerli con l'ufficio.</p>
           </div>
           <div class="strength" style="--bar: var(--p-alta)">
-            <h3>Sempre aggiornata</h3>
-            <p>Se un collega modifica un progetto, la tua finestra si aggiorna da sola e ti dice chi ha cambiato cosa. Le modifiche di più persone si sommano, non si sovrascrivono.</p>
+            <h3 data-i18n="why.s2.t">Sempre aggiornata, anche offline</h3>
+            <p data-i18n="why.s2.p">Se un collega modifica un progetto, la tua finestra si aggiorna da sola e ti dice chi ha cambiato cosa. Quello che è successo mentre eri scollegato ti arriva come notifica alla riapertura.</p>
           </div>
           <div class="strength" style="--bar: var(--p-media)">
-            <h3>Ruoli e permessi chiari</h3>
-            <p>Password d'accesso al workspace, progetti riservati a chi vuoi tu, ruolo Cleaner per chi può eliminare definitivamente, cronologia delle operazioni per gli amministratori.</p>
+            <h3 data-i18n="why.s3.t">Ruoli e permessi chiari</h3>
+            <p data-i18n="why.s3.p">Password d'accesso al workspace, progetti riservati, elementi assegnati alle persone. Cestina chi è assegnatario, un Cleaner o un amministratore; l'eliminazione definitiva spetta solo agli amministratori.</p>
           </div>
           <div class="strength" style="--bar: var(--p-bassa)">
-            <h3>Leggera e veloce</h3>
-            <p>Un eseguibile di pochi megabyte che si apre in meno di un secondo. Tema chiaro «bianco sporco» o scuro, scorciatoie da tastiera, tutto a portata di pochi click.</p>
+            <h3 data-i18n="why.s4.t">Veloce, da tastiera</h3>
+            <p data-i18n="why.s4.p">Un eseguibile di pochi megabyte che si apre in meno di un secondo. Ricerca in tutti i progetti con <span class="kbd">Ctrl</span> <span class="kbd">K</span>, lista navigabile con le frecce, tema chiaro o scuro.</p>
           </div>
         </div>
       </div>
@@ -81,20 +96,20 @@
 
     <section id="come-funziona">
       <div class="wrap">
-        <h2 class="sec__title">Come funziona</h2>
-        <p class="sec__lead">Tre passaggi, poi si lavora.</p>
+        <h2 class="sec__title" data-i18n="how.title">Come funziona</h2>
+        <p class="sec__lead" data-i18n="how.lead">Tre passaggi, poi si lavora.</p>
         <div class="steps">
           <div class="step">
-            <h3>Crea un workspace</h3>
-            <p>Scegli una cartella: sul tuo PC oppure su un server condiviso. Per la rete imposti una password: chi la conosce può entrare, tu sei l'amministratore.</p>
+            <h3 data-i18n="how.s1.t">Crea un workspace</h3>
+            <p data-i18n="how.s1.p">Scegli una cartella: sul tuo PC oppure su un server condiviso. Per la rete imposti una password: chi la conosce può entrare, tu sei l'amministratore.</p>
           </div>
           <div class="step">
-            <h3>Organizza i progetti</h3>
-            <p>Cartelle e sottocartelle, preferiti, recenti. Per ogni progetto decidi se è aperto a tutti o solo ad alcune persone.</p>
+            <h3 data-i18n="how.s2.t">Organizza i progetti</h3>
+            <p data-i18n="how.s2.p">Cartelle e sottocartelle, preferiti, recenti. Un progetto nuovo può partire dallo stack di uno esistente: tecnologie, passi di configurazione e file iniziali sono già pronti.</p>
           </div>
           <div class="step">
-            <h3>Lavora insieme</h3>
-            <p>Aggiungi gli elementi, assegna priorità, stato, scadenza ed etichetta; fai domande, rispondi, allega documenti. Le notifiche ti avvisano delle novità.</p>
+            <h3 data-i18n="how.s3.t">Lavora insieme</h3>
+            <p data-i18n="how.s3.p">Aggiungi gli elementi, assegnali, decidi priorità, stato, scadenza ed etichetta; fai domande, rispondi, allega documenti. Le notifiche ti avvisano delle novità.</p>
           </div>
         </div>
       </div>
@@ -102,103 +117,156 @@
 
     <section id="funzionalita">
       <div class="wrap">
-        <h2 class="sec__title">Funzionalità</h2>
-        <p class="sec__lead">Quello che serve per una roadmap condivisa, e niente di più.</p>
+        <h2 class="sec__title" data-i18n="feat.title">Funzionalità</h2>
+        <p class="sec__lead" data-i18n="feat.lead">Quello che serve per una roadmap condivisa, e niente di più.</p>
 
         <article class="feature">
           <div class="feature__text">
-            <h3>Elementi che si leggono a colpo d'occhio</h3>
-            <p>La barra colorata a sinistra di ogni riga cresce con la priorità: la lista si legge come un istogramma di urgenza, senza etichette da decifrare.</p>
+            <h3 data-i18n="f1.t">Elementi che si leggono a colpo d'occhio</h3>
+            <p data-i18n="f1.p">La barra colorata a sinistra di ogni riga cresce con la priorità: la lista si legge come un istogramma di urgenza, senza etichette da decifrare.</p>
             <p style="display:flex;gap:.4rem;flex-wrap:wrap">
-              <span class="pill" style="--c:var(--p-bassa)"><i></i>Bassa</span>
-              <span class="pill" style="--c:var(--p-media)"><i></i>Media</span>
-              <span class="pill" style="--c:var(--p-alta)"><i></i>Alta</span>
-              <span class="pill" style="--c:var(--p-immediata)"><i></i>Immediata</span>
+              <span class="pill" style="--c:var(--p-bassa)"><i></i><span data-i18n="prio.low">Bassa</span></span>
+              <span class="pill" style="--c:var(--p-media)"><i></i><span data-i18n="prio.medium">Media</span></span>
+              <span class="pill" style="--c:var(--p-alta)"><i></i><span data-i18n="prio.high">Alta</span></span>
+              <span class="pill" style="--c:var(--p-immediata)"><i></i><span data-i18n="prio.urgent">Immediata</span></span>
             </p>
             <ul>
-              <li>Stato: da valutare, da definire, confermato</li>
-              <li>Scadenza facoltativa, con evidenza di quelle vicine o passate</li>
-              <li>Etichette personalizzate per nome e colore <span class="badge" style="--c:#d64545">Bug</span> <span class="badge" style="--c:#9b7bd6">Cliente</span></li>
-              <li>Filtri per periodo, stato, priorità, utente ed etichetta</li>
+              <li data-i18n="f1.l1">Stato: da valutare, da definire, confermato</li>
+              <li data-i18n="f1.l2">Assegnatario, con notifica a chi riceve l'elemento</li>
+              <li data-i18n="f1.l3">Scadenza facoltativa, con evidenza di quelle vicine o passate</li>
+              <li><span data-i18n="f1.l4">Etichette personalizzate per nome e colore</span> <span class="badge" style="--c:#d64545">Bug</span> <span class="badge" style="--c:#9b7bd6" data-i18n="f1.badge">Cliente</span></li>
+              <li data-i18n="f1.l5">Filtri per periodo, stato, priorità, «assegnato a», «creato da» ed etichetta</li>
             </ul>
           </div>
-          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/new-item-dark.png" width="1600" height="1000" alt="Finestra di creazione di un nuovo elemento, tema scuro" /></figure>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/new-item-dark.png" width="1600" height="1000" alt="Finestra di creazione di un nuovo elemento, tema scuro" data-i18n-alt="alt.newItem" /></figure>
         </article>
 
         <article class="feature">
           <div class="feature__text">
-            <h3>Domande, risposte e commenti dove servono</h3>
-            <p>Ogni elemento ha il suo spazio di discussione. Tagga un collega con <b>@</b>, rispondi alle domande, e chi ha chiesto segna «risolta» quando ha avuto la risposta.</p>
+            <h3 data-i18n="f2.t">Domande, risposte e commenti dove servono</h3>
+            <p data-i18n="f2.p">Ogni elemento ha il suo spazio di discussione. Tagga un collega con <b>@</b>, rispondi alle domande, e chi ha chiesto segna «risolta» quando ha avuto la risposta.</p>
             <ul>
-              <li>Titolo e descrizione, modificabili con un pulsante Salva</li>
-              <li>Gli elementi completati o cestinati diventano di sola lettura</li>
-              <li>Chi aspetta una risposta lo vede in prima pagina</li>
+              <li data-i18n="f2.l1">Titolo e descrizione, modificabili con Salva (o <span class="kbd">Ctrl</span> <span class="kbd">S</span>)</li>
+              <li data-i18n="f2.l2">Gli elementi completati o cestinati diventano di sola lettura</li>
+              <li data-i18n="f2.l3">Chi aspetta una risposta lo vede in prima pagina</li>
             </ul>
           </div>
-          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/project-detail.png" width="1600" height="1000" alt="Pannello di dettaglio di un elemento con domanda, menzione e commento" /></figure>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/project-detail.png" width="1600" height="1000" alt="Pannello di dettaglio di un elemento con domanda, risposta e commento" data-i18n-alt="alt.detail" /></figure>
         </article>
 
         <article class="feature">
           <div class="feature__text">
-            <h3>Allegati che si aprono nell'app</h3>
-            <p>File sul server, pagine web, documenti di Google Drive: organizzati in cartelle con il nome che decidi tu e visualizzabili direttamente nell'applicazione, con un click per l'originale.</p>
+            <h3 data-i18n="f3.t">Trovi tutto, senza mouse</h3>
+            <p data-i18n="f3.p">Una sola ricerca per tutti i progetti: nomi, elementi e allegati, con i risultati raggruppati per progetto. Frecce e Invio per aprire quello che cerchi.</p>
             <ul>
-              <li>Anteprima di immagini, PDF, testo e pagine web</li>
-              <li>Replica in sola lettura di una cartella di Google Drive (accesso con il tuo account, token cifrato sul PC)</li>
-              <li>I documenti Google si vedono come PDF</li>
+              <li data-i18n="f3.l1"><span class="kbd">Ctrl</span> <span class="kbd">K</span> oppure <span class="kbd">/</span> per cercare, <span class="kbd">N</span> per un nuovo elemento</li>
+              <li data-i18n="f3.l2">Nella lista: <span class="kbd">↑</span> <span class="kbd">↓</span> per scorrere, <span class="kbd">Invio</span> per aprire, <span class="kbd">C</span> per completare, <span class="kbd">Canc</span> per cestinare</li>
+              <li data-i18n="f3.l3"><span class="kbd">?</span> mostra tutte le scorciatoie</li>
             </ul>
           </div>
-          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/attachments.png" width="1600" height="1000" alt="Allegati di un progetto organizzati in cartelle" /></figure>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/search.png" width="1600" height="1000" alt="Ricerca in tutti i progetti con i risultati raggruppati" data-i18n-alt="alt.search" /></figure>
         </article>
 
         <article class="feature">
           <div class="feature__text">
-            <h3>Sotto controllo: notifiche, ruoli, cronologia</h3>
-            <p>Scegli quali novità ricevere (nuovi elementi, cambi di stato, completamenti, domande, risposte, commenti, menzioni). Gli amministratori hanno un registro di chi ha creato, completato, cestinato o eliminato cosa.</p>
+            <h3 data-i18n="f4.t">Lo stack del progetto, con la configurazione guidata</h3>
+            <p data-i18n="f4.p">L'amministratore descrive con cosa è fatto il progetto e come metterlo in piedi; chi arriva segue la procedura passo per passo e spunta quello che ha fatto.</p>
             <ul>
-              <li>Ruoli: Amministratore, Cleaner, Membro</li>
-              <li>Cestino per elementi e per interi progetti, con ripristino</li>
-              <li>Cronologia filtrabile per progetto, operazione e utente</li>
+              <li data-i18n="f4.l1">Tipo di applicazione, linguaggi, framework, repository e cartella</li>
+              <li data-i18n="f4.l2">Prerequisiti con il comando di verifica, passi da eseguire, variabili d'ambiente</li>
+              <li data-i18n="f4.l3">Avanzamento personale, comandi da copiare e uno script <code>.cmd</code> che esegue tutto in sequenza</li>
             </ul>
           </div>
-          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img loading="lazy" src="assets/screens/audit.png" width="1600" height="1000" alt="Cronologia delle operazioni divisa per progetto" /></figure>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/stack.png" width="1600" height="1000" alt="Sezione Stack: tecnologie del progetto e procedura di configurazione" data-i18n-alt="alt.stack" /></figure>
         </article>
-      </div>
-    </section>
 
-    <section id="schermate">
-      <div class="wrap">
-        <h2 class="sec__title">Schermate</h2>
-        <p class="sec__lead">Dati di esempio, interfaccia reale.</p>
-        <div class="gallery">
-          <figure><div class="window"><img loading="lazy" src="assets/screens/home.png" width="1600" height="1000" alt="Pagina iniziale del workspace con le cose da tenere d'occhio e le domande aperte" /></div><figcaption><b>Il workspace.</b> Scadenze vicine, elementi immediati e domande aperte di tutti i progetti.</figcaption></figure>
-          <figure><div class="window"><img loading="lazy" src="assets/screens/project-dark.png" width="1600" height="1000" alt="Progetto in tema scuro" /></div><figcaption><b>Tema scuro.</b> Stessi colori di priorità, accento celeste, meno luce la sera.</figcaption></figure>
-          <figure><div class="window"><img loading="lazy" src="assets/screens/create-workspace.png" width="1600" height="1000" alt="Creazione di un workspace condiviso in rete con password" /></div><figcaption><b>Condivisione in rete.</b> Una cartella sul server e una password: i colleghi entrano, tu amministri.</figcaption></figure>
-          <figure><div class="window"><img loading="lazy" src="assets/screens/welcome.png" width="1600" height="1000" alt="Schermata iniziale con i workspace recenti" /></div><figcaption><b>Avvio.</b> I workspace recenti, l'ultimo si riapre da solo.</figcaption></figure>
-        </div>
+        <article class="feature">
+          <div class="feature__text">
+            <h3 data-i18n="f5.t">Progetti nuovi, già configurati</h3>
+            <p data-i18n="f5.p">Lo stack di un progetto diventa il modello per il successivo: scegli «Nuovo progetto con questo stack», dai un nome e la configurazione è copiata, con il nome del progetto aggiornato in comandi e link.</p>
+            <ul>
+              <li data-i18n="f5.l1">«Crea cartella del progetto» la genera sul tuo PC, nella posizione che scegli</li>
+              <li data-i18n="f5.l2">Dentro: <code>README.md</code>, <code>.env.example</code>, lo script di configurazione e i file iniziali definiti dall'amministratore</li>
+              <li data-i18n="f5.l3">Segnaposto <code>{{name}}</code> e <code>{{slug}}</code> nei file, nei comandi e nei link</li>
+              <li data-i18n="f5.l4">Si può anche importare lo stack di un altro progetto in uno esistente</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/stack-template.png" width="1600" height="1000" alt="Creazione di un nuovo progetto a partire dallo stack di un progetto esistente" data-i18n-alt="alt.template" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3 data-i18n="f6.t">Gli strumenti AI del progetto</h3>
+            <p data-i18n="f6.p">Connettori, plugin e skill usati per lavorare al progetto, in un posto solo. Le skill si allegano come file (ad esempio <code>SKILL.md</code>) e si possono leggere, copiare o salvare.</p>
+            <ul>
+              <li data-i18n="f6.l1">Per ogni strumento: link e note su come viene usato</li>
+              <li data-i18n="f6.l2">Gestiti dagli amministratori, consultabili da tutti</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/ai-tools.png" width="1600" height="1000" alt="Sezione Strumenti AI con un connettore e una skill allegata" data-i18n-alt="alt.ai" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3 data-i18n="f7.t">Allegati che si aprono nell'app</h3>
+            <p data-i18n="f7.p">File sul server, pagine web, documenti di Google Drive: organizzati in cartelle con il nome che decidi tu e visualizzabili direttamente nell'applicazione, con un click per l'originale.</p>
+            <ul>
+              <li data-i18n="f7.l1">Anteprima di immagini, PDF, testo e pagine web</li>
+              <li data-i18n="f7.l2">Replica in sola lettura di una cartella di Google Drive (accesso con il tuo account, token cifrato sul PC)</li>
+              <li data-i18n="f7.l3">I documenti Google si vedono come PDF</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/attachments.png" width="1600" height="1000" alt="Allegati di un progetto organizzati in cartelle" data-i18n-alt="alt.attachments" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3 data-i18n="f8.t">Il quadro del workspace, per gli amministratori</h3>
+            <p data-i18n="f8.p">La pagina Analisi dice quanto c'è da fare, in che stato, con quale urgenza e su chi pesa. Si aggiorna da sola con i dati.</p>
+            <ul>
+              <li data-i18n="f8.l1">Elementi per stato e priorità, scaduti e in scadenza, domande aperte</li>
+              <li data-i18n="f8.l2">Carico per utente (elementi assegnati) e per progetto</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/analytics.png" width="1600" height="1000" alt="Pagina Analisi con i numeri del workspace" data-i18n-alt="alt.analytics" /></figure>
+        </article>
+
+        <article class="feature">
+          <div class="feature__text">
+            <h3 data-i18n="f9.t">Sotto controllo: notifiche, ruoli, cronologia</h3>
+            <p data-i18n="f9.p">Scegli quali novità ricevere (nuovi elementi, assegnazioni, cambi di stato, completamenti, domande, risposte, commenti, menzioni). Gli amministratori hanno un registro di chi ha creato, completato, cestinato o eliminato cosa.</p>
+            <ul>
+              <li data-i18n="f9.l1">Ruoli: Amministratore, Cleaner, Membro</li>
+              <li data-i18n="f9.l2">Cestino per elementi e per interi progetti, con ripristino</li>
+              <li data-i18n="f9.l3">Cronologia filtrabile per progetto, operazione e utente</li>
+            </ul>
+          </div>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/audit.png" width="1600" height="1000" alt="Cronologia delle operazioni divisa per progetto" data-i18n-alt="alt.audit" /></figure>
+        </article>
       </div>
     </section>
 
     <section id="download">
       <div class="wrap download">
         <div>
-          <h2 class="sec__title">Scarica Project Goal Manager</h2>
-          <p class="sec__lead">Un installer per Windows, oppure l'eseguibile da copiare dove vuoi. L'app non chiede registrazioni e non invia dati a nessuno.</p>
+          <h2 class="sec__title" data-i18n="dl.title">Scarica Project Goal Manager</h2>
+          <p class="sec__lead" data-i18n="dl.lead">Un installer per Windows, nella lingua che hai scelto per questo sito. L'app non chiede registrazioni e non invia dati a nessuno.</p>
           <ul class="req">
-            <li>Windows 10 o 11, 64 bit</li>
-            <li>Microsoft Edge WebView2 (già presente in Windows; l'installer lo aggiunge se manca)</li>
-            <li>Per condividere: una cartella di rete raggiungibile da tutti (UNC o unità mappata)</li>
+            <li data-i18n="dl.r1">Windows 10 o 11, 64 bit</li>
+            <li data-i18n="dl.r2">Microsoft Edge WebView2 (già presente in Windows; l'installer lo aggiunge se manca)</li>
+            <li data-i18n="dl.r3">Per condividere: una cartella di rete raggiungibile da tutti (UNC o unità mappata)</li>
           </ul>
         </div>
-        <div class="dl-box" data-download data-releases="https://github.com/Nisiix/Project-goal-manager/releases">
-          <h3>Windows</h3>
-          <div class="ver">Versione 0.1.0 · Windows 10/11 (64 bit)</div>
+        <div class="dl-box" data-download data-repo="Nisiix/Project-goal-manager">
+          <h3 data-i18n="dl.box">Windows · app in italiano</h3>
+          <div class="ver" data-i18n="dl.ver">Windows 10/11 (64 bit)</div>
           <div class="row">
-            <a class="btn btn--primary" data-kind="msi" href="https://github.com/Nisiix/Project-goal-manager/releases">Installer (.msi)</a>
-            <a class="btn btn--outline" data-kind="exe" href="https://github.com/Nisiix/Project-goal-manager/releases">Setup (.exe)</a>
+            <a class="btn btn--primary" data-kind="exe" href="https://github.com/Nisiix/Project-goal-manager/releases" data-i18n="dl.exe">Setup (.exe)</a>
+            <a class="btn btn--outline" data-kind="msi" href="https://github.com/Nisiix/Project-goal-manager/releases" data-i18n="dl.msi">Installer (.msi)</a>
           </div>
-          <div class="dl-note">Il server di download è in preparazione: nel frattempo gli installer sono pubblicati nelle Release su GitHub.</div>
-          <p style="margin:1rem 0 0;font-size:.85rem;color:var(--ink-3)">Scaricando accetti le <a href="condizioni.html">condizioni di utilizzo</a>. Codice e verifiche di integrità sono pubblici nel repository.</p>
+          <p class="dl-other"><span data-i18n="dl.other">Ti serve l'app in inglese?</span> <button type="button" class="link" data-set-lang="en" data-i18n="dl.otherLink" data-i18n-data-set-lang="dl.otherLang">Passa alla versione inglese</button></p>
+          <div class="dl-note" hidden></div>
+          <p style="margin:1rem 0 0;font-size:.85rem;color:var(--ink-3)"><span data-i18n="dl.accept">Scaricando accetti le</span> <a href="condizioni.html" data-i18n="dl.conditions" data-i18n-href="link.conditions">condizioni di utilizzo</a>. <span data-i18n="dl.integrity">Codice e verifiche di integrità sono pubblici nel repository.</span></p>
         </div>
       </div>
     </section>
@@ -207,14 +275,15 @@
   <footer>
     <div class="wrap foot">
       <span>© 2026 Project Goal Manager</span>
-      <nav class="foot__links" aria-label="Note legali">
-        <a href="termini.html">Termini di utilizzo</a>
-        <a href="privacy.html">Privacy</a>
-        <a href="condizioni.html">Condizioni di utilizzo</a>
+      <nav class="foot__links" aria-label="Note legali" data-i18n-aria-label="foot.label">
+        <a href="termini.html" data-i18n="foot.terms" data-i18n-href="link.terms">Termini di utilizzo</a>
+        <a href="privacy.html" data-i18n="foot.privacy" data-i18n-href="link.privacy">Privacy</a>
+        <a href="condizioni.html" data-i18n="foot.conditions" data-i18n-href="link.conditions">Condizioni di utilizzo</a>
         <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
       </nav>
     </div>
   </footer>
+  <script src="assets/i18n.js"></script>
   <script src="assets/site.js"></script>
 </body>
 </html>

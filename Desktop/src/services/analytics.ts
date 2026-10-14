@@ -4,6 +4,8 @@
  */
 import dayjs from 'dayjs'
 import { PRIORITIES, STATUSES, type Bucket, type Priority, type Project, type Stack, type Status } from '@/types'
+import { compareText } from '@/i18n'
+import { common } from '@/i18n/common'
 
 export interface UserLoad {
   userId: string | null // null = non assegnato
@@ -93,7 +95,7 @@ export function summarize(projects: Project[], today: string, favoriteIds: strin
     if (b.userId === null) return -1
     return b.todo - a.todo || b.immediata - a.immediata || b.done - a.done
   })
-  s.byProject.sort((a, b) => b.todo - a.todo || a.name.localeCompare(b.name, 'it'))
+  s.byProject.sort((a, b) => b.todo - a.todo || compareText(a.name, b.name))
   return s
 }
 
@@ -116,29 +118,30 @@ const q = (s: string) => `"${s.replace(/"/g, '""')}"`
  * cartella indicata, apre i link, si ferma sui passi manuali.
  */
 export function setupScriptWindows(projectName: string, stack: ScriptStack): string {
+  const S = common.script
   const L: string[] = []
-  L.push('@echo off', 'setlocal EnableExtensions', `title Configurazione ${projectName}`, 'echo.', `echo === Configurazione di ${projectName} ===`, 'echo.')
+  L.push('@echo off', 'setlocal EnableExtensions', `title ${S.title(projectName)}`, 'echo.', `echo === ${S.heading(projectName)} ===`, 'echo.')
 
   if (stack.prerequisites.length) {
-    L.push('echo --- Prerequisiti ---')
+    L.push(`echo --- ${S.prerequisites} ---`)
     for (const p of stack.prerequisites) {
       const label = p.version ? `${p.name} ${p.version}` : p.name
-      const hint = p.url ? `installa ${p.name} da ${p.url}` : `installa ${p.name}`
-      if (p.check.trim()) L.push(`echo [verifica] ${label}`, `${p.check.trim()} || echo    MANCANTE: ${hint}`)
-      else L.push(`echo [richiesto] ${label} - ${hint}`)
+      const hint = p.url ? S.installFrom(p.name, p.url) : S.install(p.name)
+      if (p.check.trim()) L.push(`echo [${S.check}] ${label}`, `${p.check.trim()} || echo    ${S.missing}: ${hint}`)
+      else L.push(`echo [${S.required}] ${label} - ${hint}`)
     }
     L.push('echo.')
   }
 
   if (stack.envVars.length) {
-    L.push('echo --- Variabili d ambiente da impostare (vedi .env o configurazione) ---')
+    L.push(`echo --- ${S.envVars} ---`)
     for (const v of stack.envVars) L.push(`echo ${v.key}=${v.example}${v.notes ? `   (${v.notes})` : ''}`)
     L.push('echo.')
   }
 
   stack.steps.forEach((st, idx) => {
     const n = idx + 1
-    L.push(`echo --- Passo ${n}: ${st.title} ---`)
+    L.push(`echo --- ${S.step(n, st.title)} ---`)
     if (st.notes.trim()) L.push(`echo ${st.notes.trim()}`)
     if (st.kind === 'command') {
       if (st.cwd.trim()) L.push(`pushd ${q(st.cwd.trim())} || goto fail`)
@@ -146,13 +149,13 @@ export function setupScriptWindows(projectName: string, stack: ScriptStack): str
       if (st.cwd.trim()) L.push('popd')
     } else if (st.kind === 'link') {
       if (st.url.trim()) L.push(`start "" ${q(st.url.trim())}`)
-      L.push('echo Completa l operazione nella finestra aperta, poi premi un tasto.', 'pause >nul')
+      L.push(`echo ${S.linkPause}`, 'pause >nul')
     } else {
-      L.push('echo Esegui il passo manualmente, poi premi un tasto per continuare.', 'pause >nul')
+      L.push(`echo ${S.manualPause}`, 'pause >nul')
     }
     L.push('echo.')
   })
 
-  L.push('echo === Configurazione completata ===', 'pause', 'exit /b 0', '', ':fail', 'echo.', 'echo ERRORE: un passo non e riuscito. Correggi e rilancia lo script.', 'pause', 'exit /b 1')
+  L.push(`echo === ${S.done} ===`, 'pause', 'exit /b 0', '', ':fail', 'echo.', `echo ${S.failed}`, 'pause', 'exit /b 1')
   return L.join('\r\n') + '\r\n'
 }

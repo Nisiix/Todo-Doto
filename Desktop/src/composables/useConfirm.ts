@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { common } from '@/i18n/common'
 
 interface ConfirmOptions {
   title: string
@@ -19,7 +20,7 @@ export function useConfirm() {
   return (opts: ConfirmOptions) =>
     new Promise<boolean>((resolve) => {
       confirmState.resolve?.(false)
-      Object.assign(confirmState, { confirmLabel: 'Conferma', danger: false, message: '' }, opts, { open: true, resolve })
+      Object.assign(confirmState, { confirmLabel: common.actions.confirm, danger: false, message: '' }, opts, { open: true, resolve })
     })
 }
 

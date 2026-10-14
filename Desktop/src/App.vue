@@ -7,6 +7,9 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import ConfirmHost from '@/components/ui/ConfirmHost.vue'
 import { useEventListener } from '@vueuse/core'
+import { defineMessages } from '@/i18n'
+
+const { starting } = defineMessages({ it: { starting: 'Avvio…' }, en: { starting: 'Starting…' } })
 
 const session = useSessionStore()
 const ui = useUiStore()
@@ -36,7 +39,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 <template>
   <div class="h-full">
     <RouterView v-if="booted" />
-    <div v-else class="flex h-full items-center justify-center text-ink-3">Avvio…</div>
+    <div v-else class="flex h-full items-center justify-center text-ink-3">{{ starting }}</div>
     <ToastHost />
     <ConfirmHost />
   </div>

@@ -16,6 +16,43 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Project } from '@/types'
+import { DATE, defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    lockProject: 'Progetto nel cestino: ripristinalo per modificare.',
+    lockDone: 'Elemento completato: riaprilo per modificare.',
+    lockTrash: 'Elemento nel cestino: ripristinalo per modificare.',
+    saved: 'Salvato',
+    complete: 'Completa',
+    restore: 'Ripristina',
+    closeEsc: 'Chiudi (Esc)',
+    title: 'Titolo',
+    manageLabels: 'Gestisci etichette…',
+    due: (d: string) => `scadenza ${d}`,
+    assignedTo: (n: string) => `assegnato a ${n}`,
+    createdBy: (s: string) => `Creato da ${s}`,
+    description: 'Descrizione',
+    notesPlaceholder: 'Dettagli, decisioni, riferimenti…',
+  },
+  en: {
+    lockProject: 'Project in the trash: restore it to make changes.',
+    lockDone: 'Completed item: reopen it to make changes.',
+    lockTrash: 'Item in the trash: restore it to make changes.',
+    saved: 'Saved',
+    complete: 'Complete',
+    restore: 'Restore',
+    closeEsc: 'Close (Esc)',
+    title: 'Title',
+    manageLabels: 'Manage labels…',
+    due: (d: string) => `due ${d}`,
+    assignedTo: (n: string) => `assigned to ${n}`,
+    createdBy: (s: string) => `Created by ${s}`,
+    description: 'Description',
+    notesPlaceholder: 'Details, decisions, references…',
+  },
+})
 
 const props = defineProps<{ project: Project; item: Item; readOnly?: boolean }>()
 const emit = defineEmits<{ manageLabels: [] }>()
@@ -31,9 +68,9 @@ const actions = useItemActions(
 /** Elementi completati o cestinati (e progetti nel cestino) sono in sola lettura. */
 const locked = computed(() => props.readOnly || props.item.bucket !== 'todo')
 const lockReason = computed(() => {
-  if (props.readOnly) return 'Progetto nel cestino: ripristinalo per modificare.'
-  if (props.item.bucket === 'done') return 'Elemento completato: riaprilo per modificare.'
-  if (props.item.bucket === 'trash') return 'Elemento nel cestino: ripristinalo per modificare.'
+  if (props.readOnly) return m.lockProject
+  if (props.item.bucket === 'done') return m.lockDone
+  if (props.item.bucket === 'trash') return m.lockTrash
   return ''
 })
 
@@ -67,7 +104,7 @@ async function save() {
   if (!t) return
   await ws.updateItem(props.project.id, props.item.id, { title: t, notes: notes.value })
   title.value = t
-  ui.toast('Salvato', 'success', undefined, 1800)
+  ui.toast(m.saved, 'success', undefined, 1800)
 }
 function discard() {
   title.value = props.item.title
@@ -83,7 +120,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
   }
 })
 
-const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(props.item.createdAt).format('D MMM YYYY')}`)
+const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(props.item.createdAt).format(DATE.date)}`)
 </script>
 
 <template>
@@ -91,12 +128,12 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
     <div class="flex items-center gap-1 border-b border-line px-3 py-2">
       <span class="h-5 w-1 rounded-full" :class="`bg-p-${item.priority}`" />
       <span class="ml-1 flex-1 truncate text-[12px] text-ink-3">{{ project.name }}</span>
-      <BaseButton v-if="actions.canComplete.value" size="sm" variant="ghost" title="Segna come completato" @click="actions.complete()"><Check :size="14" /> Completa</BaseButton>
+      <BaseButton v-if="actions.canComplete.value" size="sm" variant="ghost" :title="common.item.markDone" @click="actions.complete()"><Check :size="14" /> {{ m.complete }}</BaseButton>
       <BaseButton v-if="actions.canReopen.value" size="sm" variant="ghost" @click="actions.reopen()">
-        <RotateCcw :size="14" /> {{ item.bucket === 'done' ? 'Riapri' : 'Ripristina' }}
+        <RotateCcw :size="14" /> {{ item.bucket === 'done' ? common.item.reopen : m.restore }}
       </BaseButton>
-      <BaseButton v-if="actions.canTrash.value" size="icon-sm" variant="ghost" title="Sposta nel cestino" @click="actions.trash()"><Trash2 :size="14" /></BaseButton>
-      <BaseButton size="icon-sm" variant="ghost" title="Chiudi (Esc)" @click="close"><X :size="15" /></BaseButton>
+      <BaseButton v-if="actions.canTrash.value" size="icon-sm" variant="ghost" :title="common.item.moveToTrash" @click="actions.trash()"><Trash2 :size="14" /></BaseButton>
+      <BaseButton size="icon-sm" variant="ghost" :title="m.closeEsc" @click="close"><X :size="15" /></BaseButton>
     </div>
 
     <div v-if="locked" class="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-2 text-[12.5px] text-ink-2">
@@ -112,7 +149,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
           class="w-full resize-none bg-transparent text-[18px] font-bold leading-snug tracking-tight focus:outline-none disabled:text-ink-2"
           :class="{ 'line-through': item.bucket === 'done' }"
           :disabled="locked"
-          aria-label="Titolo"
+          :aria-label="m.title"
         />
         <div class="mt-2 flex flex-wrap items-center gap-1.5">
           <template v-if="!locked">
@@ -121,32 +158,32 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
             <DueDateField :model-value="item.dueDate" @update:model-value="(d) => ws.updateItem(project.id, item.id, { dueDate: d })" />
             <LabelSelect :model-value="item.labelId" @update:model-value="(l) => ws.updateItem(project.id, item.id, { labelId: l })" />
             <AssigneeSelect :model-value="item.assigneeId" @update:model-value="(u) => ws.updateItem(project.id, item.id, { assigneeId: u })" />
-            <button type="button" class="text-[11.5px] font-medium text-ink-3 hover:text-accent-ink hover:underline" @click="emit('manageLabels')">Gestisci etichette…</button>
+            <button type="button" class="text-[11.5px] font-medium text-ink-3 hover:text-accent-ink hover:underline" @click="emit('manageLabels')">{{ m.manageLabels }}</button>
           </template>
           <template v-else>
           <LabelBadge :label-id="item.labelId" />
           <span class="text-[12.5px] text-ink-2">
             {{ PRIORITY_LABEL[item.priority] }} · {{ STATUS_LABEL[item.status] }}
-            <template v-if="item.dueDate"> · scadenza {{ dayjs(item.dueDate).format('D MMM YYYY') }}</template>
-            <template v-if="item.assigneeId"> · assegnato a {{ ws.userName(item.assigneeId) }}</template>
+            <template v-if="item.dueDate"> · {{ m.due(dayjs(item.dueDate).format(DATE.date)) }}</template>
+            <template v-if="item.assigneeId"> · {{ m.assignedTo(ws.userName(item.assigneeId)) }}</template>
           </span>
           </template>
         </div>
-        <p class="mt-2 text-[12px] text-ink-3">Creato da {{ created }}</p>
+        <p class="mt-2 text-[12px] text-ink-3">{{ m.createdBy(created) }}</p>
       </div>
 
       <div>
-        <h3 class="mb-1.5 text-[13px] font-semibold text-ink-2">Descrizione</h3>
+        <h3 class="mb-1.5 text-[13px] font-semibold text-ink-2">{{ m.description }}</h3>
         <textarea
           v-model="notes"
           class="field min-h-20 resize-y text-[13.5px] leading-relaxed"
-          :placeholder="locked ? '' : 'Dettagli, decisioni, riferimenti…'"
+          :placeholder="locked ? '' : m.notesPlaceholder"
           :disabled="locked"
-          aria-label="Descrizione"
+          :aria-label="m.description"
         />
         <div v-if="!locked && dirty" class="mt-2 flex items-center gap-2">
-          <BaseButton variant="primary" size="sm" :disabled="!title.trim()" @click="save">Salva</BaseButton>
-          <BaseButton variant="ghost" size="sm" @click="discard">Annulla</BaseButton>
+          <BaseButton variant="primary" size="sm" :disabled="!title.trim()" @click="save">{{ common.actions.save }}</BaseButton>
+          <BaseButton variant="ghost" size="sm" @click="discard">{{ common.actions.cancel }}</BaseButton>
           <span class="text-[11.5px] text-ink-3">Ctrl+S</span>
         </div>
       </div>

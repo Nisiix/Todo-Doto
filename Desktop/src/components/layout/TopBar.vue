@@ -13,6 +13,36 @@ import NotificationsPanel from './NotificationsPanel.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: {
+    settings: 'Impostazioni',
+    labels: 'Etichette',
+    members: 'Membri',
+    analytics: 'Analisi',
+    audit: 'Cronologia operazioni',
+    shortcuts: 'Scorciatoie da tastiera',
+    closeWs: 'Chiudi workspace',
+    unreachable: 'Cartella non raggiungibile, riprovo…',
+    wsMembers: 'Membri del workspace',
+    lightTheme: 'Tema chiaro (Ctrl+Shift+L)',
+    darkTheme: 'Tema scuro (Ctrl+Shift+L)',
+  },
+  en: {
+    settings: 'Settings',
+    labels: 'Labels',
+    members: 'Members',
+    analytics: 'Analytics',
+    audit: 'Activity log',
+    shortcuts: 'Keyboard shortcuts',
+    closeWs: 'Close workspace',
+    unreachable: 'Folder unreachable, retrying…',
+    wsMembers: 'Workspace members',
+    lightTheme: 'Light theme (Ctrl+Shift+L)',
+    darkTheme: 'Dark theme (Ctrl+Shift+L)',
+  },
+})
 
 const ws = useWorkspaceStore()
 const ui = useUiStore()
@@ -22,20 +52,20 @@ const showLabels = ref(false)
 const showShortcuts = ref(false)
 
 const menu = computed(() => [
-  { label: 'Impostazioni', icon: Settings, onSelect: () => (showSettings.value = true) },
-  { label: 'Etichette', icon: Tag, onSelect: () => (showLabels.value = true) },
-  { label: 'Membri', icon: Users, onSelect: () => router.push({ name: 'members' }) },
+  { label: m.settings, icon: Settings, onSelect: () => (showSettings.value = true) },
+  { label: m.labels, icon: Tag, onSelect: () => (showLabels.value = true) },
+  { label: m.members, icon: Users, onSelect: () => router.push({ name: 'members' }) },
   ...(ws.isAdmin
     ? [
-        { label: 'Analisi', icon: BarChart3, onSelect: () => router.push({ name: 'analytics' }) },
-        { label: 'Cronologia operazioni', icon: History, onSelect: () => router.push({ name: 'audit' }) },
+        { label: m.analytics, icon: BarChart3, onSelect: () => router.push({ name: 'analytics' }) },
+        { label: m.audit, icon: History, onSelect: () => router.push({ name: 'audit' }) },
       ]
     : []),
   { sep: true, label: '' },
-  { label: 'Scorciatoie da tastiera', icon: Keyboard, onSelect: () => (showShortcuts.value = true) },
+  { label: m.shortcuts, icon: Keyboard, onSelect: () => (showShortcuts.value = true) },
   { sep: true, label: '' },
   {
-    label: 'Chiudi workspace',
+    label: m.closeWs,
     icon: LogOut,
     onSelect: async () => {
       await ws.close()
@@ -67,7 +97,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       class="flex items-center gap-1.5 rounded-md bg-danger/10 px-2 py-1 text-[12.5px] font-medium text-danger"
       :title="ws.lastError ?? ''"
     >
-      <WifiOff :size="14" /> Cartella non raggiungibile, riprovo…
+      <WifiOff :size="14" /> {{ m.unreachable }}
     </span>
 
     <GlobalSearch />
@@ -85,7 +115,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       :to="{ name: 'members' }"
       class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
       active-class="bg-accent-soft text-accent-ink"
-      title="Membri del workspace"
+      :title="m.wsMembers"
     >
       <Users :size="16" />
       <span class="tabular-nums">{{ ws.users.length }}</span>
@@ -93,12 +123,12 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 
     <NotificationsPanel />
 
-    <button class="rounded-md p-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink" :title="ui.isDark ? 'Tema chiaro (Ctrl+Shift+L)' : 'Tema scuro (Ctrl+Shift+L)'" @click="ui.toggleTheme()">
+    <button class="rounded-md p-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink" :title="ui.isDark ? m.lightTheme : m.darkTheme" @click="ui.toggleTheme()">
       <Sun v-if="ui.isDark" :size="16" />
       <Moon v-else :size="16" />
     </button>
 
-    <button class="rounded-full" title="Impostazioni" @click="showSettings = true">
+    <button class="rounded-full" :title="m.settings" @click="showSettings = true">
       <UserAvatar :name="ws.currentUser?.displayName ?? '?'" size="md" />
     </button>
 

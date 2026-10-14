@@ -6,9 +6,12 @@ import './style.css'
 import 'dayjs/locale/it'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
+import { locale, localeTag } from './i18n'
 
-dayjs.locale('it')
+// La lingua è fissata in fase di build (VITE_LOCALE): dayjs e <html lang> la seguono.
+dayjs.locale(locale)
 dayjs.extend(relativeTime)
+document.documentElement.lang = localeTag
 
 // Disabilita il menu contestuale nativo della WebView fuori dai campi di testo
 document.addEventListener('contextmenu', (e) => {

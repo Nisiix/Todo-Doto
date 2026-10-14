@@ -13,6 +13,34 @@ import {
   type Priority,
   type Status,
 } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: {
+    filters: 'Filtri',
+    from: 'Da',
+    to: 'A',
+    assignee: 'Assegnato a',
+    assigneeAny: 'Assegnato a: chiunque',
+    author: 'Creato da',
+    authorAny: 'Creato da: chiunque',
+    label: 'Etichetta',
+    allLabels: 'Tutte le etichette',
+    reset: 'Azzera filtri',
+  },
+  en: {
+    filters: 'Filters',
+    from: 'From',
+    to: 'To',
+    assignee: 'Assigned to',
+    assigneeAny: 'Assigned to: anyone',
+    author: 'Created by',
+    authorAny: 'Created by: anyone',
+    label: 'Label',
+    allLabels: 'All labels',
+    reset: 'Clear filters',
+  },
+})
 
 /** Barra dei filtri della lista: scadenza da/a, stato, priorità, assegnatario, autore, etichetta. */
 const model = defineModel<ItemFilter>({ required: true })
@@ -34,13 +62,13 @@ const chip =
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]" role="group" aria-label="Filtri">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px]" role="group" :aria-label="m.filters">
     <label class="flex items-center gap-1.5 text-ink-2">
-      Da
+      {{ m.from }}
       <input type="date" class="field field-sm h-6 w-32 py-0" :value="model.from ?? ''" @change="set('from', ($event.target as HTMLInputElement).value || null)" />
     </label>
     <label class="flex items-center gap-1.5 text-ink-2">
-      A
+      {{ m.to }}
       <input type="date" class="field field-sm h-6 w-32 py-0" :value="model.to ?? ''" @change="set('to', ($event.target as HTMLInputElement).value || null)" />
     </label>
 
@@ -72,23 +100,23 @@ const chip =
       </button>
     </div>
 
-    <select class="field field-sm h-6 w-48 py-0" :value="model.assigneeId ?? ''" aria-label="Assegnato a" title="Assegnato a" @change="set('assigneeId', ($event.target as HTMLSelectElement).value || null)">
-      <option value="">Assegnato a: chiunque</option>
+    <select class="field field-sm h-6 w-48 py-0" :value="model.assigneeId ?? ''" :aria-label="m.assignee" :title="m.assignee" @change="set('assigneeId', ($event.target as HTMLSelectElement).value || null)">
+      <option value="">{{ m.assigneeAny }}</option>
       <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
     </select>
 
-    <select class="field field-sm h-6 w-44 py-0" :value="model.createdBy ?? ''" aria-label="Creato da" title="Creato da" @change="set('createdBy', ($event.target as HTMLSelectElement).value || null)">
-      <option value="">Creato da: chiunque</option>
+    <select class="field field-sm h-6 w-44 py-0" :value="model.createdBy ?? ''" :aria-label="m.author" :title="m.author" @change="set('createdBy', ($event.target as HTMLSelectElement).value || null)">
+      <option value="">{{ m.authorAny }}</option>
       <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
     </select>
 
-    <select v-if="ws.tree.labels.length" class="field field-sm h-6 w-36 py-0" :value="model.labelId ?? ''" aria-label="Etichetta" @change="set('labelId', ($event.target as HTMLSelectElement).value || null)">
-      <option value="">Tutte le etichette</option>
+    <select v-if="ws.tree.labels.length" class="field field-sm h-6 w-36 py-0" :value="model.labelId ?? ''" :aria-label="m.label" @change="set('labelId', ($event.target as HTMLSelectElement).value || null)">
+      <option value="">{{ m.allLabels }}</option>
       <option v-for="l in ws.tree.labels" :key="l.id" :value="l.id">{{ l.name }}</option>
     </select>
 
     <button v-if="active" type="button" class="flex items-center gap-1 text-[12px] font-medium text-accent-ink hover:underline" @click="reset">
-      <X :size="12" /> Azzera filtri
+      <X :size="12" /> {{ m.reset }}
     </button>
   </div>
 </template>

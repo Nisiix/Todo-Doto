@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { PRIORITIES, PRIORITY_LABEL, type Priority } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({ it: { priority: (p: string) => `Priorità: ${p}` }, en: { priority: (p: string) => `Priority: ${p}` } })
 
 defineProps<{ compact?: boolean }>()
 const model = defineModel<Priority>({ required: true })
@@ -12,7 +15,7 @@ const model = defineModel<Priority>({ required: true })
       v-model="model"
       class="h-6 cursor-default appearance-none rounded-full border border-line bg-surface pl-5 pr-2 text-[12px] font-medium text-ink-2 hover:border-line-strong hover:text-ink focus:border-accent focus:outline-none"
       :class="{ 'w-6 !pl-0 !pr-0 text-transparent': compact }"
-      :title="`Priorità: ${PRIORITY_LABEL[model]}`"
+      :title="m.priority(PRIORITY_LABEL[model])"
       @click.stop
     >
       <option v-for="p in PRIORITIES" :key="p" :value="p">{{ PRIORITY_LABEL[p] }}</option>

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import { X } from 'lucide-vue-next'
+import { common } from '@/i18n/common'
 
 withDefaults(
   defineProps<{
@@ -42,7 +43,7 @@ const widths = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-6xl
                 {{ description }}
               </DialogDescription>
             </div>
-            <DialogClose class="-mr-1 -mt-1 rounded-md p-1 text-ink-3 hover:bg-surface-2 hover:text-ink" aria-label="Chiudi">
+            <DialogClose class="-mr-1 -mt-1 rounded-md p-1 text-ink-3 hover:bg-surface-2 hover:text-ink" :aria-label="common.actions.close">
               <X :size="16" />
             </DialogClose>
           </div>

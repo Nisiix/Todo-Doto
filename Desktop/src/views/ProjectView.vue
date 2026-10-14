@@ -19,6 +19,61 @@ import { useUiStore } from '@/stores/ui'
 import { useConfirm } from '@/composables/useConfirm'
 import { BUCKET_LABEL, EMPTY_FILTER, type Bucket, type ItemFilter } from '@/types'
 import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
+import { DATE, defineMessages, plural } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    todo: 'Todo',
+    stack: 'Stack',
+    ai: 'Strumenti AI',
+    sections: 'Sezioni del progetto',
+    trashed: 'Progetto spostato nel cestino',
+    deleteMessage: (items: number, atts: number) => `${items} elementi e ${atts} allegati verranno eliminati per tutti. Non si può annullare.`,
+    emptyTrashTitle: 'Svuotare il cestino?',
+    emptyTrashMessage: (n: number) => `${n} ${plural(n, 'elemento verrà eliminato', 'elementi verranno eliminati')} definitivamente.`,
+    emptyTrash: 'Svuota cestino',
+    attachments: 'Allegati',
+    trashedBanner: (d: string) => `Questo progetto è nel cestino dal ${d}: è in sola lettura.`,
+    restore: 'Ripristina',
+    unfavorite: 'Togli dai preferiti',
+    favorite: 'Aggiungi ai preferiti',
+    settings: 'Impostazioni progetto',
+    trashProject: 'Sposta il progetto nel cestino',
+    containers: 'Contenitori',
+    newItemKey: 'Nuovo elemento (N)',
+    newItem: 'Nuovo elemento',
+    noMatch: 'Nessun elemento corrisponde ai filtri.',
+    emptyTodo: 'Lista vuota. Premi «Nuovo elemento» (o il tasto N) per aggiungere la prima cosa da fare.',
+    emptyDone: 'Ancora nessun elemento completato. Spunta il cerchio accanto a un elemento per portarlo qui.',
+    emptyTrashList: 'Il cestino è vuoto. Gli elementi cestinati restano qui finché non li elimini definitivamente.',
+  },
+  en: {
+    todo: 'To-do',
+    stack: 'Stack',
+    ai: 'AI tools',
+    sections: 'Project sections',
+    trashed: 'Project moved to trash',
+    deleteMessage: (items: number, atts: number) => `${items} items and ${atts} attachments will be deleted for everyone. This cannot be undone.`,
+    emptyTrashTitle: 'Empty the trash?',
+    emptyTrashMessage: (n: number) => `${n} ${plural(n, 'item', 'items')} will be permanently deleted.`,
+    emptyTrash: 'Empty trash',
+    attachments: 'Attachments',
+    trashedBanner: (d: string) => `This project has been in the trash since ${d}: it is read-only.`,
+    restore: 'Restore',
+    unfavorite: 'Remove from favorites',
+    favorite: 'Add to favorites',
+    settings: 'Project settings',
+    trashProject: 'Move the project to the trash',
+    containers: 'Lists',
+    newItemKey: 'New item (N)',
+    newItem: 'New item',
+    noMatch: 'No items match the filters.',
+    emptyTodo: 'Empty list. Press “New item” (or the N key) to add the first thing to do.',
+    emptyDone: 'No completed items yet. Tick the circle next to an item to bring it here.',
+    emptyTrashList: 'The trash is empty. Trashed items stay here until you delete them permanently.',
+  },
+})
 
 const props = defineProps<{ id: string; section?: string }>()
 const ws = useWorkspaceStore()
@@ -42,9 +97,9 @@ const trashed = computed(() => !!project.value?.trashedAt)
 // Sezioni del progetto (barra a sinistra): Todo, Stack, Strumenti AI
 type Section = 'todo' | 'stack' | 'ai'
 const SECTIONS: { id: Section; label: string; icon: unknown }[] = [
-  { id: 'todo', label: 'Todo', icon: ListChecks },
-  { id: 'stack', label: 'Stack', icon: Layers },
-  { id: 'ai', label: 'Strumenti AI', icon: Sparkles },
+  { id: 'todo', label: m.todo, icon: ListChecks },
+  { id: 'stack', label: m.stack, icon: Layers },
+  { id: 'ai', label: m.ai, icon: Sparkles },
 ]
 const section = computed<Section>(() => (props.section === 'stack' || props.section === 'ai' ? props.section : 'todo'))
 const goSection = (sct: Section) => router.push({ name: 'project', params: { id: props.id, section: sct === 'todo' ? '' : sct } })
@@ -105,14 +160,14 @@ function trashProject() {
   if (!project.value) return
   const id = project.value.id
   ws.trashProject(id)
-  ui.toast('Progetto spostato nel cestino', 'info', { label: 'Annulla', run: () => ws.restoreProject(id) })
+  ui.toast(m.trashed, 'info', { label: common.actions.undo, run: () => ws.restoreProject(id) })
 }
 async function deleteForever() {
   if (!project.value) return
   const ok = await confirm({
-    title: `Eliminare definitivamente «${project.value.name}»?`,
-    message: `${project.value.items.length} elementi e ${project.value.attachments.length} allegati verranno eliminati per tutti. Non si può annullare.`,
-    confirmLabel: 'Elimina per sempre',
+    title: common.item.deleteForeverTitle(project.value.name),
+    message: m.deleteMessage(project.value.items.length, project.value.attachments.length),
+    confirmLabel: common.item.deleteForeverConfirm,
     danger: true,
   })
   if (ok) {
@@ -122,7 +177,7 @@ async function deleteForever() {
 }
 async function emptyTrash() {
   if (!project.value) return
-  if (await confirm({ title: 'Svuotare il cestino?', message: `${counts.value.trash} elementi verranno eliminati definitivamente.`, confirmLabel: 'Svuota cestino', danger: true }))
+  if (await confirm({ title: m.emptyTrashTitle, message: m.emptyTrashMessage(counts.value.trash), confirmLabel: m.emptyTrash, danger: true }))
     await ws.emptyTrash(project.value.id)
 }
 // --- scorciatoie ----------------------------------------------------------------
@@ -147,7 +202,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 const tabs: { id: Tab; label: string }[] = [
   { id: 'todo', label: BUCKET_LABEL.todo },
   { id: 'done', label: BUCKET_LABEL.done },
-  { id: 'attachments', label: 'Allegati' },
+  { id: 'attachments', label: m.attachments },
   { id: 'trash', label: BUCKET_LABEL.trash },
 ]
 </script>
@@ -155,7 +210,7 @@ const tabs: { id: Tab; label: string }[] = [
 <template>
   <template v-if="project">
     <!-- Sezioni del progetto -->
-    <nav class="flex w-40 shrink-0 flex-col gap-0.5 border-r border-line bg-surface px-2 pt-6" aria-label="Sezioni del progetto">
+    <nav class="flex w-40 shrink-0 flex-col gap-0.5 border-r border-line bg-surface px-2 pt-6" :aria-label="m.sections">
       <button
         v-for="sct in SECTIONS"
         :key="sct.id"
@@ -175,9 +230,9 @@ const tabs: { id: Tab; label: string }[] = [
       <header class="shrink-0 px-8 pt-6">
         <div v-if="trashed" class="mb-3 flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2">
           <Lock :size="14" class="shrink-0" />
-          <span class="flex-1">Questo progetto è nel cestino dal {{ dayjs(project.trashedAt).format('D MMM YYYY') }}: è in sola lettura.</span>
-          <BaseButton size="sm" variant="soft" @click="ws.restoreProject(project.id)"><RotateCcw :size="13" /> Ripristina</BaseButton>
-          <BaseButton v-if="ws.canPurge" size="sm" variant="ghost" class="text-danger" @click="deleteForever"><X :size="13" /> Elimina definitivamente</BaseButton>
+          <span class="flex-1">{{ m.trashedBanner(dayjs(project.trashedAt).format(DATE.date)) }}</span>
+          <BaseButton size="sm" variant="soft" @click="ws.restoreProject(project.id)"><RotateCcw :size="13" /> {{ m.restore }}</BaseButton>
+          <BaseButton v-if="ws.canPurge" size="sm" variant="ghost" class="text-danger" @click="deleteForever"><X :size="13" /> {{ common.item.deleteForever }}</BaseButton>
         </div>
         <div class="flex items-start gap-3">
           <div class="min-w-0 flex-1">
@@ -192,7 +247,7 @@ const tabs: { id: Tab; label: string }[] = [
                 v-if="!trashed"
                 class="rounded-md p-1 transition-colors"
                 :class="favorite ? 'text-p-media' : 'text-ink-3 hover:text-p-media'"
-                :title="favorite ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'"
+                :title="favorite ? m.unfavorite : m.favorite"
                 :aria-pressed="favorite"
                 @click="ws.toggleFavorite(project.id)"
               >
@@ -202,9 +257,9 @@ const tabs: { id: Tab; label: string }[] = [
             <p v-if="project.description" class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">{{ project.description }}</p>
           </div>
           <div v-if="!trashed" class="flex shrink-0 items-center gap-1">
-            <BaseButton size="icon" variant="ghost" title="Impostazioni progetto" aria-label="Impostazioni progetto" @click="showEdit = true"><Settings2 :size="18" /></BaseButton>
-            <BaseButton size="sm" variant="ghost" class="text-danger" :disabled="!ws.isAdmin" title="Sposta il progetto nel cestino" @click="trashProject">
-              <Trash2 :size="14" /> Sposta nel cestino
+            <BaseButton size="icon" variant="ghost" :title="m.settings" :aria-label="m.settings" @click="showEdit = true"><Settings2 :size="18" /></BaseButton>
+            <BaseButton size="sm" variant="ghost" class="text-danger" :disabled="!ws.isAdmin" :title="m.trashProject" @click="trashProject">
+              <Trash2 :size="14" /> {{ common.item.moveToTrash }}
             </BaseButton>
           </div>
         </div>
@@ -213,7 +268,7 @@ const tabs: { id: Tab; label: string }[] = [
           <FilterBar v-model="filter" />
         </div>
 
-        <nav v-if="section === 'todo'" class="mt-3 flex items-end gap-1 border-b border-line" aria-label="Contenitori">
+        <nav v-if="section === 'todo'" class="mt-3 flex items-end gap-1 border-b border-line" :aria-label="m.containers">
           <button
             v-for="t in tabs"
             :key="t.id"
@@ -227,11 +282,11 @@ const tabs: { id: Tab; label: string }[] = [
               {{ t.id === 'attachments' ? project.attachments.length || '' : counts[t.id] || '' }}
             </span>
           </button>
-          <BaseButton v-if="tab === 'todo' && !trashed" size="sm" variant="primary" class="mb-1 ml-auto" title="Nuovo elemento (N)" @click="showNewItem = true">
-            <Plus :size="14" /> Nuovo elemento
+          <BaseButton v-if="tab === 'todo' && !trashed" size="sm" variant="primary" class="mb-1 ml-auto" :title="m.newItemKey" @click="showNewItem = true">
+            <Plus :size="14" /> {{ m.newItem }}
           </BaseButton>
           <BaseButton v-if="tab === 'trash' && counts.trash && !trashed && ws.canPurge" size="sm" variant="ghost" class="mb-1 ml-auto text-danger" @click="emptyTrash">
-            <Trash2 :size="13" /> Svuota cestino
+            <Trash2 :size="13" /> {{ m.emptyTrash }}
           </BaseButton>
         </nav>
       </header>
@@ -248,10 +303,10 @@ const tabs: { id: Tab; label: string }[] = [
             </TransitionGroup>
           </div>
           <p v-if="!items.length" class="mt-6 max-w-md text-[13.5px] leading-relaxed text-ink-3">
-            <template v-if="filterActive">Nessun elemento corrisponde ai filtri.</template>
-            <template v-else-if="tab === 'todo'">Lista vuota. Premi «Nuovo elemento» (o il tasto N) per aggiungere la prima cosa da fare.</template>
-            <template v-else-if="tab === 'done'">Ancora nessun elemento completato. Spunta il cerchio accanto a un elemento per portarlo qui.</template>
-            <template v-else>Il cestino è vuoto. Gli elementi cestinati restano qui finché non li elimini definitivamente.</template>
+            <template v-if="filterActive">{{ m.noMatch }}</template>
+            <template v-else-if="tab === 'todo'">{{ m.emptyTodo }}</template>
+            <template v-else-if="tab === 'done'">{{ m.emptyDone }}</template>
+            <template v-else>{{ m.emptyTrashList }}</template>
           </p>
         </template>
       </div>

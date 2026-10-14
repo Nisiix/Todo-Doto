@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy policy — Project Goal Manager</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html?lang=en">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Project Goal Manager
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="index.html?lang=en#funzionalita">Features</a>
+        <a href="index.html?lang=en#download">Download</a>
+        <div class="lang" role="group" aria-label="Language">
+          <a href="privacy.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="privacy-policy.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
+        <button class="theme" type="button" aria-label="Toggle light/dark theme" title="Theme (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow">
+      <h1>Privacy policy</h1>
+      <p class="upd">Last updated: October 14, 2026</p>
+
+      <p>This policy explains which data <b>Project Goal Manager</b> (the desktop application) and this website process, and how. The short answer: <b>the application sends your data to no one</b>; everything stays on your computer or in the shared folder you choose.</p>
+
+      <h2>1. Controller</h2>
+      <p>The data controller is the author of the Application, who can be contacted through the GitHub repository indicated on the website.</p>
+
+      <h2>2. The desktop application</h2>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.1 Data you enter</h2>
+      <p>Projects, items, descriptions, questions, comments, attachments (as references to files or links), labels, project stack, workspace members and the activity log are saved as JSON files in the workspace folder. They are not transmitted to us or to any external service. In a network workspace they are accessible to the people who have access to that folder.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.2 Local identity</h2>
+      <p>To attribute changes, the Application reads the user name and computer name from the operating system and saves them in the workspace users file, together with the display name you choose. It does not collect e-mail addresses, phone numbers or other identifiers.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.3 Workspace password</h2>
+      <p>The password of a network workspace is stored in the workspace only as a hash (PBKDF2-SHA256 with a random salt). On your computer it is stored encrypted (AES-GCM) with a key derived from your local identity, so you do not have to enter it at every start. You can delete it by closing the workspace or deleting the local configuration files.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.4 Local data</h2>
+      <p>In the user data folder (<code>%APPDATA%\com.nisos.projectgoalmanager</code>) the Application keeps: theme, list of recent workspaces, favorites, notification preferences, encrypted passwords and, if you use Google Drive, the encrypted OAuth credentials. Notifications you receive stay in the Application’s local storage. Project folders you create with “Create project folder” are written only where you choose. You can delete everything by removing that folder.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.5 Google Drive (optional)</h2>
+      <p>If you connect a Google account, the Application talks directly to Google’s APIs from your computer, with your consent and with read-only permission (<code>drive.readonly</code>). Only the structure of the synced folder (names, identifiers, types and links of the files) is saved in the shared workspace, visible to the other members; the content of the documents is downloaded only when you open it and is not saved in the workspace. The access token stays encrypted on your computer. Google’s processing is described in Google’s privacy policy.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.6 No telemetry</h2>
+      <p>The Application contains no analytics, tracking or automatic error reporting tools and does not contact any server of ours. The only network connections are those to Google that you enable with the Drive feature.</p>
+
+      <h2>3. This website</h2>
+      <p>The website is made of static pages. It uses no profiling cookies or analytics tools. The light/dark theme and language preferences are saved in your browser (localStorage) and are not transmitted. Fonts are loaded from Google Fonts: in doing so, your browser sends your IP address to Google, according to Google’s policy. The download section may query the public GitHub API to find the latest release. The server hosting the website and any download server may record the IP address, date and time and requested page in technical logs, for security and maintenance, for the time strictly necessary.</p>
+
+      <h2>4. Legal basis and retention</h2>
+      <p>For the website, the processing of technical logs is based on the legitimate interest in ensuring its security and operation; logs are kept for a limited period. For the Application, data are processed exclusively on your devices and under your control: you decide where they are, who accesses them and how long to keep them.</p>
+
+      <h2>5. Your rights</h2>
+      <p>You have the right to access your data, rectify it, erase it, restrict its processing and object, as well as to lodge a complaint with the Italian Data Protection Authority (Garante per la protezione dei dati personali). For the Application’s data you can exercise these rights directly, because the files are yours; for the website logs you can contact us through the GitHub repository.</p>
+
+      <h2>6. Children</h2>
+      <p>The Application and the website are not intended for children under 14 and do not knowingly collect data about them.</p>
+
+      <h2>7. Changes</h2>
+      <p>We will update this policy if the features of the Application or of the website change; the date at the top shows the latest version. The Italian version of this policy is the authoritative one.</p>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Project Goal Manager</span>
+      <nav class="foot__links" aria-label="Legal">
+        <a href="terms.html">Terms of use</a>
+        <a href="privacy-policy.html">Privacy</a>
+        <a href="conditions.html">Conditions of use</a>
+        <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

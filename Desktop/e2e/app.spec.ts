@@ -114,7 +114,7 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
 
 test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ page }) => {
   await createLocalWorkspace(page)
-  await createProject(page, 'Bilancio Europeo Web')
+  await createProject(page, 'Progetto di test')
 
   // Inserimento tramite dialog: titolo + descrizione su più righe
   await newItemButton(page).click()
@@ -349,4 +349,45 @@ test('sezioni del progetto: Stack con procedura guidata, Strumenti AI; Analisi p
   await expect(page.getByRole('heading', { name: 'Analisi' })).toBeVisible()
   await expect(page.getByText('Carico per utente')).toBeVisible()
   await expect(page.getByRole('main').getByText('Stack test')).toBeVisible()
+})
+
+test('stack come modello: nuovo progetto con lo stack copiato e cartella del progetto', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Modello web')
+  await page.getByRole('button', { name: 'Stack' }).click()
+  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').fill('Clona il repository')
+  await page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)').fill('git clone https://example.com/modello-web.git')
+  await page.getByRole('button', { name: 'File', exact: true }).click()
+  await page.getByPlaceholder('Percorso, es. package.json o src/main.ts').fill('package.json')
+  await page.getByPlaceholder('Contenuto del file').fill('{ "name": "{{slug}}" }')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText('Stack salvato')).toBeVisible()
+
+  // Nuovo progetto da questo stack: si chiede solo il nome, lo stack è preselezionato
+  await page.getByRole('button', { name: 'Nuovo progetto con questo stack' }).click()
+  await expect(page.locator('#p-stack')).toHaveValue(/.+/)
+  await page.fill('#p-name', 'Nuovo portale')
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'Nuovo portale' })).toBeVisible()
+  await expect(page.getByText('git clone https://example.com/nuovo-portale.git')).toBeVisible()
+  await expect(page.getByText('package.json', { exact: true })).toBeVisible()
+
+  // Cartella del progetto: README, script e file iniziali; diventa la cartella del progetto
+  await page.getByRole('button', { name: 'Crea cartella del progetto' }).first().click()
+  await expect(dialog(page)).toContainText('README.md, setup-nuovo-portale.cmd, package.json')
+  await dialog(page).getByRole('button', { name: 'Crea cartella' }).click()
+  await expect(page.getByText(/Cartella del progetto creata \(3 file\)/)).toBeVisible()
+  await expect(page.locator('code', { hasText: /nuovo-portale$/ })).toBeVisible()
+
+  // Importazione dello stack in un progetto esistente, durante la modifica
+  await createProject(page, 'Altro')
+  await page.getByRole('button', { name: 'Stack' }).click()
+  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await page.getByRole('button', { name: 'Importa da…' }).click()
+  await page.getByRole('menuitem', { name: 'Modello web' }).click()
+  await expect(page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)')).toHaveValue('git clone https://example.com/altro.git')
 })

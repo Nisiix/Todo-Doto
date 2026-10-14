@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import { common } from '@/i18n/common'
 
 /** Dialog generico per chiedere un nome (cartelle, cartelle allegati…). */
 const props = withDefaults(
@@ -14,7 +15,7 @@ const props = withDefaults(
     withColor?: boolean
     initialColor?: string
   }>(),
-  { initial: '', placeholder: 'Nome', confirmLabel: 'Salva', withColor: false, initialColor: '#4FB3E8' },
+  { initial: '', placeholder: common.name, confirmLabel: common.actions.save, withColor: false, initialColor: '#4FB3E8' },
 )
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ submit: [name: string, color: string] }>()
@@ -55,7 +56,7 @@ function submit() {
       </div>
     </form>
     <template #footer>
-      <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
+      <BaseButton variant="ghost" @click="open = false">{{ common.actions.cancel }}</BaseButton>
       <BaseButton variant="primary" :disabled="!name.trim()" @click="submit">{{ confirmLabel }}</BaseButton>
     </template>
   </BaseDialog>

@@ -12,6 +12,7 @@
  * Tauri, window.fetch altrove) e il ricevitore OAuth.
  */
 import { DRIVE_FOLDER_MIME, type DriveNode } from '@/types'
+import { common } from '@/i18n/common'
 
 export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -114,7 +115,7 @@ export class DriveClient {
       body: body.toString(),
     })
     const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
-    if (!res.ok) throw new DriveError(String(json.error_description ?? json.error ?? `Google ha risposto ${res.status}`), res.status)
+    if (!res.ok) throw new DriveError(String(json.error_description ?? json.error ?? common.drive.googleError(res.status)), res.status)
     return {
       accessToken: String(json.access_token),
       refreshToken: typeof json.refresh_token === 'string' ? json.refresh_token : (this.tokens?.refreshToken ?? null),
@@ -129,9 +130,9 @@ export class DriveClient {
   }
 
   private async accessToken(): Promise<string> {
-    if (!this.tokens) throw new DriveError('Account Google non collegato.', 401)
+    if (!this.tokens) throw new DriveError(common.drive.notLinked, 401)
     if (Date.now() < this.tokens.expiresAt) return this.tokens.accessToken
-    if (!this.tokens.refreshToken) throw new DriveError('Sessione Google scaduta: collega di nuovo l’account.', 401)
+    if (!this.tokens.refreshToken) throw new DriveError(common.drive.sessionExpired, 401)
     this.tokens = await this.tokenRequest({ refresh_token: this.tokens.refreshToken, grant_type: 'refresh_token' })
     await this.onTokens(this.tokens)
     return this.tokens.accessToken
@@ -152,10 +153,10 @@ export class DriveClient {
   private async api(path: string, init?: RequestInit): Promise<Response> {
     const token = await this.accessToken()
     const res = await this.fetchFn(`${API}${path}`, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${token}` } })
-    if (res.status === 401) throw new DriveError('Accesso a Google non più valido: collega di nuovo l’account.', 401)
-    if (res.status === 403) throw new DriveError('Google ha negato l’accesso a questo elemento.', 403)
-    if (res.status === 404) throw new DriveError('Elemento non trovato su Google Drive (cancellato o non condiviso con te).', 404)
-    if (!res.ok) throw new DriveError(`Google Drive ha risposto ${res.status}.`, res.status)
+    if (res.status === 401) throw new DriveError(common.drive.accessInvalid, 401)
+    if (res.status === 403) throw new DriveError(common.drive.forbidden, 403)
+    if (res.status === 404) throw new DriveError(common.drive.notFound, 404)
+    if (!res.ok) throw new DriveError(common.drive.httpError(res.status), res.status)
     return res
   }
 
@@ -226,7 +227,7 @@ export class DriveClient {
       const res = await this.api(`/files/${encodeURIComponent(node.id)}/export?mimeType=${encodeURIComponent(exp.mime)}`)
       return { bytes: new Uint8Array(await res.arrayBuffer()), name: `${node.name}.${exp.ext}`, mime: exp.mime }
     }
-    if (isGoogleNative(node.mimeType)) throw new DriveError('Questo tipo di documento Google non ha un’anteprima: aprilo su Drive.')
+    if (isGoogleNative(node.mimeType)) throw new DriveError(common.drive.noPreview)
     const res = await this.api(`/files/${encodeURIComponent(node.id)}?alt=media&supportsAllDrives=true`)
     return { bytes: new Uint8Array(await res.arrayBuffer()), name: node.name, mime: node.mimeType }
   }

@@ -1,14 +1,18 @@
 @echo off
 rem ---------------------------------------------------------------------------
 rem Build dell'eseguibile Windows: controlla i prerequisiti, npm install,
-rem npm run tauri build. Tutto l'output va in build.log nella radice del progetto.
-rem Uso: doppio click, oppure da terminale:  scripts\build-windows.cmd
+rem npm run tauri:build:<lingua>. Tutto l'output va in build.log nella radice del progetto.
+rem Uso: doppio click, oppure da terminale:  scripts\build-windows.cmd [it|en]
+rem (lingua dell'app, predefinita: it)
 rem ---------------------------------------------------------------------------
 setlocal
+set "APP_LANG=%~1"
+if "%APP_LANG%"=="" set "APP_LANG=it"
 cd /d "%~dp0.."
 set "LOG=%CD%\build.log"
 echo [%date% %time%] Avvio build in %CD% > "%LOG%"
 echo STATUS=RUNNING >> "%LOG%"
+echo Lingua dell'app: %APP_LANG% >> "%LOG%"
 
 echo === Prerequisiti === >> "%LOG%"
 where node >> "%LOG%" 2>&1
@@ -32,9 +36,9 @@ if errorlevel 1 (
   goto fail
 )
 
-echo === npm run tauri build === >> "%LOG%"
+echo === npm run tauri:build:%APP_LANG% === >> "%LOG%"
 echo [%time%] build... >> "%LOG%"
-call npm run tauri build >> "%LOG%" 2>&1
+call npm run tauri:build:%APP_LANG% >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo ERRORE: build non riuscita >> "%LOG%"
   goto fail

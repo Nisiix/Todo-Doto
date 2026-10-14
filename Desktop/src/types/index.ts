@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { common } from '@/i18n/common'
 
 // ---------------------------------------------------------------------------
 // Enumerazioni
@@ -6,33 +7,20 @@ import { z } from 'zod'
 
 export const PRIORITIES = ['bassa', 'media', 'alta', 'immediata'] as const
 export type Priority = (typeof PRIORITIES)[number]
-export const PRIORITY_LABEL: Record<Priority, string> = {
-  bassa: 'Bassa',
-  media: 'Media',
-  alta: 'Alta',
-  immediata: 'Immediata',
-}
+export const PRIORITY_LABEL: Record<Priority, string> = common.priority
 export const PRIORITY_RANK: Record<Priority, number> = { immediata: 0, alta: 1, media: 2, bassa: 3 }
 
 export const STATUSES = ['da_valutare', 'da_definire', 'confermato'] as const
 export type Status = (typeof STATUSES)[number]
-export const STATUS_LABEL: Record<Status, string> = {
-  da_valutare: 'Da valutare',
-  da_definire: 'Da definire',
-  confermato: 'Confermato',
-}
+export const STATUS_LABEL: Record<Status, string> = common.status
 
 export const BUCKETS = ['todo', 'done', 'trash'] as const
 export type Bucket = (typeof BUCKETS)[number]
-export const BUCKET_LABEL: Record<Bucket, string> = {
-  todo: 'Da fare',
-  done: 'Completati',
-  trash: 'Cestino',
-}
+export const BUCKET_LABEL: Record<Bucket, string> = common.bucket
 
 export const ROLES = ['admin', 'cleaner', 'member'] as const
 export type Role = (typeof ROLES)[number]
-export const ROLE_LABEL: Record<Role, string> = { admin: 'Amministratore', cleaner: 'Cleaner', member: 'Membro' }
+export const ROLE_LABEL: Record<Role, string> = common.role
 export type WorkspaceMode = 'local' | 'network'
 
 // ---------------------------------------------------------------------------
@@ -168,13 +156,7 @@ export type Attachment = z.infer<typeof AttachmentSchema>
 
 export const PLATFORMS = ['web', 'desktop', 'mobile', 'backend', 'altro'] as const
 export type Platform = (typeof PLATFORMS)[number]
-export const PLATFORM_LABEL: Record<Platform, string> = {
-  web: 'Web',
-  desktop: 'Desktop',
-  mobile: 'Mobile',
-  backend: 'Backend / servizi',
-  altro: 'Altro',
-}
+export const PLATFORM_LABEL: Record<Platform, string> = common.platform
 
 export const PrerequisiteSchema = z.object({
   id: z.string(),
@@ -187,7 +169,7 @@ export type Prerequisite = z.infer<typeof PrerequisiteSchema>
 
 export const SETUP_STEP_KINDS = ['command', 'manual', 'link'] as const
 export type SetupStepKind = (typeof SETUP_STEP_KINDS)[number]
-export const SETUP_STEP_LABEL: Record<SetupStepKind, string> = { command: 'Comando', manual: 'Operazione manuale', link: 'Apri link' }
+export const SETUP_STEP_LABEL: Record<SetupStepKind, string> = common.setupStep
 
 export const SetupStepSchema = z.object({
   id: z.string(),
@@ -203,6 +185,14 @@ export type SetupStep = z.infer<typeof SetupStepSchema>
 export const EnvVarSchema = z.object({ key: z.string(), example: z.string().default(''), notes: z.string().default('') })
 export type EnvVar = z.infer<typeof EnvVarSchema>
 
+/**
+ * File iniziale da creare nella cartella di un nuovo progetto (es. package.json,
+ * .gitignore). Percorso relativo alla cartella; percorso e contenuto possono
+ * usare i segnaposto {{name}} (nome del progetto) e {{slug}} (nome per cartelle e URL).
+ */
+export const TemplateFileSchema = z.object({ id: z.string(), path: z.string(), content: z.string().default('') })
+export type TemplateFile = z.infer<typeof TemplateFileSchema>
+
 export const StackSchema = z.object({
   platforms: z.array(z.enum(PLATFORMS)).default([]),
   languages: z.array(z.string()).default([]),
@@ -213,13 +203,14 @@ export const StackSchema = z.object({
   prerequisites: z.array(PrerequisiteSchema).default([]),
   steps: z.array(SetupStepSchema).default([]),
   envVars: z.array(EnvVarSchema).default([]),
+  files: z.array(TemplateFileSchema).default([]), // file iniziali per creare la cartella del progetto
 })
 export type Stack = z.infer<typeof StackSchema>
-export const EMPTY_STACK: Stack = { platforms: [], languages: [], frameworks: [], repoUrl: '', sourcePath: '', notes: '', prerequisites: [], steps: [], envVars: [] }
+export const EMPTY_STACK: Stack = { platforms: [], languages: [], frameworks: [], repoUrl: '', sourcePath: '', notes: '', prerequisites: [], steps: [], envVars: [], files: [] }
 
 export const AI_TOOL_KINDS = ['connector', 'plugin', 'skill'] as const
 export type AiToolKind = (typeof AI_TOOL_KINDS)[number]
-export const AI_TOOL_LABEL: Record<AiToolKind, string> = { connector: 'Connettore', plugin: 'Plugin', skill: 'Skill' }
+export const AI_TOOL_LABEL: Record<AiToolKind, string> = common.aiTool
 
 export const AiToolSchema = z.object({
   id: z.string(),
@@ -276,19 +267,7 @@ export const AUDIT_ACTIONS = [
   'project_deleted',
 ] as const
 export type AuditAction = (typeof AUDIT_ACTIONS)[number]
-export const AUDIT_LABEL: Record<AuditAction, string> = {
-  item_created: 'Elemento creato',
-  item_completed: 'Completato',
-  item_reopened: 'Riaperto',
-  item_trashed: 'Spostato nel cestino',
-  item_restored: 'Ripristinato dal cestino',
-  item_deleted: 'Eliminato definitivamente',
-  trash_emptied: 'Cestino svuotato',
-  project_created: 'Progetto creato',
-  project_trashed: 'Progetto nel cestino',
-  project_restored: 'Progetto ripristinato',
-  project_deleted: 'Progetto eliminato definitivamente',
-}
+export const AUDIT_LABEL: Record<AuditAction, string> = common.audit
 
 export const AuditEntrySchema = z.object({
   id: z.string(),
@@ -323,18 +302,7 @@ export const NOTIFICATION_TYPES = [
   'assigned',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
-export const NOTIFICATION_LABEL: Record<NotificationType, string> = {
-  item_created: 'Nuovo elemento',
-  item_status: 'Cambio di stato (da valutare, da definire, confermato)',
-  item_completed: 'Elemento completato o riaperto',
-  item_trashed: 'Elemento spostato nel cestino o ripristinato',
-  item_notes: 'Descrizione modificata',
-  question: 'Nuova domanda',
-  answer: 'Nuova risposta',
-  comment: 'Nuovo commento',
-  mention: 'Qualcuno mi tagga con @',
-  assigned: 'Un elemento viene assegnato a me',
-}
+export const NOTIFICATION_LABEL: Record<NotificationType, string> = common.notification
 
 export interface Notification {
   id: string

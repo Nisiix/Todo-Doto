@@ -13,6 +13,65 @@ import NameDialog from '@/components/dialogs/NameDialog.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useConfirm } from '@/composables/useConfirm'
 import type { Folder, Project } from '@/types'
+import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    deleteFolderTitle: (n: string) => `Eliminare la cartella «${n}»?`,
+    deleteFolderMessage: (inside: number) =>
+      'Verranno eliminate anche tutte le sottocartelle. ' +
+      (inside ? `${inside === 1 ? 'Il progetto contenuto finisce' : `I ${inside} progetti contenuti finiscono`} nel Cestino, da dove puoi ripristinarli.` : 'Non contiene progetti.'),
+    deleteFolder: 'Elimina cartella',
+    deleteProjectMessage: (items: number, atts: number) => `${items} elementi e ${atts} allegati verranno eliminati per tutti. Non si può annullare.`,
+    emptyTrashTitle: 'Svuotare il cestino dei progetti?',
+    emptyTrashMessage: (n: number) =>
+      `${n} ${n === 1 ? 'progetto verrà eliminato' : 'progetti verranno eliminati'} definitivamente, con tutti gli elementi e gli allegati. Non si può annullare.`,
+    emptyTrash: 'Svuota cestino',
+    emptyTrashHint: 'Svuota il cestino: elimina definitivamente tutti i progetti cestinati',
+    restore: 'Ripristina',
+    project: 'Progetto',
+    newFolder: 'Nuova cartella',
+    renameFolder: 'Rinomina cartella',
+    createFolder: 'Crea cartella',
+    folderName: 'Nome cartella',
+    favorites: 'Preferiti',
+    favoritesEmpty: 'Segna un progetto con la stella per trovarlo qui.',
+    recent: 'Recenti',
+    projects: 'Progetti',
+    projectsEmpty: 'Nessun progetto. Creane uno con il pulsante qui sopra.',
+    trash: 'Cestino',
+    trashedActions: 'Azioni progetto cestinato',
+    empty: 'Vuoto.',
+  },
+  en: {
+    deleteFolderTitle: (n: string) => `Delete the folder “${n}”?`,
+    deleteFolderMessage: (inside: number) =>
+      'All its subfolders will be deleted too. ' +
+      (inside ? `${inside === 1 ? 'The project inside goes' : `The ${inside} projects inside go`} to the Trash, where you can restore them.` : 'It contains no projects.'),
+    deleteFolder: 'Delete folder',
+    deleteProjectMessage: (items: number, atts: number) => `${items} items and ${atts} attachments will be deleted for everyone. This cannot be undone.`,
+    emptyTrashTitle: 'Empty the projects trash?',
+    emptyTrashMessage: (n: number) =>
+      `${n} ${n === 1 ? 'project will be' : 'projects will be'} permanently deleted, with all their items and attachments. This cannot be undone.`,
+    emptyTrash: 'Empty trash',
+    emptyTrashHint: 'Empty the trash: permanently delete every trashed project',
+    restore: 'Restore',
+    project: 'Project',
+    newFolder: 'New folder',
+    renameFolder: 'Rename folder',
+    createFolder: 'Create folder',
+    folderName: 'Folder name',
+    favorites: 'Favorites',
+    favoritesEmpty: 'Star a project to find it here.',
+    recent: 'Recent',
+    projects: 'Projects',
+    projectsEmpty: 'No projects. Create one with the button above.',
+    trash: 'Trash',
+    trashedActions: 'Trashed project actions',
+    empty: 'Empty.',
+  },
+})
 
 const ws = useWorkspaceStore()
 const confirm = useConfirm()
@@ -58,11 +117,9 @@ function submitFolder(name: string) {
 async function removeFolder(f: Folder) {
   const inside = ws.projectsInFolderTree(f.id).length
   const ok = await confirm({
-    title: `Eliminare la cartella «${f.name}»?`,
-    message:
-      `Verranno eliminate anche tutte le sottocartelle. ` +
-      (inside ? `I ${inside} progetti contenuti finiscono nel Cestino, da dove puoi ripristinarli.` : 'Non contiene progetti.'),
-    confirmLabel: 'Elimina cartella',
+    title: m.deleteFolderTitle(f.name),
+    message: m.deleteFolderMessage(inside),
+    confirmLabel: m.deleteFolder,
     danger: true,
   })
   if (ok) await ws.deleteFolder(f.id)
@@ -74,9 +131,9 @@ const leaveIfOpen = (id: string) => {
 }
 async function deleteForever(p: Project) {
   const ok = await confirm({
-    title: `Eliminare definitivamente «${p.name}»?`,
-    message: `${p.items.length} elementi e ${p.attachments.length} allegati verranno eliminati per tutti. Non si può annullare.`,
-    confirmLabel: 'Elimina per sempre',
+    title: common.item.deleteForeverTitle(p.name),
+    message: m.deleteProjectMessage(p.items.length, p.attachments.length),
+    confirmLabel: common.item.deleteForeverConfirm,
     danger: true,
   })
   if (ok) {
@@ -87,9 +144,9 @@ async function deleteForever(p: Project) {
 async function emptyTrash() {
   const n = ws.trashedProjects.length
   const ok = await confirm({
-    title: 'Svuotare il cestino dei progetti?',
-    message: `${n} ${n === 1 ? 'progetto verrà eliminato' : 'progetti verranno eliminati'} definitivamente, con tutti gli elementi e gli allegati. Non si può annullare.`,
-    confirmLabel: 'Svuota cestino',
+    title: m.emptyTrashTitle,
+    message: m.emptyTrashMessage(n),
+    confirmLabel: m.emptyTrash,
     danger: true,
   })
   if (ok) {
@@ -98,31 +155,31 @@ async function emptyTrash() {
   }
 }
 const trashMenu = (p: Project) => [
-  { label: 'Ripristina', icon: RotateCcw, onSelect: () => ws.restoreProject(p.id) },
-  ...(ws.canPurge ? [{ label: 'Elimina definitivamente', icon: X, danger: true, onSelect: () => deleteForever(p) }] : []),
+  { label: m.restore, icon: RotateCcw, onSelect: () => ws.restoreProject(p.id) },
+  ...(ws.canPurge ? [{ label: common.item.deleteForever, icon: X, danger: true, onSelect: () => deleteForever(p) }] : []),
 ]
 </script>
 
 <template>
   <aside class="flex h-full w-64 shrink-0 flex-col border-r border-line bg-surface">
     <div class="flex items-center gap-1 px-3 pt-3">
-      <BaseButton variant="primary" size="sm" class="flex-1" @click="newProject(null)"><Plus :size="14" /> Progetto</BaseButton>
-      <BaseButton size="icon-sm" title="Nuova cartella" @click="newFolder(null)"><FolderPlus :size="14" /></BaseButton>
+      <BaseButton variant="primary" size="sm" class="flex-1" @click="newProject(null)"><Plus :size="14" /> {{ m.project }}</BaseButton>
+      <BaseButton size="icon-sm" :title="m.newFolder" @click="newFolder(null)"><FolderPlus :size="14" /></BaseButton>
     </div>
 
     <div class="flex-1 overflow-y-auto px-2 pb-4 pt-3">
       <!-- Preferiti -->
       <section class="mb-4">
-        <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">Preferiti</h2>
+        <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">{{ m.favorites }}</h2>
         <ul v-if="ws.favoriteProjects.length">
           <ProjectLink v-for="p in ws.favoriteProjects" :key="p.id" :project="p" :depth="-1" />
         </ul>
-        <p v-else class="px-1 text-[12px] text-ink-3">Segna un progetto con la stella per trovarlo qui.</p>
+        <p v-else class="px-1 text-[12px] text-ink-3">{{ m.favoritesEmpty }}</p>
       </section>
 
       <!-- Recenti: utile solo quando i progetti sono tanti, altrimenti è rumore -->
       <section v-if="ws.visibleProjects.length >= RECENT_MIN_PROJECTS" class="mb-4">
-        <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">Recenti</h2>
+        <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">{{ m.recent }}</h2>
         <ul>
           <ProjectLink v-for="p in ws.recentProjects" :key="p.id" :project="p" :depth="-1" :hint="dayjs(p.updatedAt).fromNow(true)" />
         </ul>
@@ -130,7 +187,7 @@ const trashMenu = (p: Project) => [
 
       <!-- Progetti -->
       <section class="mb-4">
-        <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">Progetti</h2>
+        <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">{{ m.projects }}</h2>
         <ul v-if="rootFolders.length || rootProjects.length">
           <FolderNode
             v-for="f in rootFolders"
@@ -146,7 +203,7 @@ const trashMenu = (p: Project) => [
           <ProjectLink v-for="p in rootProjects" :key="p.id" :project="p" :depth="-1" />
         </ul>
         <p v-else class="px-1 text-[12.5px] leading-relaxed text-ink-3">
-          Nessun progetto. Creane uno con il pulsante qui sopra.
+          {{ m.projectsEmpty }}
         </p>
       </section>
 
@@ -154,13 +211,13 @@ const trashMenu = (p: Project) => [
       <section>
         <div class="mb-1 flex items-center justify-between px-1">
           <h2 class="text-[11.5px] font-semibold text-ink-3">
-            Cestino <span class="tabular-nums">{{ ws.trashedProjects.length || '' }}</span>
+            {{ m.trash }} <span class="tabular-nums">{{ ws.trashedProjects.length || '' }}</span>
           </h2>
           <button
             v-if="ws.trashedProjects.length && ws.canPurge"
             class="rounded-md p-1 text-ink-3 hover:bg-danger/10 hover:text-danger"
-            title="Svuota il cestino: elimina definitivamente tutti i progetti cestinati"
-            aria-label="Svuota cestino"
+            :title="m.emptyTrashHint"
+            :aria-label="m.emptyTrash"
             @click="emptyTrash"
           >
             <Trash2 :size="14" />
@@ -173,21 +230,21 @@ const trashMenu = (p: Project) => [
             </RouterLink>
             <span class="text-[11px] text-ink-3">{{ dayjs(p.trashedAt).fromNow(true) }}</span>
             <BaseMenu :items="trashMenu(p)">
-              <MenuTriggerButton label="Azioni progetto cestinato" :size="14" class="!p-0.5" />
+              <MenuTriggerButton :label="m.trashedActions" :size="14" class="!p-0.5" />
             </BaseMenu>
           </li>
         </ul>
-        <p v-else class="px-1 text-[12px] text-ink-3">Vuoto.</p>
+        <p v-else class="px-1 text-[12px] text-ink-3">{{ m.empty }}</p>
       </section>
     </div>
 
     <ProjectDialog v-model:open="showProject" :default-folder-id="projectDefaultFolder" />
     <NameDialog
       v-model:open="showFolder"
-      :title="folderEditing ? 'Rinomina cartella' : 'Nuova cartella'"
+      :title="folderEditing ? m.renameFolder : m.newFolder"
       :initial="folderEditing?.name ?? ''"
-      placeholder="Nome cartella"
-      :confirm-label="folderEditing ? 'Rinomina' : 'Crea cartella'"
+      :placeholder="m.folderName"
+      :confirm-label="folderEditing ? common.actions.rename : m.createFolder"
       @submit="submitFolder"
     />
   </aside>

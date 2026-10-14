@@ -9,3 +9,4 @@ src-tauri/gen/schemas
 !.vscode/extensions.json
 test-results
 playwright-report
+dist-screens

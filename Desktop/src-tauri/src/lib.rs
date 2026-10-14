@@ -100,10 +100,23 @@ fn parse_callback(request_line: &str) -> OAuthCallback {
     cb
 }
 
+/// Pagina mostrata nel browser al termine dell'accesso a Google, nella lingua
+/// dell'interfaccia (`locale` arriva dal frontend): (lang, corpo HTML).
+fn oauth_page(locale: &str, cancelled: bool) -> (&'static str, &'static str) {
+    let en = locale.eq_ignore_ascii_case("en");
+    match (en, cancelled) {
+        (true, true) => ("en", "<h2>Access cancelled</h2><p>You can close this window and go back to Project Goal Manager.</p>"),
+        (true, false) => ("en", "<h2>Account connected</h2><p>You can close this window and go back to Project Goal Manager.</p>"),
+        (false, true) => ("it", "<h2>Accesso annullato</h2><p>Puoi chiudere questa finestra e tornare a Project Goal Manager.</p>"),
+        (false, false) => ("it", "<h2>Account collegato</h2><p>Puoi chiudere questa finestra e tornare a Project Goal Manager.</p>"),
+    }
+}
+
 /// Attende una sola richiesta sulla porta aperta da `oauth_start`, risponde con
 /// una pagina di conferma e restituisce codice e stato.
 #[tauri::command]
-async fn oauth_wait() -> Result<OAuthCallback, String> {
+async fn oauth_wait(locale: Option<String>) -> Result<OAuthCallback, String> {
+    let locale = locale.unwrap_or_else(|| "it".to_string());
     let listener = OAUTH_LISTENER
         .lock()
         .map_err(|e| e.to_string())?
@@ -118,13 +131,9 @@ async fn oauth_wait() -> Result<OAuthCallback, String> {
         let first_line = request.lines().next().unwrap_or("");
         let cb = parse_callback(first_line);
 
-        let body = if cb.error.is_some() {
-            "<h2>Accesso annullato</h2><p>Puoi chiudere questa finestra e tornare a Project Goal Manager.</p>"
-        } else {
-            "<h2>Account collegato</h2><p>Puoi chiudere questa finestra e tornare a Project Goal Manager.</p>"
-        };
+        let (lang, body) = oauth_page(&locale, cb.error.is_some());
         let html = format!(
-            "<!doctype html><html lang=\"it\"><meta charset=\"utf-8\"><title>Project Goal Manager</title>\
+            "<!doctype html><html lang=\"{lang}\"><meta charset=\"utf-8\"><title>Project Goal Manager</title>\
              <body style=\"font-family:system-ui;padding:40px;color:#1c1f26\">{body}</body></html>"
         );
         let response = format!(

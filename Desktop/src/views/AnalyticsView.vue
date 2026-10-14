@@ -6,6 +6,68 @@ import UserAvatar from '@/components/ui/UserAvatar.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { summarize } from '@/services/analytics'
 import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: {
+    title: 'Analisi',
+    lead: 'Il quadro del workspace adesso: quanto c’è da fare, in che stato, con quale urgenza e su chi pesa. Si aggiorna da solo con i dati.',
+    activeProjects: 'Progetti attivi',
+    activeHint: (trashed: number, fav: number) => `${trashed} nel cestino · ${fav} preferiti`,
+    todo: 'Da fare',
+    withoutDue: (n: number) => `${n} senza scadenza`,
+    done: 'Completati',
+    doneHint: 'in tutti i progetti',
+    inTrash: 'Nel cestino',
+    inTrashHint: 'elementi recuperabili',
+    overdue: 'Scaduti',
+    overdueHint: 'da fare con scadenza passata',
+    dueSoon: 'In scadenza',
+    dueSoonHint: 'entro 7 giorni',
+    openQuestions: 'Domande aperte',
+    openQuestionsHint: 'in attesa di risposta',
+    byStatus: 'Da fare per stato',
+    byPriority: 'Da fare per priorità',
+    byUser: 'Carico per utente (elementi assegnati)',
+    user: 'Utente',
+    urgent: 'Immediati',
+    unassigned: 'Non assegnati',
+    noItems: 'Nessun elemento ancora. Assegna gli elementi alle persone dal dettaglio o alla creazione.',
+    byProject: 'Per progetto',
+    project: 'Progetto',
+    trash: 'Cestino',
+    noProjects: 'Nessun progetto attivo.',
+  },
+  en: {
+    title: 'Analytics',
+    lead: 'The workspace at a glance: how much there is to do, in which status, how urgent and who carries the load. It updates by itself as the data changes.',
+    activeProjects: 'Active projects',
+    activeHint: (trashed: number, fav: number) => `${trashed} in the trash · ${fav} favorites`,
+    todo: 'To do',
+    withoutDue: (n: number) => `${n} without due date`,
+    done: 'Completed',
+    doneHint: 'across all projects',
+    inTrash: 'In the trash',
+    inTrashHint: 'recoverable items',
+    overdue: 'Overdue',
+    overdueHint: 'to do with a past due date',
+    dueSoon: 'Due soon',
+    dueSoonHint: 'within 7 days',
+    openQuestions: 'Open questions',
+    openQuestionsHint: 'waiting for an answer',
+    byStatus: 'To do by status',
+    byPriority: 'To do by priority',
+    byUser: 'Load per user (assigned items)',
+    user: 'User',
+    urgent: 'Urgent',
+    unassigned: 'Unassigned',
+    noItems: 'No items yet. Assign items to people from the details or when creating them.',
+    byProject: 'By project',
+    project: 'Project',
+    trash: 'Trash',
+    noProjects: 'No active projects.',
+  },
+})
 
 /**
  * Riepilogo numerico del workspace per gli amministratori: progetti, elementi
@@ -17,13 +79,13 @@ const s = computed(() => summarize(Object.values(ws.projects), today))
 const favorites = computed(() => ws.favoriteProjects.length)
 
 const tiles = computed(() => [
-  { label: 'Progetti attivi', value: s.value.projects.active, hint: `${s.value.projects.trashed} nel cestino · ${favorites.value} preferiti` },
-  { label: 'Da fare', value: s.value.items.todo, hint: `${s.value.withoutDue} senza scadenza` },
-  { label: 'Completati', value: s.value.items.done, hint: 'in tutti i progetti' },
-  { label: 'Nel cestino', value: s.value.items.trash, hint: 'elementi recuperabili' },
-  { label: 'Scaduti', value: s.value.overdue, hint: 'da fare con scadenza passata', tone: s.value.overdue ? 'text-danger' : '' },
-  { label: 'In scadenza', value: s.value.dueSoon, hint: 'entro 7 giorni', tone: s.value.dueSoon ? 'text-p-alta' : '' },
-  { label: 'Domande aperte', value: s.value.openQuestions, hint: 'in attesa di risposta' },
+  { label: m.activeProjects, value: s.value.projects.active, hint: m.activeHint(s.value.projects.trashed, favorites.value) },
+  { label: m.todo, value: s.value.items.todo, hint: m.withoutDue(s.value.withoutDue) },
+  { label: m.done, value: s.value.items.done, hint: m.doneHint },
+  { label: m.inTrash, value: s.value.items.trash, hint: m.inTrashHint },
+  { label: m.overdue, value: s.value.overdue, hint: m.overdueHint, tone: s.value.overdue ? 'text-danger' : '' },
+  { label: m.dueSoon, value: s.value.dueSoon, hint: m.dueSoonHint, tone: s.value.dueSoon ? 'text-p-alta' : '' },
+  { label: m.openQuestions, value: s.value.openQuestions, hint: m.openQuestionsHint },
 ])
 const pct = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0)
 const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)', confermato: 'var(--accent-ink)' } as const
@@ -31,9 +93,9 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
 
 <template>
   <div class="w-full overflow-y-auto px-10 py-8">
-    <h1 class="flex items-center gap-2 text-[24px] font-extrabold tracking-tight"><BarChart3 :size="22" class="text-accent" /> Analisi</h1>
+    <h1 class="flex items-center gap-2 text-[24px] font-extrabold tracking-tight"><BarChart3 :size="22" class="text-accent" /> {{ m.title }}</h1>
     <p class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">
-      Il quadro del workspace adesso: quanto c'è da fare, in che stato, con quale urgenza e su chi pesa. Si aggiorna da solo con i dati.
+      {{ m.lead }}
     </p>
 
     <!-- Numeri principali -->
@@ -48,7 +110,7 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
     <div class="mt-10 grid max-w-5xl grid-cols-1 gap-10 lg:grid-cols-2">
       <!-- Per stato -->
       <section>
-        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">Da fare per stato</h2>
+        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">{{ m.byStatus }}</h2>
         <ul class="space-y-2">
           <li v-for="st in STATUSES" :key="st" class="grid grid-cols-[8rem_1fr_3rem] items-center gap-3 text-[13px]">
             <span>{{ STATUS_LABEL[st] }}</span>
@@ -60,7 +122,7 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
 
       <!-- Per priorità -->
       <section>
-        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">Da fare per priorità</h2>
+        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">{{ m.byPriority }}</h2>
         <ul class="space-y-2">
           <li v-for="p in [...PRIORITIES].reverse()" :key="p" class="grid grid-cols-[8rem_1fr_3rem] items-center gap-3 text-[13px]">
             <span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full" :class="`bg-p-${p}`" />{{ PRIORITY_LABEL[p] }}</span>
@@ -72,16 +134,16 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
 
       <!-- Per utente -->
       <section>
-        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">Carico per utente (elementi assegnati)</h2>
+        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">{{ m.byUser }}</h2>
         <table v-if="s.byUser.length" class="w-full text-[13px]">
           <thead class="text-[11.5px] text-ink-3">
-            <tr><th class="pb-1 text-left font-semibold">Utente</th><th class="pb-1 text-right font-semibold">Da fare</th><th class="pb-1 text-right font-semibold">Immediati</th><th class="pb-1 text-right font-semibold">Scaduti</th><th class="pb-1 text-right font-semibold">Completati</th></tr>
+            <tr><th class="pb-1 text-left font-semibold">{{ m.user }}</th><th class="pb-1 text-right font-semibold">{{ m.todo }}</th><th class="pb-1 text-right font-semibold">{{ m.urgent }}</th><th class="pb-1 text-right font-semibold">{{ m.overdue }}</th><th class="pb-1 text-right font-semibold">{{ m.done }}</th></tr>
           </thead>
           <tbody class="divide-y divide-line">
             <tr v-for="u in s.byUser" :key="u.userId ?? 'none'">
               <td class="flex items-center gap-2 py-1.5">
                 <UserAvatar v-if="u.userId" :name="ws.userName(u.userId)" size="xs" />
-                <span :class="{ 'text-ink-3': !u.userId }">{{ u.userId ? ws.userName(u.userId) : 'Non assegnati' }}</span>
+                <span :class="{ 'text-ink-3': !u.userId }">{{ u.userId ? ws.userName(u.userId) : m.unassigned }}</span>
               </td>
               <td class="py-1.5 text-right tabular-nums font-semibold">{{ u.todo }}</td>
               <td class="py-1.5 text-right tabular-nums" :class="{ 'text-p-immediata': u.immediata }">{{ u.immediata }}</td>
@@ -90,15 +152,15 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
             </tr>
           </tbody>
         </table>
-        <p v-else class="text-[13px] text-ink-3">Nessun elemento ancora. Assegna gli elementi alle persone dal dettaglio o alla creazione.</p>
+        <p v-else class="text-[13px] text-ink-3">{{ m.noItems }}</p>
       </section>
 
       <!-- Per progetto -->
       <section>
-        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">Per progetto</h2>
+        <h2 class="mb-3 text-[13px] font-semibold text-ink-2">{{ m.byProject }}</h2>
         <table v-if="s.byProject.length" class="w-full text-[13px]">
           <thead class="text-[11.5px] text-ink-3">
-            <tr><th class="pb-1 text-left font-semibold">Progetto</th><th class="pb-1 text-right font-semibold">Da fare</th><th class="pb-1 text-right font-semibold">Immediati</th><th class="pb-1 text-right font-semibold">Scaduti</th><th class="pb-1 text-right font-semibold">Completati</th><th class="pb-1 text-right font-semibold">Cestino</th></tr>
+            <tr><th class="pb-1 text-left font-semibold">{{ m.project }}</th><th class="pb-1 text-right font-semibold">{{ m.todo }}</th><th class="pb-1 text-right font-semibold">{{ m.urgent }}</th><th class="pb-1 text-right font-semibold">{{ m.overdue }}</th><th class="pb-1 text-right font-semibold">{{ m.done }}</th><th class="pb-1 text-right font-semibold">{{ m.trash }}</th></tr>
           </thead>
           <tbody class="divide-y divide-line">
             <tr v-for="p in s.byProject" :key="p.id">
@@ -111,7 +173,7 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
             </tr>
           </tbody>
         </table>
-        <p v-else class="text-[13px] text-ink-3">Nessun progetto attivo.</p>
+        <p v-else class="text-[13px] text-ink-3">{{ m.noProjects }}</p>
       </section>
     </div>
   </div>

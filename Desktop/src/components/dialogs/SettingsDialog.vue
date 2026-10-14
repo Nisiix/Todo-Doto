@@ -9,6 +9,47 @@ import { useSessionStore } from '@/stores/session'
 import { saveConfig } from '@/services/config'
 import { useNotificationsStore } from '@/stores/notifications'
 import { NOTIFICATION_LABEL, NOTIFICATION_TYPES } from '@/types'
+import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    pwUpdated: 'Password aggiornata. Gli altri utenti dovranno reinserirla al prossimo accesso.',
+    light: 'Chiaro',
+    dark: 'Scuro',
+    system: 'Come il sistema',
+    title: 'Impostazioni',
+    appearance: 'Aspetto',
+    displayName: 'Il tuo nome visibile',
+    userOn: (u: string, h: string) => `${u} su ${h}`,
+    wsName: 'Nome workspace',
+    reopenLast: 'All’avvio riapri l’ultimo workspace',
+    notifications: 'Notifiche',
+    notificationsHint: 'Novità sui progetti di cui fai parte, fatte da altri utenti. Scegli cosa ricevere.',
+    changePw: 'Cambia password di accesso',
+    newPw: 'Nuova password',
+    repeat: 'Ripeti',
+    leaveEmpty: 'Lascia vuoto per non cambiarla.',
+  },
+  en: {
+    pwUpdated: 'Password updated. Other users will have to enter it again on their next access.',
+    light: 'Light',
+    dark: 'Dark',
+    system: 'Same as system',
+    title: 'Settings',
+    appearance: 'Appearance',
+    displayName: 'Your display name',
+    userOn: (u: string, h: string) => `${u} on ${h}`,
+    wsName: 'Workspace name',
+    reopenLast: 'Reopen the last workspace on startup',
+    notifications: 'Notifications',
+    notificationsHint: 'Updates on the projects you belong to, made by other users. Choose what to receive.',
+    changePw: 'Change access password',
+    newPw: 'New password',
+    repeat: 'Repeat',
+    leaveEmpty: 'Leave empty to keep it.',
+  },
+})
 
 const open = defineModel<boolean>('open', { default: false })
 const ws = useWorkspaceStore()
@@ -39,37 +80,37 @@ async function save() {
     await saveConfig(session.config)
   }
   if (pw1.value || pw2.value) {
-    if (pw1.value.length < 6) return (pwMsg.value = 'La password deve avere almeno 6 caratteri.')
-    if (pw1.value !== pw2.value) return (pwMsg.value = 'Le due password non coincidono.')
+    if (pw1.value.length < 6) return (pwMsg.value = common.password.tooShort)
+    if (pw1.value !== pw2.value) return (pwMsg.value = common.password.mismatch)
     await ws.changePassword(pw1.value)
-    ui.toast('Password aggiornata. Gli altri utenti dovranno reinserirla al prossimo accesso.', 'success', undefined, 6000)
+    ui.toast(m.pwUpdated, 'success', undefined, 6000)
   }
   open.value = false
 }
 
 const themes: { value: Theme; label: string }[] = [
-  { value: 'light', label: 'Chiaro' },
-  { value: 'dark', label: 'Scuro' },
-  { value: 'system', label: 'Come il sistema' },
+  { value: 'light', label: m.light },
+  { value: 'dark', label: m.dark },
+  { value: 'system', label: m.system },
 ]
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" title="Impostazioni">
+  <BaseDialog v-model:open="open" :title="m.title">
     <div class="space-y-5">
       <section>
-        <span class="label">Aspetto</span>
+        <span class="label">{{ m.appearance }}</span>
         <SegmentedControl :model-value="ui.theme" :options="themes" @update:model-value="ui.setTheme" />
       </section>
 
       <section class="grid grid-cols-2 gap-3">
         <div>
-          <label class="label" for="s-me">Il tuo nome visibile</label>
+          <label class="label" for="s-me">{{ m.displayName }}</label>
           <input id="s-me" v-model="displayName" class="field" />
-          <p class="mt-1 text-[12px] text-ink-3">{{ session.identity.username }} su {{ session.identity.hostname }}</p>
+          <p class="mt-1 text-[12px] text-ink-3">{{ m.userOn(session.identity.username, session.identity.hostname) }}</p>
         </div>
         <div>
-          <label class="label" for="s-ws">Nome workspace</label>
+          <label class="label" for="s-ws">{{ m.wsName }}</label>
           <input id="s-ws" v-model="wsName" class="field" :disabled="!ws.isAdmin" />
           <p class="mt-1 truncate font-mono text-[11.5px] text-ink-3" :title="ws.storage?.root">{{ ws.storage?.root }}</p>
         </div>
@@ -77,12 +118,12 @@ const themes: { value: Theme; label: string }[] = [
 
       <label class="flex items-center gap-2 text-[13.5px]">
         <input v-model="reopenLast" type="checkbox" class="accent-accent" />
-        All'avvio riapri l'ultimo workspace
+        {{ m.reopenLast }}
       </label>
 
       <section>
-        <span class="label">Notifiche</span>
-        <p class="mb-1.5 text-[12px] text-ink-3">Novità sui progetti di cui fai parte, fatte da altri utenti. Scegli cosa ricevere.</p>
+        <span class="label">{{ m.notifications }}</span>
+        <p class="mb-1.5 text-[12px] text-ink-3">{{ m.notificationsHint }}</p>
         <div class="grid grid-cols-1 gap-1 sm:grid-cols-2">
           <label v-for="t in NOTIFICATION_TYPES" :key="t" class="flex items-center gap-2 text-[13px]">
             <input type="checkbox" class="accent-accent" :checked="notif.isEnabled(t)" @change="notif.setEnabled(t, ($event.target as HTMLInputElement).checked)" />
@@ -92,18 +133,18 @@ const themes: { value: Theme; label: string }[] = [
       </section>
 
       <section v-if="ws.isNetwork && ws.isAdmin">
-        <span class="label">Cambia password di accesso</span>
+        <span class="label">{{ m.changePw }}</span>
         <div class="grid grid-cols-2 gap-3">
-          <input v-model="pw1" type="password" class="field" placeholder="Nuova password" autocomplete="new-password" />
-          <input v-model="pw2" type="password" class="field" placeholder="Ripeti" autocomplete="new-password" />
+          <input v-model="pw1" type="password" class="field" :placeholder="m.newPw" autocomplete="new-password" />
+          <input v-model="pw2" type="password" class="field" :placeholder="m.repeat" autocomplete="new-password" />
         </div>
         <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
-        <p v-else class="mt-1 text-[12px] text-ink-3">Lascia vuoto per non cambiarla.</p>
+        <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }}</p>
       </section>
     </div>
     <template #footer>
-      <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-      <BaseButton variant="primary" @click="save">Salva</BaseButton>
+      <BaseButton variant="ghost" @click="open = false">{{ common.actions.cancel }}</BaseButton>
+      <BaseButton variant="primary" @click="save">{{ common.actions.save }}</BaseButton>
     </template>
   </BaseDialog>
 </template>

@@ -10,6 +10,24 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import type { Notification, NotificationType } from '@/types'
+import { defineMessages } from '@/i18n'
+
+const m = defineMessages({
+  it: {
+    title: 'Notifiche',
+    markAllRead: 'Segna tutte come lette',
+    clear: 'Svuota',
+    empty: 'Nessuna notifica. Qui compaiono le novità sui progetti di cui fai parte.',
+    hint: 'Scegli cosa ricevere in Impostazioni → Notifiche.',
+  },
+  en: {
+    title: 'Notifications',
+    markAllRead: 'Mark all as read',
+    clear: 'Clear',
+    empty: 'No notifications. Updates on the projects you belong to appear here.',
+    hint: 'Choose what to receive in Settings → Notifications.',
+  },
+})
 
 const notif = useNotificationsStore()
 const ws = useWorkspaceStore()
@@ -42,7 +60,7 @@ function go(n: Notification) {
 <template>
   <PopoverRoot v-model:open="notif.open">
     <PopoverTrigger as-child>
-      <button class="relative rounded-md p-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink data-[state=open]:bg-surface-2" title="Notifiche" aria-label="Notifiche">
+      <button class="relative rounded-md p-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink data-[state=open]:bg-surface-2" :title="m.title" :aria-label="m.title">
         <Bell :size="16" />
         <span
           v-if="notif.unread"
@@ -56,9 +74,9 @@ function go(n: Notification) {
     <PopoverPortal>
       <PopoverContent align="end" :side-offset="6" class="z-50 w-96 rounded-lg border border-line bg-surface shadow-[var(--shadow)] outline-none">
         <div class="flex items-center gap-2 border-b border-line px-3 py-2">
-          <span class="flex-1 text-[13px] font-bold">Notifiche</span>
-          <BaseButton v-if="notif.unread" size="sm" variant="ghost" @click="notif.markAllRead()"><CheckCheck :size="13" /> Segna tutte come lette</BaseButton>
-          <BaseButton v-else-if="list.length" size="sm" variant="ghost" @click="notif.clear()">Svuota</BaseButton>
+          <span class="flex-1 text-[13px] font-bold">{{ m.title }}</span>
+          <BaseButton v-if="notif.unread" size="sm" variant="ghost" @click="notif.markAllRead()"><CheckCheck :size="13" /> {{ m.markAllRead }}</BaseButton>
+          <BaseButton v-else-if="list.length" size="sm" variant="ghost" @click="notif.clear()">{{ m.clear }}</BaseButton>
         </div>
         <ul v-if="list.length" class="max-h-[60vh] divide-y divide-line overflow-y-auto">
           <li v-for="n in list" :key="n.id">
@@ -74,8 +92,8 @@ function go(n: Notification) {
             </button>
           </li>
         </ul>
-        <p v-else class="px-3 py-6 text-center text-[13px] text-ink-3">Nessuna notifica. Qui compaiono le novità sui progetti di cui fai parte.</p>
-        <p class="border-t border-line px-3 py-1.5 text-[11.5px] text-ink-3">Scegli cosa ricevere in Impostazioni → Notifiche.</p>
+        <p v-else class="px-3 py-6 text-center text-[13px] text-ink-3">{{ m.empty }}</p>
+        <p class="border-t border-line px-3 py-1.5 text-[11.5px] text-ink-3">{{ m.hint }}</p>
       </PopoverContent>
     </PopoverPortal>
   </PopoverRoot>

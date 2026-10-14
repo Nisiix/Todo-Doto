@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conditions of use — Project Goal Manager</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html?lang=en">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Project Goal Manager
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="index.html?lang=en#funzionalita">Features</a>
+        <a href="index.html?lang=en#download">Download</a>
+        <div class="lang" role="group" aria-label="Language">
+          <a href="condizioni.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="conditions.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
+        <button class="theme" type="button" aria-label="Toggle light/dark theme" title="Theme (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow">
+      <h1>Conditions of use</h1>
+      <p class="upd">Last updated: October 14, 2026</p>
+
+      <p>These conditions apply to downloading and installing <b>Project Goal Manager</b> from this website or from the Releases published in the GitHub repository, and supplement the <a href="terms.html">Terms of use</a>.</p>
+
+      <h2>1. Download</h2>
+      <p>The installers (<code>.msi</code>, setup <code>.exe</code>) and the executable are made available free of charge, in an Italian and an English edition: the language of the application is the one of the installer you download. Download the Application only from this website or from the official GitHub Releases: copies obtained elsewhere may have been altered. When available, check the fingerprints (checksums) published next to the files.</p>
+
+      <h2>2. Requirements</h2>
+      <ul>
+        <li>Windows 10 or Windows 11, 64-bit.</li>
+        <li>Microsoft Edge WebView2 Runtime (included in recent Windows installations; the installer downloads it if missing).</li>
+        <li>For shared workspaces: a network folder reachable by all participants, with read and write permissions.</li>
+      </ul>
+      <p>You are responsible for checking that your system meets these requirements and that the installation is allowed by your organization’s policies.</p>
+
+      <h2>3. Installation and permissions</h2>
+      <p>The installer writes the Application to the user’s programs folder and creates the start shortcuts. The Application needs read and write access to the workspace folders you choose and to the folders where you ask it to create a project folder (with “Create project folder”); if you use attachments, it opens files with the system programs. It does not change system settings, does not install auto-starting services and does not add browser components.</p>
+
+      <h2>4. Windows warnings</h2>
+      <p>Versions not signed with a recognized certificate may trigger the SmartScreen warning “Windows protected your PC”. This is normal for free software distributed without a paid certificate: you can proceed by choosing “More info → Run anyway”, after checking that you downloaded the file from the official sources.</p>
+
+      <h2>5. Updates</h2>
+      <p>The Application does not update itself. New versions are announced on the website and in the GitHub Releases; to update, install the latest version over the existing one. Workspace data are not touched by the update; a backup of the folder is still recommended.</p>
+
+      <h2>6. Use on a company network</h2>
+      <p>In a shared workspace every participant installs the Application on their own computer and opens the same network folder. Changes are written directly to the files: availability and performance depend on your network and server. If the folder cannot be reached, the Application reports the problem and retries, without losing changes already saved.</p>
+
+      <h2>7. Uninstalling</h2>
+      <p>You can uninstall the Application from Windows “Settings → Apps”. Uninstalling does not delete the workspaces (they remain in the folders you chose) nor the local data in <code>%APPDATA%\com.nisos.projectgoalmanager</code>, which you can delete manually.</p>
+
+      <h2>8. Support</h2>
+      <p>The Application is provided without a guaranteed support service. Bug reports and suggestions are welcome in the project’s GitHub repository.</p>
+
+      <h2>9. Liability</h2>
+      <p>The limitations set out in the <a href="terms.html">Terms of use</a> apply. In particular, we are not liable for data loss due to failures, deletions, network conflicts or missing backups: back up the workspace folder regularly. The Italian version of these conditions is the authoritative one.</p>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Project Goal Manager</span>
+      <nav class="foot__links" aria-label="Legal">
+        <a href="terms.html">Terms of use</a>
+        <a href="privacy-policy.html">Privacy</a>
+        <a href="conditions.html">Conditions of use</a>
+        <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

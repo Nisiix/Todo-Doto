@@ -10,6 +10,87 @@ import { useConfirm } from '@/composables/useConfirm'
 import { getFs, isTauri } from '@/services/fs'
 import { formatBytes } from '@/services/preview'
 import type { DriveNode } from '@/types'
+import { DATE, defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    errClientId: 'Inserisci l’ID client OAuth.',
+    disconnectTitle: 'Scollegare l’account Google?',
+    disconnectMessage: 'La struttura già sincronizzata resta visibile; per aprire i documenti servirà ricollegarsi.',
+    disconnect: 'Scollega',
+    disconnectAccount: 'Scollega account Google',
+    forgetTitle: 'Rimuovere la cartella sincronizzata?',
+    forgetMessage: 'Viene tolta solo la copia della struttura nel workspace: su Google Drive non cambia nulla.',
+    forget: 'Rimuovi cartella sincronizzata',
+    folderSummary: (name: string, n: number) => `Cartella «${name}» · ${n} elementi`,
+    syncedBy: (when: string, who: string) => `sincronizzata ${when} da ${who}`,
+    lead: 'Replica la struttura di una cartella di Drive nel workspace e apri i documenti direttamente qui.',
+    syncing: (p: string | number) => `Sincronizzo… ${p}`,
+    sync: 'Sincronizza',
+    connect: 'Collega account Google',
+    desktopOnly: 'Il collegamento a Google Drive è disponibile nell’app desktop (richiede il browser di sistema per l’accesso).',
+    step1: '1. Crea un ID client OAuth (una volta sola)',
+    step1a1: 'Vai su',
+    step1a2: '→ API e servizi → Credenziali.',
+    step1b: 'Abilita l’API «Google Drive API» per il progetto.',
+    step1c: 'Crea credenziali → ID client OAuth → tipo',
+    desktopApp: 'App desktop',
+    step1d: 'Copia qui l’ID client (e il segreto, se mostrato). Restano cifrati solo su questo PC.',
+    readOnly1: 'L’app chiede solo il permesso di',
+    read: 'lettura',
+    readOnly2: 'di Drive e non salva mai il tuo account nella cartella condivisa.',
+    clientId: 'ID client',
+    clientSecret: 'Segreto client (facoltativo)',
+    step2: '2. Salva e collega l’account Google',
+    configured: 'Client configurato. Collega l’account Google per scegliere la cartella da sincronizzare.',
+    chooseFolder: 'Scegli la cartella da replicare',
+    chooseFolderHint:
+      'Incolla il link della cartella (da Drive: tasto destro → Condividi → Copia link) oppure il suo id. La struttura viene salvata nel workspace e la vedono tutti i membri; per aprire i documenti ognuno usa il proprio account.',
+    searchAll: 'Cerca in tutta la cartella',
+    openOnDrive: 'Apri su Google Drive',
+    noMatch: 'Nessun elemento corrisponde.',
+    emptyFolder: 'Cartella vuota.',
+  },
+  en: {
+    errClientId: 'Enter the OAuth client ID.',
+    disconnectTitle: 'Disconnect the Google account?',
+    disconnectMessage: 'The structure already synced stays visible; you will need to reconnect to open the documents.',
+    disconnect: 'Disconnect',
+    disconnectAccount: 'Disconnect Google account',
+    forgetTitle: 'Remove the synced folder?',
+    forgetMessage: 'Only the copy of the structure in the workspace is removed: nothing changes on Google Drive.',
+    forget: 'Remove synced folder',
+    folderSummary: (name: string, n: number) => `Folder “${name}” · ${n} items`,
+    syncedBy: (when: string, who: string) => `synced ${when} by ${who}`,
+    lead: 'Mirror the structure of a Drive folder in the workspace and open the documents right here.',
+    syncing: (p: string | number) => `Syncing… ${p}`,
+    sync: 'Sync',
+    connect: 'Connect Google account',
+    desktopOnly: 'Connecting to Google Drive is available in the desktop app (it needs the system browser to sign in).',
+    step1: '1. Create an OAuth client ID (only once)',
+    step1a1: 'Go to',
+    step1a2: '→ APIs & Services → Credentials.',
+    step1b: 'Enable the “Google Drive API” for the project.',
+    step1c: 'Create credentials → OAuth client ID → type',
+    desktopApp: 'Desktop app',
+    step1d: 'Copy the client ID here (and the secret, if shown). They stay encrypted on this PC only.',
+    readOnly1: 'The app only asks for',
+    read: 'read',
+    readOnly2: 'permission on Drive and never stores your account in the shared folder.',
+    clientId: 'Client ID',
+    clientSecret: 'Client secret (optional)',
+    step2: '2. Save and connect the Google account',
+    configured: 'Client configured. Connect the Google account to choose the folder to sync.',
+    chooseFolder: 'Choose the folder to mirror',
+    chooseFolderHint:
+      'Paste the folder link (in Drive: right click → Share → Copy link) or its id. The structure is saved in the workspace and every member sees it; to open the documents each person uses their own account.',
+    searchAll: 'Search the whole folder',
+    openOnDrive: 'Open on Google Drive',
+    noMatch: 'No items match.',
+    emptyFolder: 'Empty folder.',
+  },
+})
 
 const drive = useDriveStore()
 const ws = useWorkspaceStore()
@@ -25,7 +106,7 @@ const busy = ref(false)
 const formError = ref('')
 
 async function saveClient() {
-  if (!clientId.value.trim()) return (formError.value = 'Inserisci l’ID client OAuth.')
+  if (!clientId.value.trim()) return (formError.value = m.errClientId)
   formError.value = ''
   await drive.configure(clientId.value, clientSecret.value)
   await drive.connect()
@@ -43,11 +124,11 @@ async function chooseFolder() {
   }
 }
 async function disconnect() {
-  if (await confirm({ title: 'Scollegare l’account Google?', message: 'La struttura già sincronizzata resta visibile; per aprire i documenti servirà ricollegarsi.', confirmLabel: 'Scollega' }))
+  if (await confirm({ title: m.disconnectTitle, message: m.disconnectMessage, confirmLabel: m.disconnect }))
     await drive.disconnect()
 }
 async function forgetFolder() {
-  if (await confirm({ title: 'Rimuovere la cartella sincronizzata?', message: 'Viene tolta solo la copia della struttura nel workspace: su Google Drive non cambia nulla.', confirmLabel: 'Rimuovi', danger: true }))
+  if (await confirm({ title: m.forgetTitle, message: m.forgetMessage, confirmLabel: common.actions.remove, danger: true }))
     await drive.clearRootFolder()
 }
 
@@ -118,20 +199,20 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
           <h1 class="flex items-center gap-2 text-[24px] font-extrabold leading-tight tracking-tight"><Cloud :size="22" class="text-accent" /> Google Drive</h1>
           <p class="mt-1 text-[13.5px] text-ink-2">
             <template v-if="drive.rootFolderId">
-              Cartella «{{ drive.rootName }}» · {{ drive.nodes.length }} elementi
-              <template v-if="drive.syncedAt"> · sincronizzata {{ dayjs(drive.syncedAt).fromNow() }} da {{ ws.userName(ws.drive.syncedBy) }}</template>
+              {{ m.folderSummary(drive.rootName, drive.nodes.length) }}
+              <template v-if="drive.syncedAt"> · {{ m.syncedBy(dayjs(drive.syncedAt).fromNow(), ws.userName(ws.drive.syncedBy)) }}</template>
             </template>
-            <template v-else>Replica la struttura di una cartella di Drive nel workspace e apri i documenti direttamente qui.</template>
+            <template v-else>{{ m.lead }}</template>
           </p>
         </div>
         <div class="flex items-center gap-1.5">
           <span v-if="drive.account" class="mr-1 text-[12.5px] text-ink-3" :title="drive.account.name">{{ drive.account.email }}</span>
           <BaseButton v-if="drive.rootFolderId && drive.status === 'connected'" size="sm" :disabled="drive.syncing" @click="drive.sync()">
             <Loader2 v-if="drive.syncing" :size="14" class="animate-spin" /><RefreshCw v-else :size="14" />
-            {{ drive.syncing ? `Sincronizzo… ${drive.syncProgress}` : 'Sincronizza' }}
+            {{ drive.syncing ? m.syncing(drive.syncProgress) : m.sync }}
           </BaseButton>
-          <BaseButton v-if="drive.status === 'connected'" size="sm" variant="ghost" title="Scollega account Google" @click="disconnect"><Unplug :size="14" /></BaseButton>
-          <BaseButton v-else-if="drive.status === 'disconnected'" size="sm" variant="primary" @click="drive.connect()">Collega account Google</BaseButton>
+          <BaseButton v-if="drive.status === 'connected'" size="sm" variant="ghost" :title="m.disconnectAccount" @click="disconnect"><Unplug :size="14" /></BaseButton>
+          <BaseButton v-else-if="drive.status === 'disconnected'" size="sm" variant="primary" @click="drive.connect()">{{ m.connect }}</BaseButton>
         </div>
       </div>
       <p v-if="drive.error" class="mt-2 text-[13px] text-danger">{{ drive.error }}</p>
@@ -139,44 +220,44 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
 
     <!-- Configurazione -->
     <div v-if="!isTauri" class="m-8 max-w-xl rounded-lg border border-dashed border-line-strong p-5 text-[13.5px] text-ink-2">
-      Il collegamento a Google Drive è disponibile nell’app desktop (richiede il browser di sistema per l’accesso).
+      {{ m.desktopOnly }}
     </div>
     <div v-else-if="drive.status === 'unconfigured'" class="m-8 max-w-xl space-y-4">
       <div class="rounded-lg border border-line bg-surface p-5">
-        <h2 class="text-[15px] font-bold">1. Crea un ID client OAuth (una volta sola)</h2>
+        <h2 class="text-[15px] font-bold">{{ m.step1 }}</h2>
         <ol class="mt-2 list-decimal space-y-1 pl-5 text-[13.5px] text-ink-2">
-          <li>Vai su <span class="font-mono">console.cloud.google.com</span> → API e servizi → Credenziali.</li>
-          <li>Abilita l’API «Google Drive API» per il progetto.</li>
-          <li>Crea credenziali → ID client OAuth → tipo <b>App desktop</b>.</li>
-          <li>Copia qui l’ID client (e il segreto, se mostrato). Restano cifrati solo su questo PC.</li>
+          <li>{{ m.step1a1 }} <span class="font-mono">console.cloud.google.com</span> {{ m.step1a2 }}</li>
+          <li>{{ m.step1b }}</li>
+          <li>{{ m.step1c }} <b>{{ m.desktopApp }}</b>.</li>
+          <li>{{ m.step1d }}</li>
         </ol>
-        <p class="mt-2 text-[12.5px] text-ink-3">L’app chiede solo il permesso di <b>lettura</b> di Drive e non salva mai il tuo account nella cartella condivisa.</p>
+        <p class="mt-2 text-[12.5px] text-ink-3">{{ m.readOnly1 }} <b>{{ m.read }}</b> {{ m.readOnly2 }}</p>
       </div>
       <form class="space-y-3" @submit.prevent="saveClient">
         <div>
-          <label class="label" for="d-cid">ID client</label>
+          <label class="label" for="d-cid">{{ m.clientId }}</label>
           <input id="d-cid" v-model="clientId" class="field font-mono text-[12.5px]" placeholder="123456-abc.apps.googleusercontent.com" />
         </div>
         <div>
-          <label class="label" for="d-sec">Segreto client (facoltativo)</label>
+          <label class="label" for="d-sec">{{ m.clientSecret }}</label>
           <input id="d-sec" v-model="clientSecret" type="password" class="field font-mono text-[12.5px]" autocomplete="off" />
         </div>
         <p v-if="formError" class="text-[13px] text-danger">{{ formError }}</p>
-        <BaseButton type="submit" variant="primary">2. Salva e collega l’account Google</BaseButton>
+        <BaseButton type="submit" variant="primary">{{ m.step2 }}</BaseButton>
       </form>
     </div>
     <div v-else-if="drive.status !== 'connected' && !drive.rootFolderId" class="m-8 max-w-xl rounded-lg border border-line bg-surface p-5 text-[13.5px] text-ink-2">
-      <p>Client configurato. Collega l’account Google per scegliere la cartella da sincronizzare.</p>
+      <p>{{ m.configured }}</p>
       <BaseButton class="mt-3" variant="primary" :disabled="drive.status === 'connecting'" @click="drive.connect()">
-        <Loader2 v-if="drive.status === 'connecting'" :size="14" class="animate-spin" /> Collega account Google
+        <Loader2 v-if="drive.status === 'connecting'" :size="14" class="animate-spin" /> {{ m.connect }}
       </BaseButton>
     </div>
     <div v-else-if="!drive.rootFolderId" class="m-8 max-w-xl space-y-3">
-      <h2 class="text-[15px] font-bold">Scegli la cartella da replicare</h2>
-      <p class="text-[13.5px] text-ink-2">Incolla il link della cartella (da Drive: tasto destro → Condividi → Copia link) oppure il suo id. La struttura viene salvata nel workspace e la vedono tutti i membri; per aprire i documenti ognuno usa il proprio account.</p>
+      <h2 class="text-[15px] font-bold">{{ m.chooseFolder }}</h2>
+      <p class="text-[13.5px] text-ink-2">{{ m.chooseFolderHint }}</p>
       <form class="flex gap-2" @submit.prevent="chooseFolder">
         <input v-model="folderLink" class="field font-mono text-[12.5px]" placeholder="https://drive.google.com/drive/folders/…" />
-        <BaseButton type="submit" variant="primary" :disabled="busy || !folderLink.trim()"><Loader2 v-if="busy" :size="14" class="animate-spin" /> Sincronizza</BaseButton>
+        <BaseButton type="submit" variant="primary" :disabled="busy || !folderLink.trim()"><Loader2 v-if="busy" :size="14" class="animate-spin" /> {{ m.sync }}</BaseButton>
       </form>
       <p v-if="formError" class="text-[13px] text-danger">{{ formError }}</p>
     </div>
@@ -190,7 +271,7 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
         <ul>
           <li v-for="f in folderTree" :key="f.node.id">
             <div class="flex h-7 items-center rounded-md text-[13px] hover:bg-surface-2" :class="{ 'bg-accent-soft text-accent-ink': currentFolder === f.node.id && !search }" :style="{ paddingLeft: `${8 + f.depth * 12}px` }">
-              <button class="w-4 shrink-0 text-ink-3" :class="{ invisible: !f.hasChildren }" :aria-label="expanded.has(f.node.id) ? 'Chiudi' : 'Apri'" @click="toggle(f.node.id)">
+              <button class="w-4 shrink-0 text-ink-3" :class="{ invisible: !f.hasChildren }" :aria-label="expanded.has(f.node.id) ? common.actions.close : common.actions.open" @click="toggle(f.node.id)">
                 <ChevronRight :size="12" class="transition-transform" :class="{ 'rotate-90': expanded.has(f.node.id) }" />
               </button>
               <button class="flex min-w-0 flex-1 items-center gap-1.5 pr-2 text-left" @click="currentFolder = f.node.id; search = ''">
@@ -199,7 +280,7 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
             </div>
           </li>
         </ul>
-        <button class="mt-4 flex items-center gap-1.5 px-2 text-[12px] text-ink-3 hover:text-danger" @click="forgetFolder"><Link2Off :size="12" /> Rimuovi cartella sincronizzata</button>
+        <button class="mt-4 flex items-center gap-1.5 px-2 text-[12px] text-ink-3 hover:text-danger" @click="forgetFolder"><Link2Off :size="12" /> {{ m.forget }}</button>
       </aside>
 
       <div class="flex min-w-0 flex-1 flex-col">
@@ -213,7 +294,7 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
           </nav>
           <div class="relative w-64">
             <Search :size="14" class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
-            <input v-model="search" class="field field-sm h-8 pl-8" placeholder="Cerca in tutta la cartella" />
+            <input v-model="search" class="field field-sm h-8 pl-8" :placeholder="m.searchAll" />
           </div>
         </div>
         <ul class="flex-1 divide-y divide-line overflow-y-auto px-6">
@@ -224,10 +305,10 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
               <span v-if="search" class="block truncate text-[11px] text-ink-3">{{ drive.pathOf(n.id) }}</span>
             </button>
             <span class="w-20 shrink-0 text-right text-[11.5px] tabular-nums text-ink-3">{{ n.size !== null ? formatBytes(n.size) : '' }}</span>
-            <span class="w-24 shrink-0 text-right text-[11.5px] tabular-nums text-ink-3">{{ n.modifiedTime ? dayjs(n.modifiedTime).format('D MMM YYYY') : '' }}</span>
-            <button class="shrink-0 rounded-md p-1 text-ink-3 opacity-0 hover:bg-surface-3 hover:text-ink group-hover:opacity-100 focus-visible:opacity-100" title="Apri su Google Drive" @click="openOnDrive(n)"><ExternalLink :size="14" /></button>
+            <span class="w-24 shrink-0 text-right text-[11.5px] tabular-nums text-ink-3">{{ n.modifiedTime ? dayjs(n.modifiedTime).format(DATE.date) : '' }}</span>
+            <button class="shrink-0 rounded-md p-1 text-ink-3 opacity-0 hover:bg-surface-3 hover:text-ink group-hover:opacity-100 focus-visible:opacity-100" :title="m.openOnDrive" @click="openOnDrive(n)"><ExternalLink :size="14" /></button>
           </li>
-          <li v-if="!entries.length" class="py-6 text-[13px] text-ink-3">{{ search ? 'Nessun elemento corrisponde.' : 'Cartella vuota.' }}</li>
+          <li v-if="!entries.length" class="py-6 text-[13px] text-ink-3">{{ search ? m.noMatch : m.emptyFolder }}</li>
         </ul>
       </div>
     </div>

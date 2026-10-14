@@ -6,6 +6,13 @@ import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
 import ProjectLink from './ProjectLink.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import type { Folder as FolderT, Project } from '@/types'
+import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: { newProject: 'Nuovo progetto qui', newSub: 'Nuova sottocartella', delete: 'Elimina cartella', actions: 'Azioni cartella' },
+  en: { newProject: 'New project here', newSub: 'New subfolder', delete: 'Delete folder', actions: 'Folder actions' },
+})
 
 const props = defineProps<{ folder: FolderT; depth: number; projectsByFolder: Record<string, Project[]> }>()
 const emit = defineEmits<{
@@ -38,11 +45,11 @@ const count = computed(() => {
 })
 
 const menu = computed(() => [
-  { label: 'Nuovo progetto qui', icon: FolderPlus, onSelect: () => emit('newProject', props.folder.id) },
-  { label: 'Nuova sottocartella', icon: Folder, onSelect: () => emit('newSub', props.folder.id) },
-  { label: 'Rinomina', icon: Pencil, onSelect: () => emit('rename', props.folder) },
+  { label: m.newProject, icon: FolderPlus, onSelect: () => emit('newProject', props.folder.id) },
+  { label: m.newSub, icon: Folder, onSelect: () => emit('newSub', props.folder.id) },
+  { label: common.actions.rename, icon: Pencil, onSelect: () => emit('rename', props.folder) },
   { sep: true, label: '' },
-  { label: 'Elimina cartella', icon: Trash2, danger: true, onSelect: () => emit('remove', props.folder) },
+  { label: m.delete, icon: Trash2, danger: true, onSelect: () => emit('remove', props.folder) },
 ])
 </script>
 
@@ -58,7 +65,7 @@ const menu = computed(() => [
         <span class="ml-auto text-[11px] text-ink-3">{{ count || '' }}</span>
       </button>
       <BaseMenu :items="menu">
-        <MenuTriggerButton label="Azioni cartella" :size="14" class="!p-0.5" />
+        <MenuTriggerButton :label="m.actions" :size="14" class="!p-0.5" />
       </BaseMenu>
     </div>
     <ul v-show="open">

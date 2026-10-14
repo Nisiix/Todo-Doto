@@ -3,6 +3,21 @@ import { ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
+
+const m = defineMessages({
+  it: {
+    title: 'Workspace protetto',
+    description: (n: string) => `«${n}» è condiviso in rete. Inserisci la password: verrà ricordata su questo PC.`,
+    enter: 'Entra',
+  },
+  en: {
+    title: 'Protected workspace',
+    description: (n: string) => `“${n}” is shared on the network. Enter the password: it will be remembered on this PC.`,
+    enter: 'Enter',
+  },
+})
 
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ unlocked: [] }>()
@@ -32,8 +47,8 @@ async function submit() {
 <template>
   <BaseDialog
     v-model:open="open"
-    title="Workspace protetto"
-    :description="`«${ws.meta?.name ?? ''}» è condiviso in rete. Inserisci la password: verrà ricordata su questo PC.`"
+    :title="m.title"
+    :description="m.description(ws.meta?.name ?? '')"
     width="sm"
   >
     <form @submit.prevent="submit">
@@ -42,8 +57,8 @@ async function submit() {
       <p v-if="error" class="mt-2 text-[13px] text-danger">{{ error }}</p>
     </form>
     <template #footer>
-      <BaseButton variant="ghost" @click="open = false">Annulla</BaseButton>
-      <BaseButton variant="primary" :disabled="busy || !password" @click="submit">Entra</BaseButton>
+      <BaseButton variant="ghost" @click="open = false">{{ common.actions.cancel }}</BaseButton>
+      <BaseButton variant="primary" :disabled="busy || !password" @click="submit">{{ m.enter }}</BaseButton>
     </template>
   </BaseDialog>
 </template>
