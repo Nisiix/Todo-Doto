@@ -246,9 +246,12 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await page.getByRole('button', { name: 'Salva', exact: true }).click()
   await expect(page.getByText('Salvato')).toBeVisible()
 
+  // Nella riga i badge sono solo da vedere: niente menu a tendina né data modificabile
+  await expect(rows(page).first().locator('select, input[type=date]')).toHaveCount(0)
+
   // Anche gli attributi (priorità, stato…) aspettano «Salva» e si annullano con «Annulla»
   const panel = page.locator('aside').last()
-  const detailPriority = panel.locator('select[title^="Priorità"]')
+  const detailPriority = panel.locator('#d-priority')
   const before = await detailPriority.inputValue()
   const other = before === 'immediata' ? 'bassa' : 'immediata'
   await detailPriority.selectOption(other)
@@ -257,7 +260,7 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await expect(detailPriority).toHaveValue(before)
   await expect(panel.locator('[data-detail-save]')).toHaveCount(0)
   await detailPriority.selectOption(other)
-  await panel.locator('select[title^="Stato"]').selectOption('confermato')
+  await panel.locator('#d-status').selectOption('confermato')
   // Salva e Annulla a destra
   const box = await panel.locator('[data-detail-save]').boundingBox()
   const saveBtn = await panel.getByRole('button', { name: 'Salva', exact: true }).boundingBox()
@@ -265,7 +268,7 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await panel.getByRole('button', { name: 'Salva', exact: true }).click()
   await expect(panel.locator('[data-detail-save]')).toHaveCount(0)
   await expect(detailPriority).toHaveValue(other)
-  await expect(panel.locator('select[title^="Stato"]')).toHaveValue('confermato')
+  await expect(panel.locator('#d-status')).toHaveValue('confermato')
 
   // Cestina, poi elimina definitivamente dal cestino
   await rows(page).nth(1).hover()
@@ -890,6 +893,9 @@ test('stack: «Rileva dai file del progetto» ricava lo stack anche dalle sottoc
     await fs.writeTextAtomic(`${d}/src/Api/Api.csproj`, '<Project Sdk="Microsoft.NET.Sdk.Web"></Project>')
   }, dir)
   await expect(page.locator('[data-detect-hint]')).toBeVisible()
+  // Un solo pulsante alla volta: il riquadro tratteggiato finché lo stack è vuoto…
+  await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toHaveCount(1)
+  await expect(page.locator('[data-detect-stack]')).toHaveCount(0)
   await page.locator('[data-detect-hint]').getByRole('button', { name: 'Rileva dai file del progetto' }).click()
   await expect(page.getByText(/Dai file del progetto:/)).toBeVisible()
   await expect(page.getByText('Vue 3', { exact: true })).toBeVisible()
@@ -897,6 +903,8 @@ test('stack: «Rileva dai file del progetto» ricava lo stack anche dalle sottoc
   await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
   await expect(page.getByText('Prerequisito: .NET SDK')).toBeVisible()
   await expect(page.locator('[data-detect-hint]')).toHaveCount(0)
+  // …poi il pulsante in alto, accanto agli altri
+  await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toHaveCount(1)
   // Seconda volta: niente di nuovo
   await page.locator('[data-detect-stack]').click()
   await expect(page.getByText(/Nessun dato nuovo dai file del progetto/)).toBeVisible()

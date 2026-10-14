@@ -15,6 +15,12 @@
 import type { Prerequisite } from '@/types'
 import type { CheckOutput } from './fs'
 import { lookupPrerequisite } from './prerequisites'
+import { defineMessages, locale } from '@/i18n'
+
+const M = defineMessages({
+  it: { viaFallback: (cmd: string) => `Trovato con «${cmd}»: il comando abituale non è nel PATH (riapri l’app o il prompt dopo l’installazione, o aggiungilo al PATH).` },
+  en: { viaFallback: (cmd: string) => `Found with “${cmd}”: the usual command is not in the PATH (reopen the app or the prompt after installing, or add it to the PATH).` },
+})
 
 export type OsName = 'windows' | 'macos' | 'linux'
 
@@ -53,6 +59,10 @@ export interface CheckPlan {
   version?: RegExp
   /** Sistemi su cui serve (vuoto = tutti). */
   os: OsName[]
+  /** Seconda verifica (solo Windows) se il comando non si trova. */
+  fallback?: string
+  /** Spiegazione da mostrare quando manca. */
+  missingNote?: string
 }
 
 export interface CheckResult {
@@ -63,6 +73,8 @@ export interface CheckResult {
   command: string
   /** Output del comando (per i dettagli in caso di problemi). */
   output: string
+  /** Spiegazione in più (es. perché manca, o dove è stato trovato). */
+  note?: string
 }
 
 /** Sistema operativo corrente, dallo user agent (vale anche nella WebView di Tauri). */
@@ -98,7 +110,12 @@ export function isSafeCheck(command: string): boolean {
 export function planCheck(p: Pick<Prerequisite, 'name' | 'check'>, os: OsName): CheckPlan {
   const known = lookupPrerequisite(p.name)
   const own = p.check.trim()
-  const base = { os: known?.os ?? [], probe: false }
+  const base = {
+    os: known?.os ?? [],
+    probe: false,
+    fallback: os === 'windows' ? known?.fallback : undefined,
+    missingNote: known?.missingNote?.[locale === 'en' ? 'en' : 'it'],
+  }
   if (own) return { ...base, command: own, trusted: own === known?.check || isSafeCheck(own) }
   if (known?.check) return { ...base, command: known.check, trusted: true }
   if (known?.probe && os === 'windows') return { ...base, command: known.probe.command, trusted: true, probe: true, version: known.probe.version }
@@ -204,7 +221,7 @@ export function matchVersion(installed: string, spec: string): 'ok' | 'outdated'
 
 /** Messaggi con cui shell e sistema dicono che il comando non esiste (anche in italiano). */
 const NOT_FOUND =
-  /is not recognized as an internal or external command|non è riconosciuto come comando interno o esterno|command not found|not found|cannot find the path|cannot find the file|impossibile trovare il percorso|impossibile trovare il file|no such file or directory|was not found; run without arguments to install from the microsoft store/i
+  /no \.net sdks were found|nessun sdk \.net|is not recognized as an internal or external command|non .{1,4} riconosciuto come comando interno o esterno|command not found|not found|cannot find the path|cannot find the file|impossibile trovare il percorso|impossibile trovare il file|no such file or directory|was not found; run without arguments to install from the microsoft store/i
 
 /** Interpreta l'esito di un comando di verifica rispetto alla versione richiesta. */
 export function interpretCheck(run: CheckOutput, plan: CheckPlan, required: string): CheckResult {
@@ -218,11 +235,23 @@ export function interpretCheck(run: CheckOutput, plan: CheckPlan, required: stri
   if (plan.probe && (code !== 0 || !run.stdout.trim())) return { ...base, status: 'missing' }
   const version = parseVersion(run.stdout, plan.version) || parseVersion(run.stderr, plan.version)
   if (code !== 0 && NOT_FOUND.test(output) && !version) return { ...base, status: 'missing' }
+  // Solo runtime .NET, senza SDK: "dotnet --version" risponde così anche con codice 0 in alcune versioni
+  if (/no \.net sdks were found/i.test(output)) return { ...base, status: 'missing' }
   if (code !== 0 && !version) return { ...base, status: 'failed' }
   // Alcuni strumenti escono con un codice diverso da 0 anche quando stampano la versione
   if (!version) return { ...base, status: parseRequirement(required).kind === 'any' ? 'ok' : 'installed' }
   return { ...base, version, status: matchVersion(version, required) }
 }
+
+/** Esito della seconda verifica: se trova il programma, lo dice (non è nel PATH). */
+export function fallbackResult(primary: CheckResult, fallback: CheckResult, plan: CheckPlan): CheckResult {
+  if (fallback.status === 'missing' || fallback.status === 'failed' || fallback.status === 'timeout') return primary
+  return { ...fallback, note: M.viaFallback(plan.fallback ?? fallback.command) }
+}
+
+/** Nota da aggiungere a un esito "manca" (es. cosa non basta al suo posto). */
+export const withMissingNote = (r: CheckResult, plan: CheckPlan): CheckResult =>
+  r.status === 'missing' && plan.missingNote && !r.note ? { ...r, note: plan.missingNote } : r
 
 /** Esito senza eseguire nulla, quando il comando non va o non si può eseguire. */
 export function precheck(plan: CheckPlan, os: OsName, opts: { desktop: boolean; confirmed: boolean }): CheckResult | null {

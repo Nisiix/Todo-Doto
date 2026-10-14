@@ -6,11 +6,12 @@ import { dueState, formatDue, type DueState } from '@/services/items'
 import { DATE, defineMessages } from '@/i18n'
 
 const m = defineMessages({
-  it: { due: (d: string) => `Scadenza ${d}`, add: 'Aggiungi scadenza' },
-  en: { due: (d: string) => `Due ${d}`, add: 'Add due date' },
+  it: { due: (d: string) => `Scadenza ${d}`, add: 'Aggiungi scadenza', none: 'Nessuna scadenza' },
+  en: { due: (d: string) => `Due ${d}`, add: 'Add due date', none: 'No due date' },
 })
 
-const props = defineProps<{ done?: boolean }>()
+/** `readonly`: solo da vedere (es. nella riga della lista: si modifica dal dettaglio). */
+const props = defineProps<{ done?: boolean; readonly?: boolean }>()
 const model = defineModel<string | null>({ required: true })
 
 const TONE: Record<DueState, string> = {
@@ -24,19 +25,22 @@ const label = computed(() => (model.value ? formatDue(model.value) : ''))
 </script>
 
 <template>
-  <label
-    class="relative inline-flex h-6 shrink-0 cursor-default items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 text-[12px] tabular-nums hover:bg-surface-2"
-    :class="tone"
-    :title="model ? m.due(dayjs(model).format(DATE.dateLong)) : m.add"
-    @click.stop
+  <!-- In sola lettura (riga della lista) è un semplice badge: la data si cambia dal dettaglio -->
+  <component
+    :is="readonly ? 'span' : 'label'"
+    class="relative inline-flex h-6 shrink-0 cursor-default items-center justify-center gap-1 whitespace-nowrap rounded-full px-1.5 text-[12px] tabular-nums"
+    :class="[tone, { 'hover:bg-surface-2': !readonly }]"
+    :title="model ? m.due(dayjs(model).format(DATE.dateLong)) : readonly ? m.none : m.add"
+    @click="!readonly && $event.stopPropagation()"
   >
     <CalendarDays :size="13" />
     <span>{{ label || '—' }}</span>
     <input
+      v-if="!readonly"
       type="date"
       class="absolute inset-0 w-full cursor-default opacity-0"
       :value="model ?? ''"
       @change="model = ($event.target as HTMLInputElement).value || null"
     />
-  </label>
+  </component>
 </template>

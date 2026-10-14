@@ -173,3 +173,45 @@ describe('parseGitHubRepo', () => {
     expect(parseGitHubRepo('\\\\server\\git\\progetto')).toBeNull()
   })
 })
+
+describe('.NET SDK e seconda verifica', () => {
+  it('solo runtime .NET (nessun SDK): manca, con la spiegazione', () => {
+    const plan = planCheck({ name: '.NET SDK', check: '' }, 'windows')
+    expect(plan.fallback).toContain('dotnet.exe')
+    expect(plan.missingNote).toContain('.NET Framework incluso in Windows')
+    const r = interpretCheck(run(-2147450735, '', 'The command could not be loaded, possibly because:\n  * You intended to execute a .NET SDK command:\n      No .NET SDKs were found.'), plan, '8+')
+    expect(r.status).toBe('missing')
+  })
+  it('il programma c’è ma non nel PATH: lo trova la seconda verifica e lo dice', async () => {
+    const { fallbackResult } = await import('./prereqCheck')
+    const plan = planCheck({ name: '.NET SDK', check: '' }, 'windows')
+    const primary = interpretCheck(run(9009, '', "'dotnet' non è riconosciuto come comando interno o esterno"), plan, '8+')
+    const fb = interpretCheck(run(0, '9.0.100'), { ...plan, command: plan.fallback! }, '8+')
+    const r = fallbackResult(primary, fb, plan)
+    expect(r.status).toBe('ok')
+    expect(r.version).toBe('9.0.100')
+    expect(r.note).toContain('non è nel PATH')
+    // Se neanche la seconda lo trova, resta il primo esito
+    expect(fallbackResult(primary, interpretCheck(run(1, '', 'Impossibile trovare il percorso specificato.'), { ...plan, probe: true }, ''), plan).status).toBe('missing')
+  })
+  it('Python: con l’alias del Microsoft Store si prova il launcher py', () => {
+    expect(planCheck({ name: 'Python', check: '' }, 'windows').fallback).toBe('py --version')
+    expect(planCheck({ name: 'Python', check: '' }, 'linux').fallback).toBeUndefined()
+  })
+})
+
+describe('link senza protocollo', () => {
+  it('diventano https://', async () => {
+    const { normalizeUrl } = await import('./fs')
+    expect(normalizeUrl('visualstudio.microsoft.com/downloads/')).toBe('https://visualstudio.microsoft.com/downloads/')
+    expect(normalizeUrl('www.python.org')).toBe('https://www.python.org')
+    expect(normalizeUrl('https://nodejs.org')).toBe('https://nodejs.org')
+    expect(normalizeUrl('mailto:a@b.it')).toBe('mailto:a@b.it')
+  })
+})
+
+describe('messaggi del prompt dei comandi italiano con la codifica storpiata', () => {
+  it('"non Ã¨ riconosciuto" vale come non trovato anche senza il codice 9009', () => {
+    expect(interpretCheck(run(1, '', '"dotnet" non Ã¨ riconosciuto come comando interno o esterno,'), plan(), '').status).toBe('missing')
+  })
+})

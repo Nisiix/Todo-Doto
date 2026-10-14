@@ -12,6 +12,18 @@ import { pathRoot } from './fsErrors'
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * Indirizzo apribile nel browser: quelli senza protocollo (es. importati da un
+ * README: "visualstudio.microsoft.com/downloads") diventano https://…
+ */
+export function normalizeUrl(target: string): string {
+  const t = target.trim()
+  if (/^(https?:|mailto:)/i.test(t)) return t
+  if (/^\/\//.test(t)) return `https:${t}`
+  if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+([/:?#]|$)/i.test(t)) return `https://${t}`
+  return t
+}
+
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
 export interface FileStat {
@@ -154,7 +166,7 @@ async function tauriFs(): Promise<FsApi> {
       return typeof r === 'string' ? r : null
     },
     async openExternal(target, kind) {
-      if (kind === 'link') await opener.openUrl(target)
+      if (kind === 'link') await opener.openUrl(normalizeUrl(target))
       else await opener.openPath(target)
     },
     identity: () => invoke<Identity>('get_identity'),
@@ -272,7 +284,7 @@ function memoryFs(): FsApi {
       return '/demo/' + defaultName
     },
     async openExternal(target, kind) {
-      if (kind === 'link') window.open(target, '_blank')
+      if (kind === 'link') window.open(normalizeUrl(target), '_blank')
     },
     async identity() {
       return { username: 'anteprima', hostname: 'BROWSER' }

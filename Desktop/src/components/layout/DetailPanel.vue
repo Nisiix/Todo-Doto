@@ -4,12 +4,8 @@ import dayjs from 'dayjs'
 import { Check, Lock, RotateCcw, Trash2, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import PrioritySelect from '@/components/board/PrioritySelect.vue'
-import StatusSelect from '@/components/board/StatusSelect.vue'
-import DueDateField from '@/components/board/DueDateField.vue'
-import LabelSelect from '@/components/board/LabelSelect.vue'
 import LabelBadge from '@/components/board/LabelBadge.vue'
-import AssigneeSelect from '@/components/board/AssigneeSelect.vue'
+import ItemFields from '@/components/board/ItemFields.vue'
 import ItemComments from '@/components/detail/ItemComments.vue'
 import ItemQuestions from '@/components/detail/ItemQuestions.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -30,7 +26,6 @@ const m = defineMessages({
     restore: 'Ripristina',
     closeEsc: 'Chiudi (Esc)',
     title: 'Titolo',
-    manageLabels: 'Gestisci etichette…',
     due: (d: string) => `scadenza ${d}`,
     assignedTo: (n: string) => `assegnato a ${n}`,
     createdBy: (s: string) => `Creato da ${s}`,
@@ -47,7 +42,6 @@ const m = defineMessages({
     restore: 'Restore',
     closeEsc: 'Close (Esc)',
     title: 'Title',
-    manageLabels: 'Manage labels…',
     due: (d: string) => `due ${d}`,
     assignedTo: (n: string) => `assigned to ${n}`,
     createdBy: (s: string) => `Created by ${s}`,
@@ -183,23 +177,25 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
           :disabled="locked"
           :aria-label="m.title"
         />
-        <div class="mt-2 flex flex-wrap items-center gap-1.5">
-          <template v-if="!locked">
-            <PrioritySelect v-model="priority" />
-            <StatusSelect v-model="status" />
-            <DueDateField v-model="dueDate" />
-            <LabelSelect v-model="labelId" />
-            <AssigneeSelect v-model="assigneeId" />
-            <button type="button" class="text-[11.5px] font-medium text-ink-3 hover:text-accent-ink hover:underline" @click="emit('manageLabels')">{{ m.manageLabels }}</button>
-          </template>
-          <template v-else>
+        <!-- Gli stessi campi, con nome e spiegazione, del dialog "Nuovo task"; si salvano con «Salva» -->
+        <ItemFields
+          v-if="!locked"
+          v-model:priority="priority"
+          v-model:status="status"
+          v-model:due-date="dueDate"
+          v-model:label-id="labelId"
+          v-model:assignee-id="assigneeId"
+          class="mt-3"
+          id-prefix="d"
+          @manage-labels="emit('manageLabels')"
+        />
+        <div v-else class="mt-2 flex flex-wrap items-center gap-1.5">
           <LabelBadge :label-id="item.labelId" />
           <span class="text-[12.5px] text-ink-2">
             {{ PRIORITY_LABEL[item.priority] }} · {{ STATUS_LABEL[item.status] }}
             <template v-if="item.dueDate"> · {{ m.due(dayjs(item.dueDate).format(DATE.date)) }}</template>
             <template v-if="item.assigneeId"> · {{ m.assignedTo(ws.userName(item.assigneeId)) }}</template>
           </span>
-          </template>
         </div>
         <p class="mt-2 text-[12px] text-ink-3">{{ m.createdBy(created) }}</p>
       </div>

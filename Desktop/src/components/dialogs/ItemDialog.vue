@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { CalendarDays, CircleDot, Flag, Tag, UserRound, X } from 'lucide-vue-next'
+import { ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import ItemFields from '@/components/board/ItemFields.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, type Priority, type Status } from '@/types'
+import type { Priority, Status } from '@/types'
 import { defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -20,20 +20,6 @@ const m = defineMessages({
     notes: 'Descrizione',
     notesPlaceholder: 'Cosa va fatto, decisioni, riferimenti… (facoltativa)',
     details: 'Dettagli',
-    priority: 'Priorità',
-    priorityHint: 'Quanto è urgente rispetto agli altri task.',
-    status: 'Stato',
-    statusHint: 'A che punto è la decisione su cosa fare.',
-    dueDate: 'Scadenza',
-    dueHint: 'Entro quando va fatto (facoltativa).',
-    clearDue: 'Togli la scadenza',
-    assignee: 'Assegnato a',
-    assigneeHint: 'Chi se ne occupa: può anche cestinarlo.',
-    unassigned: 'Nessuno',
-    label: 'Etichetta',
-    labelHint: 'Per raggruppare e filtrare i task.',
-    noLabel: 'Nessuna',
-    manageLabels: 'Gestisci etichette…',
     ctrlEnter: 'Ctrl+Invio',
   },
   en: {
@@ -46,20 +32,6 @@ const m = defineMessages({
     notes: 'Description',
     notesPlaceholder: 'What needs doing, decisions, references… (optional)',
     details: 'Details',
-    priority: 'Priority',
-    priorityHint: 'How urgent it is compared to the other tasks.',
-    status: 'Status',
-    statusHint: 'How far the decision on what to do has got.',
-    dueDate: 'Due date',
-    dueHint: 'When it must be done by (optional).',
-    clearDue: 'Remove the due date',
-    assignee: 'Assigned to',
-    assigneeHint: 'Who takes care of it: they can also trash it.',
-    unassigned: 'Nobody',
-    label: 'Label',
-    labelHint: 'To group and filter tasks.',
-    noLabel: 'None',
-    manageLabels: 'Manage labels…',
     ctrlEnter: 'Ctrl+Enter',
   },
 })
@@ -90,13 +62,6 @@ const labelId = ref<string | null>(null)
 const assigneeId = ref<string | null>(null)
 const error = ref('')
 
-/** Pallini dei valori scelti, come nella lista. */
-const statusDot: Record<Status, string> = {
-  da_valutare: 'border-ink-3',
-  da_definire: 'border-accent [background:linear-gradient(90deg,var(--accent)_50%,transparent_50%)]',
-  confermato: 'border-accent bg-accent',
-}
-const label = computed(() => (labelId.value ? ws.labelsById[labelId.value] : null))
 
 watch(open, (o) => {
   if (!o) return
@@ -147,66 +112,16 @@ async function submit() {
 
       <fieldset class="rounded-lg border border-line p-4">
         <legend class="px-1 text-[12px] font-semibold uppercase tracking-wide text-ink-3">{{ m.details }}</legend>
-        <div class="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-          <!-- Priorità -->
-          <div>
-            <label class="label flex items-center gap-1.5" for="i-priority"><Flag :size="13" class="text-ink-3" /> {{ m.priority }}</label>
-            <div class="relative">
-              <span class="pointer-events-none absolute left-3 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full" :class="`bg-p-${priority}`" />
-              <select id="i-priority" v-model="priority" class="field pl-8">
-                <option v-for="p in PRIORITIES" :key="p" :value="p">{{ PRIORITY_LABEL[p] }}</option>
-              </select>
-            </div>
-            <p class="mt-1 text-[11.5px] text-ink-3">{{ m.priorityHint }}</p>
-          </div>
-          <!-- Stato -->
-          <div>
-            <label class="label flex items-center gap-1.5" for="i-status"><CircleDot :size="13" class="text-ink-3" /> {{ m.status }}</label>
-            <div class="relative">
-              <span class="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-[1.5px]" :class="statusDot[status]" />
-              <select id="i-status" v-model="status" class="field pl-8">
-                <option v-for="s in STATUSES" :key="s" :value="s">{{ STATUS_LABEL[s] }}</option>
-              </select>
-            </div>
-            <p class="mt-1 text-[11.5px] text-ink-3">{{ m.statusHint }}</p>
-          </div>
-          <!-- Scadenza -->
-          <div>
-            <label class="label flex items-center gap-1.5" for="i-due"><CalendarDays :size="13" class="text-ink-3" /> {{ m.dueDate }}</label>
-            <div class="flex gap-1.5">
-              <input id="i-due" type="date" class="field" :value="dueDate ?? ''" @change="dueDate = ($event.target as HTMLInputElement).value || null" />
-              <BaseButton v-if="dueDate" size="icon" variant="ghost" :title="m.clearDue" :aria-label="m.clearDue" @click="dueDate = null"><X :size="15" /></BaseButton>
-            </div>
-            <p class="mt-1 text-[11.5px] text-ink-3">{{ m.dueHint }}</p>
-          </div>
-          <!-- Assegnato a -->
-          <div>
-            <label class="label flex items-center gap-1.5" for="i-assignee"><UserRound :size="13" class="text-ink-3" /> {{ m.assignee }}</label>
-            <select id="i-assignee" class="field" :value="assigneeId ?? ''" @change="assigneeId = ($event.target as HTMLSelectElement).value || null">
-              <option value="">{{ m.unassigned }}</option>
-              <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
-            </select>
-            <p class="mt-1 text-[11.5px] text-ink-3">{{ m.assigneeHint }}</p>
-          </div>
-          <!-- Etichetta -->
-          <div class="sm:col-span-2">
-            <div class="flex items-center justify-between">
-              <label class="label flex items-center gap-1.5" for="i-label"><Tag :size="13" class="text-ink-3" /> {{ m.label }}</label>
-              <button type="button" class="mb-1 text-[12px] font-medium text-accent-ink hover:underline" @click="openLabels">{{ m.manageLabels }}</button>
-            </div>
-            <div class="relative">
-              <span
-                class="pointer-events-none absolute left-3 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full"
-                :style="{ background: label?.color ?? 'transparent', boxShadow: label ? 'none' : 'inset 0 0 0 1.5px var(--ink-3)' }"
-              />
-              <select id="i-label" class="field pl-8" :value="labelId ?? ''" @change="labelId = ($event.target as HTMLSelectElement).value || null">
-                <option value="">{{ m.noLabel }}</option>
-                <option v-for="l in ws.tree.labels" :key="l.id" :value="l.id">{{ l.name }}</option>
-              </select>
-            </div>
-            <p class="mt-1 text-[11.5px] text-ink-3">{{ m.labelHint }}</p>
-          </div>
-        </div>
+        <ItemFields
+          v-model:priority="priority"
+          v-model:status="status"
+          v-model:due-date="dueDate"
+          v-model:label-id="labelId"
+          v-model:assignee-id="assigneeId"
+          id-prefix="i"
+          wide
+          @manage-labels="openLabels"
+        />
       </fieldset>
       <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
     </form>

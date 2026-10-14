@@ -24,6 +24,14 @@ export interface KnownPrerequisite {
    * (es. Visual Studio): solo Windows; uscita diversa da 0 o output vuoto = non installato.
    */
   probe?: { command: string; version?: RegExp }
+  /**
+   * Seconda verifica, solo Windows, se il comando non si trova: il percorso
+   * d'installazione standard (programma installato ma non nel PATH) o un
+   * comando alternativo (es. il launcher "py" di Python).
+   */
+  fallback?: string
+  /** Spiegazione aggiunta quando manca (es. cosa NON basta al suo posto). */
+  missingNote?: { it: string; en: string }
 }
 
 export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
@@ -33,10 +41,11 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     version: '20+',
     url: 'https://nodejs.org',
     check: 'node -v',
+    fallback: '"%ProgramFiles%\\nodejs\\node.exe" -v',
     neededBy: ['TypeScript', 'JavaScript', 'Vue', 'Vue 3', 'React', 'Angular', 'Svelte', 'Next.js', 'Nuxt', 'Vite', 'Node.js', 'Express', 'NestJS', 'Electron', 'Tauri', 'Ionic', 'Capacitor', 'Tailwind CSS', 'React Native', 'Expo', 'Astro', 'Remix'],
   },
-  { name: 'Git', aliases: ['git scm'], version: '', url: 'https://git-scm.com/downloads', check: 'git --version', neededBy: [] },
-  { name: 'Rust', aliases: ['rustup', 'cargo', 'rustc'], version: 'stable', url: 'https://rustup.rs', check: 'cargo --version', neededBy: ['Rust', 'Tauri'] },
+  { name: 'Git', aliases: ['git scm'], version: '', url: 'https://git-scm.com/downloads', check: 'git --version', neededBy: [], fallback: '"%ProgramFiles%\\Git\\cmd\\git.exe" --version' },
+  { name: 'Rust', aliases: ['rustup', 'cargo', 'rustc'], version: 'stable', url: 'https://rustup.rs', check: 'cargo --version', neededBy: ['Rust', 'Tauri'], fallback: '"%USERPROFILE%\\.cargo\\bin\\cargo.exe" --version' },
   {
     name: 'Visual Studio Build Tools',
     aliases: ['build tools', 'vs build tools', 'msvc', 'visual c++ build tools'],
@@ -54,6 +63,11 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     url: 'https://dotnet.microsoft.com/download',
     check: 'dotnet --version',
     neededBy: ['C#', 'F#', '.NET', 'ASP.NET', 'ASP.NET Core', 'Blazor', 'MAUI', '.NET MAUI'],
+    fallback: '"%ProgramFiles%\\dotnet\\dotnet.exe" --version',
+    missingNote: {
+      it: 'Il .NET Framework incluso in Windows e i soli runtime .NET non bastano: serve il .NET SDK (comando dotnet).',
+      en: 'The .NET Framework included in Windows and the .NET runtimes alone are not enough: the .NET SDK (dotnet command) is needed.',
+    },
   },
   {
     name: 'Visual Studio',
@@ -65,7 +79,7 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     os: ['windows'],
     probe: { command: '"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe" -latest -property catalog_productLineVersion' },
   },
-  { name: 'Python', aliases: ['python3', 'py'], version: '3.11+', url: 'https://www.python.org/downloads/', check: 'python --version', neededBy: ['Python', 'Django', 'Flask', 'FastAPI'] },
+  { name: 'Python', aliases: ['python3', 'py'], version: '3.11+', url: 'https://www.python.org/downloads/', check: 'python --version', neededBy: ['Python', 'Django', 'Flask', 'FastAPI'], fallback: 'py --version' },
   { name: 'Java JDK', aliases: ['java', 'jdk', 'openjdk', 'temurin'], version: '17+', url: 'https://adoptium.net', check: 'java -version', neededBy: ['Java', 'Kotlin', 'Spring', 'Spring Boot', 'Android'] },
   { name: 'Go', aliases: ['golang'], version: '', url: 'https://go.dev/dl/', check: 'go version', neededBy: ['Go'] },
   { name: 'PHP', aliases: ['php8'], version: '8.2+', url: 'https://www.php.net/downloads', check: 'php -v', neededBy: ['PHP', 'Laravel', 'Symfony', 'WordPress'] },
@@ -82,7 +96,7 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     probe: { command: 'type "%ProgramFiles%\\Android\\Android Studio\\product-info.json"', version: /"version"\s*:\s*"([\d.]+)"/ },
   },
   { name: 'Xcode', aliases: ['xcode command line tools'], version: '', url: 'https://developer.apple.com/xcode/', check: 'xcodebuild -version', neededBy: ['Swift', 'iOS', 'SwiftUI'], os: ['macos'] },
-  { name: 'Docker Desktop', aliases: ['docker'], version: '', url: 'https://www.docker.com/products/docker-desktop/', check: 'docker --version', neededBy: ['Docker', 'Docker Compose', 'Kubernetes'] },
+  { name: 'Docker Desktop', aliases: ['docker'], version: '', url: 'https://www.docker.com/products/docker-desktop/', check: 'docker --version', neededBy: ['Docker', 'Docker Compose', 'Kubernetes'], fallback: '"%ProgramFiles%\\Docker\\Docker\\resources\\bin\\docker.exe" --version' },
   { name: 'PostgreSQL', aliases: ['postgres', 'psql'], version: '', url: 'https://www.postgresql.org/download/', check: 'psql --version', neededBy: ['PostgreSQL'] },
   { name: 'MySQL', aliases: ['mariadb'], version: '', url: 'https://dev.mysql.com/downloads/', check: 'mysql --version', neededBy: ['MySQL'] },
   { name: 'SQL Server', aliases: ['mssql', 'sql server express'], version: '', url: 'https://www.microsoft.com/sql-server/sql-server-downloads', check: 'sqlcmd -?', neededBy: ['SQL Server'] },

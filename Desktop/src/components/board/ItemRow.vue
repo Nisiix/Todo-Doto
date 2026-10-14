@@ -13,7 +13,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
 import { dueState, firstLine, formatDue, openQuestions as openQuestionsOf } from '@/services/items'
-import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority, type Status } from '@/types'
+import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority } from '@/types'
 import { DATE, defineMessages } from '@/i18n'
 
 const m = defineMessages({
@@ -61,10 +61,6 @@ const personName = computed(() => ws.userName(props.item.assigneeId ?? props.ite
 const personLabel = computed(() => (props.item.assigneeId ? m.assignedTo(personName.value) : m.createdBy(personName.value)))
 const barHeight: Record<Priority, string> = { bassa: 'h-2', media: 'h-3.5', alta: 'h-5', immediata: 'h-7' }
 
-const setPriority = (p: Priority) => ws.updateItem(props.projectId, props.item.id, { priority: p })
-const setStatus = (s: Status) => ws.updateItem(props.projectId, props.item.id, { status: s })
-const setDue = (d: string | null) => ws.updateItem(props.projectId, props.item.id, { dueDate: d })
-const setLabel = (l: string | null) => ws.updateItem(props.projectId, props.item.id, { labelId: l })
 
 // --- tastiera -------------------------------------------------------------------
 const ROW = '[data-item-row]'
@@ -137,10 +133,11 @@ function onKeydown(e: KeyboardEvent) {
 
     <!-- Colonne di larghezza fissa: i badge si allineano da una riga all'altra, con pallino e testo centrati -->
     <template v-if="editable && !compact">
-      <LabelSelect class="w-32" :model-value="item.labelId" @update:model-value="setLabel" />
-      <DueDateField class="w-20" :model-value="item.dueDate" @update:model-value="setDue" />
-      <StatusSelect class="w-28" :model-value="item.status" @update:model-value="setStatus" />
-      <PrioritySelect class="w-24" :model-value="item.priority" @update:model-value="setPriority" />
+      <!-- Solo da vedere: si modificano selezionando l'elemento, dal dettaglio, con «Salva» -->
+      <LabelSelect class="w-32" :model-value="item.labelId" readonly />
+      <DueDateField class="w-20" :model-value="item.dueDate" readonly />
+      <StatusSelect class="w-28" :model-value="item.status" readonly />
+      <PrioritySelect class="w-24" :model-value="item.priority" readonly />
     </template>
     <span v-else-if="editable" class="flex shrink-0 items-center gap-2 whitespace-nowrap text-[12px] text-ink-3" :title="`${STATUS_LABEL[item.status]} · ${PRIORITY_LABEL[item.priority]}${label ? ' · ' + label.name : ''}`">
       <span v-if="item.dueDate" class="tabular-nums" :class="{ 'font-semibold text-danger': dueState(item.dueDate) === 'overdue' }">{{ formatDue(item.dueDate) }}</span>

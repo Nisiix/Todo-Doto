@@ -35,7 +35,10 @@
         { "url": "https://api.github.com/*" }
       ]
     },
-    "opener:allow-open-url",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "mailto:*" }]
+    },
     {
       "identifier": "opener:allow-open-path",
       "allow": [{ "path": "**" }]

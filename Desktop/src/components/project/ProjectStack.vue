@@ -710,7 +710,8 @@ async function ghSync() {
       <BaseMenu v-if="canEdit && importMenu.length" :items="importMenu">
         <BaseButton size="sm" variant="ghost" :title="m.importFromHint"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
       </BaseMenu>
-      <BaseButton v-if="canEdit && !editing && stack.sourcePath" size="sm" variant="ghost" :title="m.detectHint" :disabled="detecting" data-detect-stack @click="detectFromFolder">
+      <!-- Stack ancora senza tecnologie: al posto del pulsante c'è il riquadro tratteggiato più sotto -->
+      <BaseButton v-if="canEdit && !editing && stack.sourcePath && !needsDetect" size="sm" variant="ghost" :title="m.detectHint" :disabled="detecting" data-detect-stack @click="detectFromFolder">
         <Loader2 v-if="detecting" :size="14" class="animate-spin" /><FolderSearch v-else :size="14" /> {{ detecting ? m.detecting : m.detect }}
       </BaseButton>
       <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
@@ -951,6 +952,7 @@ async function ghSync() {
                   <span>{{ statusText(p) }}</span>
                   <span v-if="done.has(p.id) && !prereqLocked(p.id)" class="font-normal text-ink-3">· {{ m.confirmInstalled }}</span>
                 </div>
+                <p v-if="checks.results.value[p.id]?.note && statusOf(p.id)" class="mt-0.5 text-[12px] text-ink-2" data-check-note>{{ checks.results.value[p.id]!.note }}</p>
                 <div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px]">
                   <BaseButton v-if="statusOf(p.id) === 'confirm'" size="sm" variant="outline" @click="runCustomCheck(p)"><Play :size="12" /> {{ m.runCheck }}</BaseButton>
                   <code v-if="p.check" class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px]">{{ p.check }}</code>

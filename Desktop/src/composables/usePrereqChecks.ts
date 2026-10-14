@@ -1,7 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import { getFs, isTauri, type CheckOutput } from '@/services/fs'
-import { currentOs, interpretCheck, planCheck, precheck, type CheckResult } from '@/services/prereqCheck'
+import { currentOs, fallbackResult, interpretCheck, planCheck, precheck, withMissingNote, type CheckResult } from '@/services/prereqCheck'
 import type { Prerequisite } from '@/types'
 
 /** Esiti dei comandi già eseguiti, condivisi fra i progetti (stesso comando ⇒ stesso esito). */
@@ -44,6 +44,13 @@ export function usePrereqChecks(prereqs: Ref<Prerequisite[]>) {
     let result: CheckResult
     try {
       result = interpretCheck(await runCached(plan.command, force), plan, p.version)
+      // Non trovato: seconda verifica (percorso d'installazione standard o comando alternativo)
+      if (result.status === 'missing' && plan.fallback) {
+        // Se la seconda verifica non parte nemmeno, resta il primo esito
+        const fbRun = await runCached(plan.fallback, force).catch(() => null)
+        if (fbRun) result = fallbackResult(result, interpretCheck(fbRun, { ...plan, command: plan.fallback }, p.version), plan)
+      }
+      result = withMissingNote(result, plan)
     } catch (e) {
       result = { status: 'failed', version: '', command: plan.command, output: e instanceof Error ? e.message : String(e) }
     }
