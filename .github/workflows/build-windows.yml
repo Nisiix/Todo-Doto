@@ -82,8 +82,27 @@ jobs:
           if-no-files-found: error
           path: Desktop/release/*
 
-      - name: Release (solo sui tag v*)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+  # Una sola Release con gli installer di entrambe le lingue (evita che i due
+  # job della matrice la creino in parallelo).
+  release:
+    name: Release (solo sui tag v*)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          files: Desktop/release/*
+          pattern: project-goal-manager-windows-*
+          path: release
+          merge-multiple: true
+
+      - run: ls -la release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
