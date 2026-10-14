@@ -35,7 +35,7 @@ const LANGS = {
       createWs: 'Crea workspace', browse: 'Sfoglia', settings: 'Impostazioni', save: 'Salva', create: 'Crea', close: 'Chiudi',
       labels: 'Etichette', newLabelPh: 'Nuova etichetta', labelName: 'Nome etichetta', add: 'Aggiungi', color: 'Colore', closeEsc: 'Chiudi (Esc)',
       newFolder: 'Nuova cartella', folderName: 'Nome cartella', createFolder: 'Crea cartella',
-      project: 'Progetto', createProject: 'Crea progetto', newItem: 'Nuovo elemento', markDone: 'Segna come completato (C)',
+      project: 'Progetto', createProject: 'Crea progetto', newItem: 'Nuovo task', markDone: 'Segna come completato (C)',
       ask: 'Fai una domanda', favorite: 'Aggiungi ai preferiti', answer: 'Rispondi', yourAnswer: 'La tua risposta', comment: 'Scrivi un commento',
       attachmentsTab: 'Allegati', folderBtn: 'Cartella', folderPh: 'Es. Specifiche, Mockup, Contratti', attachmentBtn: 'Allegato',
       fillStack: 'Compila lo stack', languagesPh: 'Es. TypeScript, C#, Rust', frameworksPh: 'Es. Vue 3, Tauri, .NET 4.0',
@@ -100,7 +100,7 @@ const LANGS = {
       createWs: 'Create workspace', browse: 'Browse', settings: 'Settings', save: 'Save', create: 'Create', close: 'Close',
       labels: 'Labels', newLabelPh: 'New label', labelName: 'Label name', add: 'Add', color: 'Color', closeEsc: 'Close (Esc)',
       newFolder: 'New folder', folderName: 'Folder name', createFolder: 'Create folder',
-      project: 'Project', createProject: 'Create project', newItem: 'New item', markDone: 'Mark as completed (C)',
+      project: 'Project', createProject: 'Create project', newItem: 'New task', markDone: 'Mark as completed (C)',
       ask: 'Ask a question', favorite: 'Add to favorites', answer: 'Answer', yourAnswer: 'Your answer', comment: 'Write a comment',
       attachmentsTab: 'Attachments', folderBtn: 'Folder', folderPh: 'E.g. Specs, Mockups, Contracts', attachmentBtn: 'Attachment',
       fillStack: 'Fill in the stack', languagesPh: 'E.g. TypeScript, C#, Rust', frameworksPh: 'E.g. Vue 3, Tauri, .NET 4.0',
@@ -200,8 +200,10 @@ async function capture(lang) {
       await page.locator('[role=status]').first().waitFor({ state: 'detached', timeout: 8000 }).catch(() => {})
       await page.waitForTimeout(250)
     }
-    const shot = async (name) => {
+    const shot = async (name, { top = true } = {}) => {
       await quiet()
+      // Il contenuto della pagina parte dall'alto, salvo dove si vuole mostrare una parte più in basso
+      if (top) await page.evaluate(() => document.querySelectorAll('main .overflow-y-auto').forEach((e) => (e.scrollTop = 0)))
       await page.screenshot({ path: join(dir, `${name}.png`) })
       console.log(`  ${lang}/${name}.png`)
     }
@@ -209,6 +211,7 @@ async function capture(lang) {
       await page.getByRole('button', { name: D.ws }).first().click()
       await page.getByRole('menuitem', { name: item }).click()
     }
+    const openSection = (name) => page.locator('aside').first().getByRole('link', { name: new RegExp(`^${name}( \d+)?$`) }).click()
     const openProject = async (name) => {
       await page.locator('aside').first().getByRole('link', { name }).first().click()
       await page.getByRole('heading', { name, level: 1 }).waitFor()
@@ -296,8 +299,8 @@ async function capture(lang) {
     await shot('project-detail')
     await page.getByTitle(T.closeEsc).click()
 
-    // 3) Allegati
-    await page.getByRole('button', { name: new RegExp(`^${T.attachmentsTab}`) }).click()
+    // 3) Allegati (sezione del progetto nel sottomenu della barra laterale)
+    await openSection(T.attachmentsTab)
     await page.getByRole('button', { name: T.folderBtn, exact: true }).click()
     await page.fill(`input[placeholder="${T.folderPh}"]`, D.attFolder)
     await page.getByRole('button', { name: T.create, exact: true }).click()
@@ -320,7 +323,7 @@ async function capture(lang) {
 
     // 4) Stack
     const S = D.stack
-    await page.getByRole('button', { name: 'Stack', exact: true }).click()
+    await openSection('Stack')
     await page.getByRole('button', { name: T.fillStack }).click()
     await page.getByRole('button', { name: 'Web', exact: true }).click()
     // Campi a chip: il segnaposto sparisce dopo il primo valore, quindi si va per posizione
@@ -333,13 +336,8 @@ async function capture(lang) {
     }
     await page.fill('#st-repo', S.repo)
     await page.fill('#st-notes', S.notes)
-    for (const [name, version, dl, check] of S.prereqs) {
-      await page.getByRole('button', { name: T.prereq, exact: true }).click()
-      await page.getByPlaceholder(T.prereqName).last().fill(name)
-      await page.getByPlaceholder(T.version, { exact: true }).last().fill(version)
-      await page.getByPlaceholder(T.downloadUrl).last().fill(dl)
-      await page.getByPlaceholder(T.checkCmd).last().fill(check)
-    }
+    // I prerequisiti (Node.js da TypeScript/Vue, Git dal repository) si aggiungono da soli
+    await page.getByPlaceholder(T.prereqName).nth(S.prereqs.length - 1).waitFor()
     for (const [title, cmd] of S.steps) {
       await page.getByRole('button', { name: T.step, exact: true }).click()
       await page.getByPlaceholder(T.stepTitle).last().fill(title)
@@ -370,8 +368,8 @@ async function capture(lang) {
     await page.keyboard.press('Escape')
     await dialog().waitFor({ state: 'hidden' })
 
-    // 5) Strumenti AI
-    await page.getByRole('button', { name: T.aiSection, exact: true }).click()
+    // 5) Strumenti AI: in fondo alla pagina Stack
+    await page.getByRole('heading', { name: T.aiSection }).scrollIntoViewIfNeeded()
     for (const t of D.tools) {
       await page.getByRole('button', { name: T.newTool }).click()
       await page.getByRole('menuitem', { name: t.kind === 'skill' ? T.skill : T.connector }).click()
@@ -382,7 +380,8 @@ async function capture(lang) {
       await dialog().getByRole('button', { name: T.create, exact: true }).click()
       await dialog().waitFor({ state: 'hidden' })
     }
-    await shot('ai-tools')
+    await page.getByRole('heading', { name: T.aiSection }).evaluate((h) => h.scrollIntoView({ block: 'start' }))
+    await shot('ai-tools', { top: false })
 
     // 6) Analisi e 7) Cronologia (amministratore)
     await wsMenu(T.analytics)

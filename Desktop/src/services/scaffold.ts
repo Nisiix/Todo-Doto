@@ -52,7 +52,7 @@ export const resolveStack = (stack: Stack, v: ProjectVars) => mapTexts(stack, (s
 
 /** Lo stack ha qualcosa da copiare in un altro progetto? */
 export const hasStack = (s: Stack) =>
-  !!(s.platforms.length || s.languages.length || s.frameworks.length || s.notes || s.prerequisites.length || s.steps.length || s.envVars.length || s.files.length)
+  !!(s.platforms.length || s.languages.length || s.frameworks.length || s.notes || s.prerequisites.length || s.steps.length || s.envVars.length || s.files.length || s.doc)
 
 /**
  * Copia lo stack di un progetto per usarlo in un altro: id nuovi, cartella
@@ -184,6 +184,9 @@ export function scaffoldFiles(projectName: string, description: string, stack: S
   files.set('README.md', L.join('\n'))
   if (s.envVars.length) files.set('.env.example', s.envVars.map((e) => (e.notes ? `# ${e.notes}\n` : '') + `${e.key}=${e.example}`).join('\n') + '\n')
   if (hasScript) files.set(scriptName, setupScriptWindows(v.name, s))
+  // Documento di architettura importato nello Stack, con il suo nome
+  const docPath = s.doc ? safeRelPath(s.doc.fileName) : null
+  if (s.doc && docPath) files.set(docPath, s.doc.content)
   for (const f of s.files) {
     const p = safeRelPath(f.path)
     if (p) files.set(p, f.content)

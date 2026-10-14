@@ -23,7 +23,11 @@ async function createProject(page: Page, name: string, folderLabel?: string) {
   await expect(page.getByRole('heading', { name })).toBeVisible()
 }
 
-const newItemButton = (page: Page) => page.getByRole('button', { name: 'Nuovo elemento' })
+const newItemButton = (page: Page) => page.getByRole('button', { name: 'Nuovo task' })
+const sidebar = (page: Page) => page.locator('aside').first()
+/** Voce del sottomenu del progetto aperto nella barra laterale (Todo, Stack, Allegati). */
+const openSection = (page: Page, name: 'Todo' | 'Stack' | 'Allegati') => sidebar(page).getByRole('link', { name: new RegExp(`^${name}( \d+)?$`) }).click()
+const openFilters = (page: Page) => page.getByRole('button', { name: /^Filtri/ }).click()
 const rows = (page: Page) => page.locator('[role=button][tabindex="0"]')
 const dialog = (page: Page) => page.getByRole('dialog')
 
@@ -90,8 +94,9 @@ test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async
   await expect(recenti.locator('li').first()).toContainText('Epsilon')
   await aside.getByText('Beta', { exact: true }).first().click()
 
-  // Sposta nel cestino dall'intestazione del progetto
-  await page.getByRole('button', { name: 'Sposta nel cestino' }).click()
+  // Sposta nel cestino dalla barra laterale: icona a destra della voce del progetto
+  await aside.getByRole('link', { name: 'Beta' }).first().hover()
+  await aside.getByRole('button', { name: 'Sposta «Beta» nel cestino' }).first().click()
   await expect(page.getByText('Questo progetto è nel cestino')).toBeVisible()
   const cestino = aside.locator('section', { hasText: 'Cestino' })
   await expect(cestino.getByText('Beta')).toBeVisible()
@@ -134,15 +139,19 @@ test('progetti: elementi, filtri, contenitori, dettaglio con Salva', async ({ pa
   await expect(rows(page).nth(0)).toContainText('anteprima')
 
   // Filtri: per priorità, poi azzera
+  await openFilters(page)
   await page.getByRole('group', { name: 'Filtri' }).getByRole('button', { name: 'Immediata' }).click()
+  // Il filtro attivo compare come etichetta rimovibile accanto al pulsante
+  await expect(page.getByRole('button', { name: 'Togli il filtro Immediata' })).toBeVisible()
   await expect(rows(page)).toHaveCount(1)
   await page.getByRole('button', { name: 'Azzera filtri' }).click()
   await expect(rows(page)).toHaveCount(3)
 
   // Ordine dei tab: Da fare, Completati, Allegati, Cestino
-  const tabs = page.getByRole('navigation', { name: 'Contenitori' }).locator('button')
-  await expect(tabs.nth(2)).toContainText('Allegati')
-  await expect(tabs.nth(3)).toContainText('Cestino')
+  // Contenitori: Da fare, Completati, Cestino; gli allegati sono una sezione del progetto
+  const nav = page.getByRole('navigation', { name: 'Contenitori' })
+  await expect(nav.locator('button').nth(2)).toContainText('Cestino')
+  await expect(nav).not.toContainText('Allegati')
 
   // Completa il primo: in Completati non c'è il cerchio di spunta e il dettaglio è bloccato
   await rows(page).nth(0).getByTitle('Segna come completato').click()
@@ -201,6 +210,7 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
   await expect(labels.locator('input[aria-label="Nome etichetta Bug"]')).toBeVisible()
   await labels.getByRole('button', { name: 'Chiudi', exact: true }).last().click()
   // Filtro per etichetta
+  await openFilters(page)
   await page.getByRole('group', { name: 'Filtri' }).getByLabel('Etichetta').selectOption({ label: 'Bug' })
   await expect(rows(page)).toHaveCount(1)
 })
@@ -208,7 +218,8 @@ test('etichette: gestione e assegnazione', async ({ page }) => {
 test('allegati: cartelle, link, file e anteprima interna', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Progetto allegati')
-  await page.getByRole('button', { name: /^Allegati/ }).click()
+  await openSection(page, 'Allegati')
+  await expect(page.getByRole('heading', { name: 'Allegati', level: 2 })).toBeVisible()
   await page.getByRole('button', { name: 'Cartella', exact: true }).click()
   await page.fill('input[placeholder="Es. Specifiche, Mockup, Contratti"]', 'Specifiche')
   await page.getByRole('button', { name: 'Crea', exact: true }).click()
@@ -306,20 +317,20 @@ test('membri: ruoli Admin, Cleaner, Membro e cronologia per l’admin', async ({
   await expect(page.getByText('Nuova domanda')).toBeVisible()
 })
 
-test('sezioni del progetto: Stack con procedura guidata, Strumenti AI; Analisi per l’admin', async ({ page }) => {
+test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi per l’admin', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Stack test')
   await addItem(page, 'Elemento assegnato')
 
   // Stack: compilazione (admin) e procedura guidata
-  await page.getByRole('button', { name: 'Stack' }).click()
+  await openSection(page, 'Stack')
   await page.getByRole('button', { name: 'Compila lo stack' }).click()
   await page.getByRole('button', { name: 'Desktop' }).click()
   await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
   await page.keyboard.press('Enter')
-  await page.getByRole('button', { name: 'Prerequisito' }).click()
-  await page.getByPlaceholder('Nome, es. Node.js').fill('Node.js')
-  await page.getByPlaceholder('Comando di verifica, es. node -v').fill('node -v')
+  // TypeScript richiede Node.js: il prerequisito si aggiunge già compilato
+  await expect(page.getByPlaceholder('Nome, es. Node.js')).toHaveValue('Node.js')
+  await expect(page.getByPlaceholder('Comando di verifica, es. node -v')).toHaveValue('node -v')
   await page.getByRole('button', { name: 'Passo', exact: true }).click()
   await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').fill('Installa le dipendenze')
   await page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)').fill('npm install')
@@ -331,8 +342,8 @@ test('sezioni del progetto: Stack con procedura guidata, Strumenti AI; Analisi p
   await expect(page.getByText('1 di 2 completati')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Genera script Windows' })).toBeVisible()
 
-  // Strumenti AI: skill incollata, visibile nel visualizzatore
-  await page.getByRole('button', { name: 'Strumenti AI' }).click()
+  // Strumenti AI, ora nella pagina Stack: skill incollata, visibile nel visualizzatore
+  await expect(page.getByRole('heading', { name: 'Strumenti AI' })).toBeVisible()
   await page.getByRole('button', { name: 'Nuovo strumento' }).click()
   await page.getByRole('menuitem', { name: 'Skill' }).click()
   await page.fill('#ai-name', 'frontend-design')
@@ -354,7 +365,7 @@ test('sezioni del progetto: Stack con procedura guidata, Strumenti AI; Analisi p
 test('stack come modello: nuovo progetto con lo stack copiato e cartella del progetto', async ({ page }) => {
   await createLocalWorkspace(page)
   await createProject(page, 'Modello web')
-  await page.getByRole('button', { name: 'Stack' }).click()
+  await openSection(page, 'Stack')
   await page.getByRole('button', { name: 'Compila lo stack' }).click()
   await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
   await page.keyboard.press('Enter')
@@ -385,9 +396,86 @@ test('stack come modello: nuovo progetto con lo stack copiato e cartella del pro
 
   // Importazione dello stack in un progetto esistente, durante la modifica
   await createProject(page, 'Altro')
-  await page.getByRole('button', { name: 'Stack' }).click()
+  await openSection(page, 'Stack')
   await page.getByRole('button', { name: 'Compila lo stack' }).click()
   await page.getByRole('button', { name: 'Importa da…' }).click()
   await page.getByRole('menuitem', { name: 'Modello web' }).click()
   await expect(page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)')).toHaveValue('git clone https://example.com/altro.git')
+})
+
+test('barra laterale: sottomenu del progetto; nessun cestino nelle sezioni; impostazioni con l’ingranaggio', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Uno')
+  const submenu = sidebar(page).getByRole('list', { name: 'Sezioni di Uno' })
+  await expect(submenu.getByRole('link')).toHaveText([/^Todo/, /^Stack/, /^Allegati/])
+  for (const s of ['Todo', 'Stack', 'Allegati'] as const) {
+    await openSection(page, s)
+    // Il pulsante per cestinare il progetto non è più nell'intestazione delle sezioni
+    await expect(page.getByRole('main').getByRole('button', { name: /nel cestino/i })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Impostazioni progetto' })).toBeVisible()
+  }
+  // Il vecchio indirizzo della sezione Strumenti AI porta allo Stack
+  await page.goto(page.url().replace(/\/attachments$/, '/ai'))
+  await expect(page.getByRole('heading', { name: 'Stack e configurazione' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Strumenti AI' })).toBeVisible()
+  // Il sottomenu compare solo per il progetto aperto
+  await createProject(page, 'Due')
+  await expect(sidebar(page).getByRole('list', { name: 'Sezioni di Uno' })).toHaveCount(0)
+  await expect(sidebar(page).getByRole('list', { name: 'Sezioni di Due' })).toBeVisible()
+})
+
+test('stack: prerequisiti compilati in automatico, salvataggio e import di un documento .md', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Portale')
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Compila lo stack' }).click()
+  await expect(page.getByText('Nessuna modifica')).toBeVisible()
+
+  // Un linguaggio che richiede strumenti: i prerequisiti si aggiungono da soli
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('Rust')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Prerequisiti aggiunti in automatico: Rust, Visual Studio Build Tools')).toBeVisible()
+  await expect(page.getByText('Modifiche non salvate')).toBeVisible()
+  const names = page.getByPlaceholder('Nome, es. Node.js')
+  await expect(names).toHaveCount(2)
+  // Un nome noto completa link e comando di verifica
+  await page.getByRole('button', { name: 'Prerequisito', exact: true }).click()
+  await names.last().fill('nodejs')
+  await names.last().blur()
+  await expect(names.last()).toHaveValue('Node.js')
+  await expect(page.getByPlaceholder('Comando di verifica, es. node -v').last()).toHaveValue('node -v')
+  // Un prerequisito tolto a mano non viene riproposto in automatico, ma resta tra i suggeriti
+  await page.getByRole('button', { name: 'Rimuovi' }).nth(1).click()
+  await expect(page.getByRole('button', { name: 'Visual Studio Build Tools' })).toBeVisible()
+  // Ctrl+S salva
+  await page.keyboard.press('Control+s')
+  await expect(page.getByText('Stack salvato')).toBeVisible()
+
+  // Import di un documento di architettura: precompila e memorizza il documento
+  const md = [
+    '# Portale',
+    '## Architettura',
+    'Frontend Vue 3 con API Express su PostgreSQL. Repository: https://github.com/example/portale',
+    '## Prerequisiti',
+    '- PostgreSQL 16',
+    '## Avvio',
+    '1. Installa le dipendenze',
+    '   ```',
+    '   npm install',
+    '   ```',
+    '## Variabili d’ambiente',
+    '| Variabile | Esempio |',
+    '|---|---|',
+    '| `DATABASE_URL` | `postgres://localhost/portale` |',
+  ].join('\n')
+  await page.locator('input[data-md-input]').setInputFiles({ name: 'ARCHITETTURA.md', mimeType: 'text/markdown', buffer: Buffer.from(md) })
+  await expect(page.getByText(/Da «ARCHITETTURA\.md»: .*1 passi.*Controlla e salva/)).toBeVisible()
+  await expect(page.locator('#st-repo')).toHaveValue('https://github.com/example/portale')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText('Stack salvato').last()).toBeVisible()
+  await expect(page.getByText('Documento di architettura:')).toBeVisible()
+  await expect(page.getByText('npm install', { exact: true })).toBeVisible()
+  await expect(page.getByText('DATABASE_URL', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Vedi documento' }).click()
+  await expect(dialog(page).locator('pre')).toContainText('Frontend Vue 3')
 })

@@ -17,8 +17,8 @@ const m = defineMessages({
   it: {
     errTitle: 'Dai un titolo all’elemento.',
     createdNamed: (t: string) => `Creato «${t}»`,
-    created: 'Elemento creato',
-    title: 'Nuovo elemento',
+    created: 'Task creato',
+    title: 'Nuovo task',
     description: 'Un titolo breve per la lista; i dettagli nella descrizione.',
     titleLabel: 'Titolo',
     titlePlaceholder: 'Es. Pagina di accesso con verifica email',
@@ -31,8 +31,8 @@ const m = defineMessages({
   en: {
     errTitle: 'Give the item a title.',
     createdNamed: (t: string) => `Created “${t}”`,
-    created: 'Item created',
-    title: 'New item',
+    created: 'Task created',
+    title: 'New task',
     description: 'A short title for the list; the details go in the description.',
     titleLabel: 'Title',
     titlePlaceholder: 'E.g. Sign-in page with email verification',

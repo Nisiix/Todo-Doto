@@ -200,7 +200,7 @@ const trashMenu = (p: Project) => [
             @remove="removeFolder"
             @new-project="newProject"
           />
-          <ProjectLink v-for="p in rootProjects" :key="p.id" :project="p" :depth="-1" />
+          <ProjectLink v-for="p in rootProjects" :key="p.id" :project="p" :depth="-1" sections />
         </ul>
         <p v-else class="px-1 text-[12.5px] leading-relaxed text-ink-3">
           {{ m.projectsEmpty }}

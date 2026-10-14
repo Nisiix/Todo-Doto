@@ -51,6 +51,9 @@ src/
     preview.ts             tipo di anteprima da nome/MIME e costruzione del contenuto (blob URL / testo)
     analytics.ts           riepilogo numerico del workspace (pagina Analisi) e script .cmd di configurazione (sezione Stack)
     scaffold.ts            stack come modello: copia fra progetti, segnaposto {{name}}/{{slug}}, file e scrittura della cartella del progetto
+    prerequisites.ts       catalogo dei prerequisiti noti: completamento dei campi e prerequisiti dedotti da linguaggi/framework
+    stackDoc.ts            import di un documento di architettura .md nello Stack (parser Markdown + unione senza perdite)
+    sections.ts            sezioni del progetto (Todo, Stack, Allegati) e parametro di rotta
     drive.ts               client Google Drive: PKCE, token, elenco ricorsivo, download/esportazione
     http.ts                fetch per API esterne (plugin http in Tauri, window.fetch altrove)
     ids.ts                 generazione id con prefisso (prj_, itm_, …) e timestamp
@@ -63,11 +66,11 @@ src/
   composables/
     useConfirm.ts          dialog di conferma come Promise<boolean>
   components/
-    project/               sezioni del progetto: ProjectStack (stack, prerequisiti, passi guidati, script) e ProjectAiTools (connettori, plugin, skill)
+    project/               pagina Stack: ProjectStack (stack, prerequisiti automatici, import .md, passi guidati, script) e ProjectAiTools (connettori, plugin, skill), mostrati insieme
     ui/                    generici, senza conoscenza del dominio
     board/                 lista del progetto: riga, composer, selettori, allegati
     detail/                pannello elemento: commenti, domande, testo con menzioni
-    layout/                TopBar, SideRail (albero), FolderNode, ProjectLink, DetailPanel
+    layout/                TopBar, SideRail (albero), FolderNode, ProjectLink (voce del progetto con cestino e sottomenu Todo/Stack/Allegati), DetailPanel
     dialogs/               form modali: workspace, password, progetto, allegato, nome, impostazioni
   views/                   WelcomeView, WorkspaceView (layout), WorkspaceHomeView, ProjectView, MembersView,
                            DriveView (esplorazione della cartella replicata), AuditView (cronologia, admin),
@@ -218,7 +221,8 @@ watcher o polling → `ws.refresh()` → `storage.signature()` → per ogni file
 | un nuovo tipo di allegato | `AttachmentSchema.kind`, `AttachmentDialog` (segmento), `AttachmentsBoard` (icona), `fs.openExternal`. |
 | una nuova pagina | `views/NuovaView.vue` + rotta figlia di `/w` in `router/index.ts` (`meta: { admin: true }` se riservata agli admin: il router rimanda alla home gli altri) + link in `TopBar` o `SideRail`. |
 | un nuovo testo nell'interfaccia | la chiave in `defineMessages` del componente, in italiano e in inglese (il typecheck segnala quella mancante); se serve in più punti, in `i18n/common.ts`. |
-| una nuova sezione del progetto | un componente in `components/project/`, una voce in `SECTIONS` di `ProjectView` (la rotta `p/:id/:section?` è già pronta). |
+| una nuova sezione del progetto | il nome in `PROJECT_SECTIONS` (`services/sections.ts`), la voce del sottomenu in `layout/ProjectLink.vue` e il contenuto in `ProjectView` (la rotta `p/:id/:section?` è già pronta). |
+| un nuovo prerequisito riconosciuto | una voce in `KNOWN_PREREQUISITES` (`services/prerequisites.ts`): nome, alias, link, comando di verifica e i linguaggi/framework che lo richiedono. |
 | un nuovo dialog | copia `NameDialog` come modello: `v-model:open`, `watch(open)` per inizializzare, `BaseDialog` con slot `footer`. |
 | una regola pura (ordinamento, filtri, ricerca, date) | `services/items.ts`, con test in `items.test.ts`. |
 | una scorciatoia da tastiera | il gestore dove ha senso (`ItemRow` per la riga, `ProjectView` per la pagina, `GlobalSearch`/`TopBar` per tutto) e la riga corrispondente in `ShortcutsDialog`. |

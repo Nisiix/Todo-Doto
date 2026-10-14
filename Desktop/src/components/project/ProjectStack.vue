@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ArrowDown, ArrowUp, Check, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FolderOpen, FolderPlus, Import, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, Check, Copy, CopyPlus, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderPlus, Import, Pencil, Plus, Save, Trash2, Wand2 } from 'lucide-vue-next'
+import { useEventListener } from '@vueuse/core'
+import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ChipsInput from '@/components/ui/ChipsInput.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -8,12 +10,15 @@ import ProjectDialog from '@/components/dialogs/ProjectDialog.vue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
-import { getFs } from '@/services/fs'
+import { getFs, isTauri } from '@/services/fs'
+import { autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, suggestPrerequisites } from '@/services/prerequisites'
+import { mergeImportedStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
 import { copyStack, hasStack, projectFolderExists, resolveStack, scaffoldFiles, slugify, varsFor, writeProjectFolder } from '@/services/scaffold'
-import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Project, type Stack } from '@/types'
-import { defineMessages } from '@/i18n'
+import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Prerequisite, type Project, type Stack } from '@/types'
+import { DATE, defineMessages, plural } from '@/i18n'
+import dayjs from 'dayjs'
 import { common } from '@/i18n/common'
 
 const m = defineMessages({
@@ -77,6 +82,35 @@ const m = defineMessages({
     copyCheck: 'Copia verifica',
     download: 'Scarica',
     markTodo: 'Segna come da fare',
+    unsaved: 'Modifiche non salvate',
+    noChanges: 'Nessuna modifica',
+    saveHint: 'Salva (Ctrl+S)',
+    prereqsAuto: 'Scrivendo il nome di uno strumento noto (Node.js, Git, Rust, .NET SDK, Python…) versione, link e comando di verifica si compilano da soli; quelli richiesti da linguaggi e framework vengono aggiunti automaticamente.',
+    suggested: 'Suggeriti da linguaggi e framework:',
+    autoAdded: (names: string) => `Prerequisiti aggiunti in automatico: ${names}`,
+    autofilled: (name: string) => `Completati i dati di ${name}`,
+    importMd: 'Importa .md',
+    importMdHint: 'Importa un documento di architettura in Markdown (README, ARCHITETTURA.md…) per precompilare lo stack',
+    pickMd: 'Scegli il documento di architettura (.md)',
+    mdImported: (file: string, parts: string) => (parts ? `Da «${file}»: ${parts}. Controlla e salva.` : `«${file}» memorizzato; nessun dato nuovo da aggiungere. Controlla e salva.`),
+    mdFailed: (err: string) => `Non riesco a leggere il documento: ${err}`,
+    mdParts: (c: ImportCounts) =>
+      [
+        c.platforms && `${c.platforms} ${plural(c.platforms, 'tipo', 'tipi')} di applicazione`,
+        c.languages && `${c.languages} linguaggi`,
+        c.frameworks && `${c.frameworks} framework`,
+        c.repo && 'repository',
+        c.notes && 'note',
+        c.prerequisites && `${c.prerequisites} prerequisiti`,
+        c.steps && `${c.steps} passi`,
+        c.envVars && `${c.envVars} variabili`,
+      ]
+        .filter(Boolean)
+        .join(', '),
+    doc: 'Documento di architettura',
+    docImported: (d: string) => `importato il ${d}`,
+    viewDoc: 'Vedi documento',
+    removeDoc: 'Togli il documento',
     importFrom: 'Importa da…',
     importTitle: (n: string) => `Sostituire lo stack con quello di «${n}»?`,
     importMessage: 'Le modifiche non salvate vanno perse. Il nome dell’altro progetto viene sostituito con quello di questo progetto; la cartella locale resta.',
@@ -164,6 +198,35 @@ const m = defineMessages({
     copyCheck: 'Copy check',
     download: 'Download',
     markTodo: 'Mark as to do',
+    unsaved: 'Unsaved changes',
+    noChanges: 'No changes',
+    saveHint: 'Save (Ctrl+S)',
+    prereqsAuto: 'Typing the name of a known tool (Node.js, Git, Rust, .NET SDK, Python…) fills in version, link and check command; the ones required by languages and frameworks are added automatically.',
+    suggested: 'Suggested by languages and frameworks:',
+    autoAdded: (names: string) => `Prerequisites added automatically: ${names}`,
+    autofilled: (name: string) => `Filled in the details of ${name}`,
+    importMd: 'Import .md',
+    importMdHint: 'Import a Markdown architecture document (README, ARCHITECTURE.md…) to pre-fill the stack',
+    pickMd: 'Choose the architecture document (.md)',
+    mdImported: (file: string, parts: string) => (parts ? `From “${file}”: ${parts}. Review and save.` : `“${file}” stored; nothing new to add. Review and save.`),
+    mdFailed: (err: string) => `Cannot read the document: ${err}`,
+    mdParts: (c: ImportCounts) =>
+      [
+        c.platforms && `${c.platforms} application ${plural(c.platforms, 'type', 'types')}`,
+        c.languages && `${c.languages} languages`,
+        c.frameworks && `${c.frameworks} frameworks`,
+        c.repo && 'repository',
+        c.notes && 'notes',
+        c.prerequisites && `${c.prerequisites} prerequisites`,
+        c.steps && `${c.steps} steps`,
+        c.envVars && `${c.envVars} variables`,
+      ]
+        .filter(Boolean)
+        .join(', '),
+    doc: 'Architecture document',
+    docImported: (d: string) => `imported on ${d}`,
+    viewDoc: 'View document',
+    removeDoc: 'Remove the document',
     importFrom: 'Import from…',
     importTitle: (n: string) => `Replace the stack with the one from “${n}”?`,
     importMessage: 'Unsaved changes are lost. The other project’s name is replaced with this project’s name; the local folder is kept.',
@@ -218,13 +281,22 @@ watch(stack, (s) => {
 })
 const isEmpty = computed(() => {
   const s = stack.value
-  return !s.platforms.length && !s.languages.length && !s.frameworks.length && !s.repoUrl && !s.sourcePath && !s.notes && !s.prerequisites.length && !s.steps.length && !s.envVars.length && !s.files.length
+  return !s.platforms.length && !s.languages.length && !s.frameworks.length && !s.repoUrl && !s.sourcePath && !s.notes && !s.prerequisites.length && !s.steps.length && !s.envVars.length && !s.files.length && !s.doc
 })
+/** Ci sono modifiche non salvate nella bozza? */
+const dirty = computed(() => editing.value && JSON.stringify(draft.value) !== JSON.stringify(stack.value))
 
 function startEdit() {
   draft.value = clone(stack.value)
+  dismissed.value = new Set()
   editing.value = true
 }
+useEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  if (editing.value && e.key.toLowerCase() === 's' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault()
+    void save()
+  }
+})
 async function save() {
   const d = draft.value
   d.prerequisites = d.prerequisites.filter((p) => p.name.trim())
@@ -246,6 +318,65 @@ const move = <T,>(arr: T[], i: number, dir: -1 | 1) => {
   if (j < 0 || j >= arr.length) return
   ;[arr[i], arr[j]] = [arr[j]!, arr[i]!]
 }
+// --- prerequisiti: completamento automatico ---------------------------------------
+/** Prerequisiti tolti a mano: non vengono riproposti in automatico. */
+const dismissed = ref(new Set<string>())
+const knownNames = KNOWN_PREREQUISITES.map((k) => k.name)
+/** Prerequisiti deducibili da linguaggi, framework e repository e non ancora in elenco. */
+const suggestions = computed(() => (editing.value ? suggestPrerequisites(draft.value) : []))
+const addKnown = (names: string[]) => {
+  for (const name of names) {
+    const k = KNOWN_PREREQUISITES.find((x) => x.name === name)
+    if (k) draft.value.prerequisites.push({ id: newId('pre'), name: k.name, version: k.version, url: k.url, check: k.check })
+  }
+}
+// Quando cambiano linguaggi, framework o repository, si aggiungono i prerequisiti che richiedono
+watch(
+  () => [draft.value.languages.join('|'), draft.value.frameworks.join('|'), draft.value.repoUrl],
+  (_, before) => {
+    if (!editing.value || !before) return
+    const names = suggestions.value.map((k) => k.name).filter((n) => !dismissed.value.has(n))
+    if (!names.length) return
+    addKnown(names)
+    ui.toast(m.autoAdded(names.join(', ')), 'info', undefined, 3500)
+  },
+)
+function onPrereqName(p: Prerequisite) {
+  if (autofillPrerequisite(p)) ui.toast(m.autofilled(p.name), 'success', undefined, 1500)
+}
+function removePrereq(i: number) {
+  const [p] = draft.value.prerequisites.splice(i, 1)
+  const known = p ? lookupPrerequisite(p.name) : null
+  if (known) dismissed.value = new Set([...dismissed.value, known.name])
+}
+
+// --- importazione di un documento .md (admin) -----------------------------------------
+const mdInput = ref<HTMLInputElement | null>(null)
+async function importMarkdown() {
+  if (!isTauri) return mdInput.value?.click() // anteprima nel browser: selettore di file del browser
+  const fs = await getFs()
+  const path = await fs.pickFile(m.pickMd)
+  if (!path) return
+  try {
+    applyMarkdown(path.split(/[\\/]/).pop() ?? 'ARCHITETTURA.md', await fs.readText(path))
+  } catch (e) {
+    ui.toast(m.mdFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
+  }
+}
+async function onMdFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) applyMarkdown(file.name, await file.text())
+}
+function applyMarkdown(fileName: string, content: string) {
+  if (!editing.value) startEdit()
+  const { stack: merged, added } = mergeImportedStack(draft.value, parseStackMarkdown(content), { fileName, content, importedAt: new Date().toISOString() })
+  draft.value = merged
+  ui.toast(m.mdImported(fileName, m.mdParts(added)), 'success', undefined, 7000)
+}
+const showDoc = ref(false)
+
 // --- importazione da un altro progetto (modifica, admin) -----------------------------
 const importMenu = computed(() =>
   ws.visibleProjects
@@ -349,15 +480,17 @@ async function downloadScript() {
 <template>
   <div class="max-w-4xl space-y-8">
     <!-- Intestazione sezione -->
-    <div class="flex items-start gap-3">
-      <div class="min-w-0 flex-1">
-        <h2 class="text-[17px] font-bold tracking-tight">{{ m.title }}</h2>
-        <p class="mt-0.5 text-[13px] text-ink-2">{{ m.lead }}</p>
-      </div>
+    <div>
+      <h2 class="text-[17px] font-bold tracking-tight">{{ m.title }}</h2>
+      <p class="mt-0.5 text-[13px] text-ink-2">{{ m.lead }}</p>
+    </div>
+    <div v-if="canEdit || !isEmpty" class="!mt-3 flex flex-wrap items-center gap-1.5">
       <template v-if="!editing && !isEmpty">
         <BaseButton size="sm" variant="ghost" :title="m.createFolderHint" @click="createFolder"><FolderPlus :size="14" /> {{ m.createFolder }}</BaseButton>
         <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.newFromStackHint" @click="showNewProject = true"><CopyPlus :size="14" /> {{ m.newFromStack }}</BaseButton>
       </template>
+      <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
+      <input ref="mdInput" type="file" accept=".md,.markdown,.txt,text/markdown" class="hidden" data-md-input @change="onMdFile" />
       <template v-if="canEdit && !editing">
         <BaseButton size="sm" @click="startEdit"><Pencil :size="14" /> {{ isEmpty ? m.fill : common.actions.edit }}</BaseButton>
       </template>
@@ -365,10 +498,26 @@ async function downloadScript() {
         <BaseMenu v-if="importMenu.length" :items="importMenu">
           <BaseButton size="sm" variant="ghost"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
         </BaseMenu>
-        <BaseButton size="sm" variant="ghost" @click="cancel">{{ common.actions.cancel }}</BaseButton>
-        <BaseButton size="sm" variant="primary" @click="save">{{ common.actions.save }}</BaseButton>
       </template>
     </div>
+
+    <!-- Documento di architettura importato -->
+    <div v-if="(editing ? draft.doc : stack.doc)" class="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 text-[13px]">
+      <FileText :size="15" class="shrink-0 text-accent" />
+      <span class="font-semibold">{{ m.doc }}:</span>
+      <span class="truncate font-mono text-[12.5px]">{{ (editing ? draft.doc : stack.doc)!.fileName }}</span>
+      <span v-if="(editing ? draft.doc : stack.doc)!.importedAt" class="shrink-0 text-[12px] text-ink-3">· {{ m.docImported(dayjs((editing ? draft.doc : stack.doc)!.importedAt).format(DATE.date)) }}</span>
+      <span class="flex-1" />
+      <BaseButton size="sm" variant="ghost" @click="showDoc = true">{{ m.viewDoc }}</BaseButton>
+      <BaseButton v-if="editing" size="icon-sm" variant="ghost" :title="m.removeDoc" @click="draft.doc = null"><Trash2 :size="14" /></BaseButton>
+    </div>
+    <BaseDialog v-model:open="showDoc" :title="(editing ? draft.doc : stack.doc)?.fileName ?? ''" :description="m.doc" width="lg">
+      <pre class="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-surface-2 p-4 font-mono text-[12.5px] leading-relaxed">{{ (editing ? draft.doc : stack.doc)?.content }}</pre>
+      <template #footer>
+        <BaseButton variant="ghost" @click="copy((editing ? draft.doc : stack.doc)?.content ?? '')"><Copy :size="14" /> {{ common.actions.copy }}</BaseButton>
+        <BaseButton variant="primary" @click="showDoc = false">{{ common.actions.close }}</BaseButton>
+      </template>
+    </BaseDialog>
 
     <!-- ========== MODIFICA (admin) ========== -->
     <form v-if="editing" class="space-y-7" @submit.prevent="save">
@@ -410,12 +559,20 @@ async function downloadScript() {
           <span class="label mb-0">{{ m.prereqs }}</span>
           <BaseButton size="sm" variant="ghost" @click="draft.prerequisites.push({ id: newId('pre'), name: '', version: '', url: '', check: '' })"><Plus :size="14" /> {{ m.prereq }}</BaseButton>
         </div>
+        <p class="mb-2 text-[12px] text-ink-3">{{ m.prereqsAuto }}</p>
+        <div v-if="suggestions.length" class="mb-2 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-2">
+          <Wand2 :size="13" class="text-accent" /> {{ m.suggested }}
+          <button v-for="k in suggestions" :key="k.name" type="button" class="flex h-6 items-center gap-1 rounded-full border border-dashed border-accent px-2 font-medium text-accent-ink hover:bg-accent-soft" @click="addKnown([k.name])">
+            <Plus :size="11" /> {{ k.name }}
+          </button>
+        </div>
+        <datalist id="known-prereqs"><option v-for="n in knownNames" :key="n" :value="n" /></datalist>
         <div v-for="(p, i) in draft.prerequisites" :key="p.id" class="mb-2 grid grid-cols-[1fr_6rem_1fr_1fr_auto] items-center gap-2">
-          <input v-model="p.name" class="field field-sm" :placeholder="m.prereqName" />
+          <input v-model="p.name" class="field field-sm" :placeholder="m.prereqName" list="known-prereqs" @change="onPrereqName(p)" />
           <input v-model="p.version" class="field field-sm" :placeholder="m.version" />
           <input v-model="p.url" class="field field-sm font-mono text-[12px]" :placeholder="m.downloadUrl" />
           <input v-model="p.check" class="field field-sm font-mono text-[12px]" :placeholder="m.checkCmd" />
-          <BaseButton size="icon-sm" variant="ghost" :title="common.actions.remove" @click="draft.prerequisites.splice(i, 1)"><Trash2 :size="14" /></BaseButton>
+          <BaseButton size="icon-sm" variant="ghost" :title="common.actions.remove" @click="removePrereq(i)"><Trash2 :size="14" /></BaseButton>
         </div>
         <p v-if="!draft.prerequisites.length" class="text-[12.5px] text-ink-3">{{ m.prereqsHint }}</p>
       </section>
@@ -481,6 +638,13 @@ async function downloadScript() {
         </div>
         <p v-if="!draft.files.length" class="text-[12.5px] text-ink-3">{{ m.filesEmpty }}</p>
       </section>
+
+      <!-- Salvataggio: sempre visibile mentre si modifica -->
+      <div class="sticky -bottom-10 z-10 -mx-2 flex items-center gap-2 border-t border-line bg-bg/95 px-2 py-3 backdrop-blur">
+        <span class="flex-1 text-[12.5px]" :class="dirty ? 'font-semibold text-p-alta' : 'text-ink-3'">{{ dirty ? m.unsaved : m.noChanges }}</span>
+        <BaseButton size="sm" variant="ghost" @click="cancel">{{ common.actions.cancel }}</BaseButton>
+        <BaseButton size="sm" variant="primary" type="submit" :title="m.saveHint"><Save :size="14" /> {{ common.actions.save }}</BaseButton>
+      </div>
     </form>
 
     <!-- ========== LETTURA ========== -->

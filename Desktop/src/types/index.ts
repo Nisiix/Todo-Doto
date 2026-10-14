@@ -193,6 +193,10 @@ export type EnvVar = z.infer<typeof EnvVarSchema>
 export const TemplateFileSchema = z.object({ id: z.string(), path: z.string(), content: z.string().default('') })
 export type TemplateFile = z.infer<typeof TemplateFileSchema>
 
+/** Documento di architettura (.md) importato nello Stack: resta consultabile e finisce nella cartella del progetto. */
+export const StackDocSchema = z.object({ fileName: z.string(), content: z.string(), importedAt: iso.default('') })
+export type StackDoc = z.infer<typeof StackDocSchema>
+
 export const StackSchema = z.object({
   platforms: z.array(z.enum(PLATFORMS)).default([]),
   languages: z.array(z.string()).default([]),
@@ -204,9 +208,10 @@ export const StackSchema = z.object({
   steps: z.array(SetupStepSchema).default([]),
   envVars: z.array(EnvVarSchema).default([]),
   files: z.array(TemplateFileSchema).default([]), // file iniziali per creare la cartella del progetto
+  doc: StackDocSchema.nullable().default(null), // documento di architettura importato (.md)
 })
 export type Stack = z.infer<typeof StackSchema>
-export const EMPTY_STACK: Stack = { platforms: [], languages: [], frameworks: [], repoUrl: '', sourcePath: '', notes: '', prerequisites: [], steps: [], envVars: [], files: [] }
+export const EMPTY_STACK: Stack = { platforms: [], languages: [], frameworks: [], repoUrl: '', sourcePath: '', notes: '', prerequisites: [], steps: [], envVars: [], files: [], doc: null }
 
 export const AI_TOOL_KINDS = ['connector', 'plugin', 'skill'] as const
 export type AiToolKind = (typeof AI_TOOL_KINDS)[number]

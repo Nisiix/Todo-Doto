@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "id": "prj_nfirlifnt0zf",
+  "name": "Test",
+  "description": "aaaaaaa",
+  "folderId": null,
+  "members": [],
+  "version": 7,
+  "createdAt": "2026-10-14T10:04:31.230Z",
+  "createdBy": "usr_6n95nlf9l2ts",
+  "updatedAt": "2026-10-14T10:09:07.418Z",
+  "updatedBy": "usr_6n95nlf9l2ts",
+  "trashedAt": null,
+  "items": [],
+  "attachmentFolders": [],
+  "attachments": [],
+  "stack": {
+    "platforms": [],
+    "languages": [],
+    "frameworks": [],
+    "repoUrl": "",
+    "sourcePath": "",
+    "notes": "",
+    "prerequisites": [],
+    "steps": [],
+    "envVars": [],
+    "files": []
+  },
+  "aiTools": []
+}

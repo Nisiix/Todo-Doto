@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "project-goal-manager"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "serde",
  "serde_json",

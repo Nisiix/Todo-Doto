@@ -38,7 +38,7 @@ window.PGM_I18N = {
     'how.s1.t': 'Create a workspace',
     'how.s1.p': 'Choose a folder: on your PC or on a shared server. For the network you set a password: whoever knows it can join, you are the administrator.',
     'how.s2.t': 'Organize your projects',
-    'how.s2.p': 'Folders and subfolders, favorites, recent. A new project can start from the stack of an existing one: technologies, setup steps and initial files are ready.',
+    'how.s2.p': 'Folders and subfolders, favorites, recent. Every project has its sections in the sidebar: To-do, Stack and Attachments. A new project can start from the stack of an existing one.',
     'how.s3.t': 'Work together',
     'how.s3.p': 'Add items, assign them, set priority, status, due date and label; ask questions, answer, attach documents. Notifications keep you posted.',
 
@@ -77,6 +77,8 @@ window.PGM_I18N = {
     'f4.l1': 'Application type, languages, frameworks, repository and folder',
     'f4.l2': 'Prerequisites with their check command, steps to run, environment variables',
     'f4.l3': 'Personal progress, commands to copy and a <code>.cmd</code> script that runs everything in sequence',
+    'f4.l4': 'Prerequisites filled in automatically from languages and frameworks (TypeScript → Node.js, Tauri → Rust…), with link and check command',
+    'f4.l5': 'Import a Markdown architecture document (<code>.md</code>) to pre-fill the stack: the document stays saved in the project',
     'alt.stack': 'Stack section: project technologies and setup procedure',
 
     'f5.t': 'New projects, already set up',
@@ -88,13 +90,13 @@ window.PGM_I18N = {
     'alt.template': 'Creating a new project from the stack of an existing project',
 
     'f6.t': 'The project’s AI tools',
-    'f6.p': 'Connectors, plugins and skills used to work on the project, all in one place. Skills are attached as files (for example <code>SKILL.md</code>) and can be read, copied or saved.',
+    'f6.p': 'In the Stack section, next to the setup: connectors, plugins and skills used to work on the project. Skills are attached as files (for example <code>SKILL.md</code>) and can be read, copied or saved.',
     'f6.l1': 'For each tool: link and notes on how it is used',
     'f6.l2': 'Managed by administrators, available to everyone',
     'alt.ai': 'AI tools section with a connector and an attached skill',
 
     'f7.t': 'Attachments that open in the app',
-    'f7.p': 'Files on the server, web pages, Google Drive documents: organized in folders named as you like and viewable right inside the app, one click away from the original.',
+    'f7.p': 'A project section of their own. Files on the server, web pages, Google Drive documents: organized in folders named as you like and viewable right inside the app, one click away from the original.',
     'f7.l1': 'Preview of images, PDFs, text and web pages',
     'f7.l2': 'Read-only mirror of a Google Drive folder (sign in with your account, token encrypted on your PC)',
     'f7.l3': 'Google documents are shown as PDF',

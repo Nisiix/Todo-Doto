@@ -56,8 +56,8 @@ watch(entries, () => (active.value = 0))
 function open(entry: Entry) {
   focused.value = false
   inputEl.value?.blur()
-  const query = entry.item ? { item: entry.item.id } : entry.attachment ? { tab: 'attachments' } : {}
-  router.push({ name: 'project', params: { id: entry.project.id }, query })
+  const query = entry.item ? { item: entry.item.id } : {}
+  router.push({ name: 'project', params: { id: entry.project.id, section: entry.attachment ? 'attachments' : '' }, query })
   if (entry.item) ui.selectedItemId = entry.item.id
 }
 function clear() {

@@ -22,7 +22,7 @@ const groups = defineMessages<{ title: string; keys: [string[], string][] }[]>({
     {
       title: 'Nel progetto',
       keys: [
-        [['N'], 'Nuovo elemento'],
+        [['N'], 'Nuovo task'],
         [['↓'], 'Va alla lista (prima riga)'],
         [['↑', '↓'], 'Scorre gli elementi'],
         [['Invio'], 'Apre l’elemento nel pannello'],
@@ -53,7 +53,7 @@ const groups = defineMessages<{ title: string; keys: [string[], string][] }[]>({
     {
       title: 'In a project',
       keys: [
-        [['N'], 'New item'],
+        [['N'], 'New task'],
         [['↓'], 'Go to the list (first row)'],
         [['↑', '↓'], 'Move through the items'],
         [['Enter'], 'Open the item in the panel'],

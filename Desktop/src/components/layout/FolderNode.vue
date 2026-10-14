@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ChevronRight, Folder, FolderPlus, Pencil, Trash2 } from 'lucide-vue-next'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
@@ -31,6 +32,16 @@ function toggle() {
 }
 
 const children = computed(() => ws.foldersByParent[props.folder.id] ?? [])
+
+// La cartella che contiene il progetto aperto si apre da sola, così il suo
+// sottomenu (Todo, Stack, Allegati) è visibile.
+const route = useRoute()
+const containsOpen = computed(() => {
+  if (route.name !== 'project') return false
+  const id = route.params.id
+  return ws.projectsInFolderTree(props.folder.id).some((p) => p.id === id)
+})
+watch(containsOpen, (v) => v && (open.value = true), { immediate: true })
 const projects = computed(() => props.projectsByFolder[props.folder.id] ?? [])
 const count = computed(() => {
   let n = projects.value.length
@@ -80,7 +91,7 @@ const menu = computed(() => [
         @remove="emit('remove', $event)"
         @new-project="emit('newProject', $event)"
       />
-      <ProjectLink v-for="p in projects" :key="p.id" :project="p" :depth="depth + 1" />
+      <ProjectLink v-for="p in projects" :key="p.id" :project="p" :depth="depth + 1" sections />
     </ul>
   </li>
 </template>
