@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { Eraser, KeyRound, Shield, ShieldOff, UserX } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -9,7 +10,7 @@ import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useConfirm } from '@/composables/useConfirm'
-import { ROLE_LABEL, type Role, type User } from '@/types'
+import { projectVisibility, ROLE_LABEL, type Role, type User } from '@/types'
 import { compareText, DATE, defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -55,10 +56,29 @@ const m = defineMessages({
 const ws = useWorkspaceStore()
 const confirm = useConfirm()
 const showPermissions = ref(false)
+/** Progetto da mostrare subito nella gestione permessi (?permissions=<id>, dal menu della visibilità). */
+const permissionsProject = ref<string | null>(null)
+const route = useRoute()
+const router = useRouter()
+watch(
+  () => route.query.permissions,
+  (id) => {
+    if (typeof id !== 'string' || !ws.isAdmin) return
+    permissionsProject.value = id
+    showPermissions.value = true
+    void router.replace({ query: {} })
+  },
+  { immediate: true },
+)
+function openPermissions() {
+  permissionsProject.value = null
+  showPermissions.value = true
+}
 
 const RANK: Record<Role, number> = { admin: 0, cleaner: 1, member: 2 }
 const sorted = computed(() => [...ws.users].sort((a, b) => RANK[a.role] - RANK[b.role] || compareText(a.displayName, b.displayName)))
-const projectsOf = (u: User) => Object.values(ws.projects).filter((p) => p.members.includes(u.id)).length
+/** Progetti limitati che l'utente vede (quelli pubblici li vedono tutti). */
+const projectsOf = (u: User) => Object.values(ws.projects).filter((p) => projectVisibility(p) === 'restricted' && p.members.includes(u.id)).length
 
 async function remove(u: User) {
   const ok = await confirm({
@@ -82,7 +102,7 @@ const menu = (u: User) => [
   <div class="w-full overflow-y-auto px-10 py-8">
     <div class="flex max-w-3xl items-center gap-3">
       <h1 class="flex-1 text-[24px] font-extrabold tracking-tight">{{ m.title }}</h1>
-      <BaseButton v-if="ws.isAdmin && ws.isNetwork" size="sm" :title="m.permissionsHint" @click="showPermissions = true"><KeyRound :size="14" /> {{ m.permissions }}</BaseButton>
+      <BaseButton v-if="ws.isAdmin && ws.isNetwork" size="sm" :title="m.permissionsHint" @click="openPermissions"><KeyRound :size="14" /> {{ m.permissions }}</BaseButton>
     </div>
     <p class="mt-1 max-w-xl text-[13.5px] leading-relaxed text-ink-2">
       <template v-if="ws.isNetwork">
@@ -109,6 +129,6 @@ const menu = (u: User) => [
         </BaseMenu>
       </li>
     </ul>
-    <PermissionsDialog v-model:open="showPermissions" />
+    <PermissionsDialog v-model:open="showPermissions" :project-id="permissionsProject" />
   </div>
 </template>

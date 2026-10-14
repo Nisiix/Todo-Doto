@@ -98,7 +98,7 @@ describe('testo con menzioni', () => {
 })
 
 describe('gestione permessi dei progetti', () => {
-  it('matrice progetti × utenti: filtro per progetto, «Tutti» e permessi per utente', async () => {
+  it('solo i progetti limitati: utenti per progetto, filtro, i pubblici non si selezionano', async () => {
     const PermissionsDialog = (await import('./dialogs/PermissionsDialog.vue')).default
     await useSessionStore().init()
     const ws = useWorkspaceStore()
@@ -108,27 +108,26 @@ describe('gestione permessi dei progetti', () => {
       f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carlo', role: 'member', createdAt: '' })
     })
     await ws.refresh()
-    const aperto = (await ws.createProject({ name: 'Aperto', description: '', folderId: null, members: [] }))!
-    const riservato = (await ws.createProject({ name: 'Riservato', description: '', folderId: null, members: ['usr_b', ws.currentUser!.id] }))!
-    await ws.refresh()
-    expect(ws.visibleProjects.map((p) => p.name)).toEqual(['Aperto', 'Riservato'])
+    await ws.createProject({ name: 'Aperto', description: '', folderId: null, members: [], visibility: 'public' })
+    const riservato = (await ws.createProject({ name: 'Riservato', description: '', folderId: null, members: ['usr_b'], visibility: 'restricted' }))!
+    const segreto = (await ws.createProject({ name: 'Segreto', description: '', folderId: null, members: [], visibility: 'restricted' }))!
 
     const w = mount(PermissionsDialog, { props: { open: false }, attachTo: document.body })
     await w.setProps({ open: true })
     await nextTick()
-    const box = (label: string) => document.body.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!
-    // Stato iniziale: "Aperto" visibile a tutti, "Riservato" solo a Bea
-    expect(box('Tutti · Aperto').checked).toBe(true)
-    expect(box('Carlo può vedere «Aperto»').checked).toBe(true)
-    expect(box('Tutti · Riservato').checked).toBe(false)
-    expect(box('Bea può vedere «Riservato»').checked).toBe(true)
-    expect(box('Carlo può vedere «Riservato»').checked).toBe(false)
+    const box = (label: string) => document.body.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)
+    // Il progetto pubblico non c'è proprio (né in tabella né nel filtro)
+    expect([...document.body.querySelectorAll('tr[data-project]')].map((r) => r.getAttribute('data-project'))).toEqual(['Riservato', 'Segreto'])
+    expect(document.body.querySelector('#perm-filter')!.textContent).not.toContain('Aperto')
+    expect(document.body.querySelector('[data-public-count]')!.textContent).toContain('1 progetto pubblico')
+    expect(box('Bea può vedere «Aperto»')).toBeNull()
+    expect(box('Bea può vedere «Riservato»')!.checked).toBe(true)
+    expect(box('Carlo può vedere «Riservato»')!.checked).toBe(false)
+    expect(document.body.textContent).toContain('solo amministratori') // "Segreto" senza utenti
 
-    // Togliere Carlo da "Aperto": diventa riservato a tutti gli altri; dare "Riservato" anche a Carlo
-    box('Carlo può vedere «Aperto»').click()
-    box('Carlo può vedere «Riservato»').click()
+    box('Carlo può vedere «Riservato»')!.click()
+    box('Bea può vedere «Segreto»')!.click()
     await nextTick()
-    expect(box('Tutti · Aperto').checked).toBe(false)
     expect(document.body.textContent).toContain('2 progetti modificati')
 
     // Filtro per progetto: una sola riga
@@ -140,8 +139,8 @@ describe('gestione permessi dei progetti', () => {
 
     const save = [...document.body.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Salva')!
     save.click()
-    await vi.waitFor(() => expect(ws.projects[aperto.id]!.members.sort()).toEqual(['usr_b', ws.currentUser!.id].sort()))
-    expect(ws.projects[riservato.id]!.members.sort()).toEqual(['usr_b', 'usr_c', ws.currentUser!.id].sort())
+    await vi.waitFor(() => expect([...ws.projects[riservato.id]!.members].sort()).toEqual(['usr_b', 'usr_c']))
+    expect(ws.projects[segreto.id]!.members).toEqual(['usr_b'])
     w.unmount()
   })
 })

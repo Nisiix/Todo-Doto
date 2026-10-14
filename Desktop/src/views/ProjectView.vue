@@ -5,6 +5,8 @@ import dayjs from 'dayjs'
 import { Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import BaseMenu from '@/components/ui/BaseMenu.vue'
+import VisibilityDot from '@/components/ui/VisibilityDot.vue'
 import ItemRow from '@/components/board/ItemRow.vue'
 import ItemDialog from '@/components/dialogs/ItemDialog.vue'
 import FilterBar from '@/components/board/FilterBar.vue'
@@ -16,7 +18,7 @@ import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useConfirm } from '@/composables/useConfirm'
-import { BUCKET_LABEL, EMPTY_FILTER, type Bucket, type ItemFilter } from '@/types'
+import { BUCKET_LABEL, EMPTY_FILTER, projectVisibility, type Bucket, type ItemFilter, type Visibility } from '@/types'
 import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
 import { projectSection, type ProjectSection } from '@/services/sections'
 import { DATE, defineMessages, plural } from '@/i18n'
@@ -30,6 +32,15 @@ const m = defineMessages({
     emptyTrash: 'Svuota cestino',
     attachments: 'Allegati',
     trashedBanner: (d: string) => `Questo progetto è nel cestino dal ${d}: è in sola lettura.`,
+    visPublic: 'Pubblica',
+    visRestricted: 'Limitata',
+    visTitle: 'Visibilità del progetto',
+    visPublicItem: 'Pubblica: visibile a tutti',
+    visRestrictedItem: 'Limitata: solo utenti scelti',
+    visUsers: 'Scegli gli utenti…',
+    visNowPublic: 'Progetto pubblico: ora è visibile a tutti i membri del workspace',
+    visNowRestricted: (n: number) => (n ? `Progetto limitato: visibile solo agli utenti scelti (${n}) e agli amministratori` : 'Progetto limitato: per ora visibile solo agli amministratori'),
+    visChoose: 'Scegli gli utenti',
     restore: 'Ripristina',
     unfavorite: 'Togli dai preferiti',
     favorite: 'Aggiungi ai preferiti',
@@ -48,6 +59,15 @@ const m = defineMessages({
     emptyTrash: 'Empty trash',
     attachments: 'Attachments',
     trashedBanner: (d: string) => `This project has been in the trash since ${d}: it is read-only.`,
+    visPublic: 'Public',
+    visRestricted: 'Restricted',
+    visTitle: 'Project visibility',
+    visPublicItem: 'Public: visible to everyone',
+    visRestrictedItem: 'Restricted: chosen users only',
+    visUsers: 'Choose the users…',
+    visNowPublic: 'Public project: it is now visible to every workspace member',
+    visNowRestricted: (n: number) => (n ? `Restricted project: visible only to the chosen users (${n}) and administrators` : 'Restricted project: for now visible only to administrators'),
+    visChoose: 'Choose the users',
     restore: 'Restore',
     unfavorite: 'Remove from favorites',
     favorite: 'Add to favorites',
@@ -123,6 +143,20 @@ const selected = computed(() => {
 })
 
 const memberNames = computed(() => project.value?.members.map(ws.userName) ?? [])
+/** Visibilità (workspace di rete): pubblica o limitata; l'admin la cambia dall'intestazione. */
+const visibility = computed<Visibility>(() => (project.value ? projectVisibility(project.value) : 'public'))
+const openPermissions = () => router.push({ name: 'members', query: { permissions: props.id } })
+async function setVisibility(v: Visibility) {
+  if (!project.value || v === visibility.value) return
+  await ws.setProjectVisibility(project.value.id, v)
+  if (v === 'public') ui.toast(m.visNowPublic, 'success', undefined, 3000)
+  else ui.toast(m.visNowRestricted(project.value.members.length), 'info', { label: m.visChoose, run: openPermissions }, 7000)
+}
+const visibilityMenu = computed(() => [
+  { label: m.visPublicItem, onSelect: () => setVisibility('public') },
+  { label: m.visRestrictedItem, onSelect: () => setVisibility('restricted') },
+  ...(visibility.value === 'restricted' ? [{ sep: true, label: '' }, { label: m.visUsers, onSelect: openPermissions }] : []),
+])
 const favorite = computed(() => ws.isFavorite(props.id))
 
 // --- azioni progetto ----------------------------------------------------------
@@ -211,7 +245,18 @@ const tabs: { id: Bucket; label: string }[] = [
               >
                 <Star :size="18" :class="{ 'fill-p-media': favorite }" />
               </button>
-              <span v-if="project.members.length" class="flex items-center gap-1 text-[12px] text-ink-3" :title="memberNames.join(', ')">
+              <!-- Visibilità: verde pubblica, arancione limitata (l'admin la cambia da qui) -->
+              <template v-if="ws.isNetwork">
+                <BaseMenu v-if="ws.isAdmin && !trashed" :items="visibilityMenu">
+                  <button type="button" class="flex h-6 items-center gap-1.5 rounded-full border border-line px-2 text-[12px] font-medium text-ink-2 hover:bg-surface-2" :title="m.visTitle" data-visibility-button>
+                    <VisibilityDot :project="project" /> {{ visibility === 'restricted' ? m.visRestricted : m.visPublic }}
+                  </button>
+                </BaseMenu>
+                <span v-else class="flex h-6 items-center gap-1.5 rounded-full border border-line px-2 text-[12px] font-medium text-ink-2" :title="m.visTitle">
+                  <VisibilityDot :project="project" /> {{ visibility === 'restricted' ? m.visRestricted : m.visPublic }}
+                </span>
+              </template>
+              <span v-if="visibility === 'restricted' && project.members.length" class="flex items-center gap-1 text-[12px] text-ink-3" :title="memberNames.join(', ')">
                 <Users :size="13" /> {{ project.members.length }}
               </span>
             </div>

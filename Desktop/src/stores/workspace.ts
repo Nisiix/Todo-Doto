@@ -8,7 +8,7 @@ import { useSessionStore } from './session'
 import { useUiStore } from './ui'
 import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
-import { EMPTY_STACK, type AiTool, type Stack } from '@/types'
+import { EMPTY_STACK, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { firstLine } from '@/services/items'
 import { detectStack, inferProjectsPath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
@@ -93,10 +93,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const usersById = computed(() => Object.fromEntries(users.value.map((u) => [u.id, u])))
   const userName = (id: string | null | undefined) => (id ? (usersById.value[id]?.displayName ?? common.ws.removedUser) : '—')
 
-  /** L'utente corrente può vedere il progetto (membro, o progetto aperto a tutti, o admin). */
+  /** L'utente corrente può vedere il progetto (admin, progetto pubblico, o utente scelto di un progetto limitato). */
   function canSee(p: Project) {
     const me = currentUser.value?.id
-    return isAdmin.value || p.members.length === 0 || (me !== undefined && p.members.includes(me))
+    return isAdmin.value || projectVisibility(p) === 'public' || (me !== undefined && p.members.includes(me))
   }
   const accessibleProjects = computed(() => Object.values(projects.value).filter(canSee))
   /** Progetti attivi (non nel cestino), in ordine alfabetico. */
@@ -469,7 +469,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   // --- progetti ---------------------------------------------------------------------
-  async function createProject(data: Pick<Project, 'name' | 'description' | 'folderId' | 'members'>) {
+  async function createProject(data: Pick<Project, 'name' | 'description' | 'folderId' | 'members'> & { visibility?: Visibility }) {
     const s = storage.value
     const me = currentUser.value?.id ?? 'unknown'
     if (!s) return
@@ -490,6 +490,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       stack: { ...EMPTY_STACK },
       aiTools: [],
       github: null,
+      visibility: data.visibility ?? (data.members.length ? 'restricted' : 'public'),
     }
     const ok = await guard(async () => {
       await s.writeProject(p)
@@ -518,6 +519,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   const updateProject = (id: string, data: Partial<Pick<Project, 'name' | 'description' | 'folderId' | 'members'>>) =>
     mutateProject(id, (p) => void Object.assign(p, data))
+
+  /**
+   * Visibilità del progetto (admin): pubblica, visibile a tutti; limitata, solo
+   * agli utenti scelti in Membri › Gestione permessi (e agli amministratori).
+   * Gli utenti scelti restano memorizzati anche passando a pubblica.
+   */
+  const setProjectVisibility = (id: string, visibility: Visibility) =>
+    isAdmin.value ? mutateProject(id, (p) => void (p.visibility = visibility)) : Promise.resolve(undefined)
 
   /** Sposta il progetto nel cestino del workspace (recuperabile). */
   async function trashProject(id: string) {
@@ -1005,6 +1014,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setProjectsPath,
     setProjectSourcePath,
     applyRepoStack,
+    setProjectVisibility,
     unlinkGitHub,
     forgetCredentials,
   }

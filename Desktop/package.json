@@ -1,7 +1,7 @@
 {
   "name": "project-goal-manager",
   "private": true,
-  "version": "0.2.9",
+  "version": "0.2.10",
   "description": "Roadmap e todo di progetto, in locale o su cartella di rete",
   "type": "module",
   "scripts": {

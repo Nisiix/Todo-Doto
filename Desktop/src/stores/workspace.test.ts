@@ -540,3 +540,47 @@ describe('workspace: cartella dei progetti nei workspace creati prima della 0.2.
     expect(useSessionStore().config.recent[0]!.projectsPath).toBe('/progetti')
   })
 })
+
+describe('workspace: visibilità dei progetti (pubblica / limitata)', () => {
+  async function asMember() {
+    await useSessionStore().init()
+    const ws = useWorkspaceStore()
+    await ws.create({ path: '/vis', name: 'Rete', mode: 'network', password: 'segreto1' })
+    const me = ws.currentUser!
+    await ws.storage!.mutateUsers((f) => void f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'admin', createdAt: '' }))
+    await ws.refresh()
+    return { ws, me }
+  }
+
+  it('pubblico: visibile a tutti anche con utenti memorizzati; limitato: solo agli utenti scelti', async () => {
+    const { ws, me } = await asMember()
+    const pub = (await ws.createProject({ name: 'Pubblico', description: '', folderId: null, members: ['usr_x'], visibility: 'public' }))!
+    const lim = (await ws.createProject({ name: 'Limitato', description: '', folderId: null, members: [], visibility: 'restricted' }))!
+    const mio = (await ws.createProject({ name: 'Mio', description: '', folderId: null, members: [me.id], visibility: 'restricted' }))!
+    // Divento membro semplice (c'è un altro admin)
+    await ws.storage!.mutateUsers((f) => void (f.users.find((u) => u.id === me.id)!.role = 'member'))
+    await ws.refresh()
+    expect(ws.isAdmin).toBe(false)
+    const names = ws.visibleProjects.map((p) => p.name)
+    expect(names).toContain(pub.name)
+    expect(names).toContain(mio.name)
+    expect(names).not.toContain(lim.name)
+  })
+
+  it('file delle versioni precedenti: senza visibilità, con utenti scelti = limitato, senza = pubblico', async () => {
+    const { projectVisibility } = await import('@/types')
+    expect(projectVisibility({ members: [] })).toBe('public')
+    expect(projectVisibility({ members: ['usr_a'] })).toBe('restricted')
+    expect(projectVisibility({ members: ['usr_a'], visibility: 'public' })).toBe('public')
+  })
+
+  it('l’amministratore cambia la visibilità; gli utenti scelti restano', async () => {
+    const { ws } = await asMember()
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: ['usr_x'], visibility: 'restricted' }))!
+    await ws.setProjectVisibility(p.id, 'public')
+    expect(ws.projects[p.id]!.visibility).toBe('public')
+    expect(ws.projects[p.id]!.members).toEqual(['usr_x'])
+    await ws.setProjectVisibility(p.id, 'restricted')
+    expect(ws.projects[p.id]!.visibility).toBe('restricted')
+  })
+})

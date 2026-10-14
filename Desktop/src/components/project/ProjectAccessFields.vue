@@ -1,20 +1,10 @@
 <script lang="ts">
-import type { User } from '@/types'
+import type { User, Visibility } from '@/types'
 
-export type ProjectAccess = 'all' | 'restricted'
-
-/**
- * Membri da salvare nel progetto: vuoto = tutti; con accesso riservato gli
- * admin sono inclusi comunque, così il file resta coerente anche se più avanti
- * un admin viene retrocesso a membro. `null` se l'accesso è riservato ma non è
- * stata scelta nessuna persona (e ce ne sono).
- */
-export function resolveMembers(users: User[], access: ProjectAccess, members: string[]): string[] | null {
-  if (access === 'all') return []
-  const others = users.filter((u) => u.role !== 'admin')
-  const chosen = members.filter((id) => others.some((u) => u.id === id))
-  if (!chosen.length && others.length) return null
-  return [...new Set([...chosen, ...users.filter((u) => u.role === 'admin').map((u) => u.id)])]
+/** Utenti da salvare in un progetto limitato: solo quelli scelti fra i non amministratori (gli admin vedono comunque tutto). */
+export function resolveMembers(users: User[], visibility: Visibility, members: string[]): string[] {
+  if (visibility === 'public') return []
+  return members.filter((id) => users.some((u) => u.id === id && u.role !== 'admin'))
 }
 </script>
 
@@ -25,63 +15,58 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { defineMessages } from '@/i18n'
-import { common } from '@/i18n/common'
 
 const m = defineMessages({
   it: {
-    whoCanSee: 'Chi può vedere e modificare il progetto',
-    all: 'Tutti i membri del workspace',
-    restricted: 'Solo alcune persone',
-    adminsSeeAll: 'Gli amministratori vedono sempre tutti i progetti',
+    visibility: 'Visibilità',
+    public: 'Pubblica',
+    restricted: 'Limitata',
+    publicHint: 'Visibile a tutti i membri del workspace, anche a chi entrerà in futuro.',
+    restrictedHint: 'Visibile solo agli utenti scelti (gli amministratori vedono sempre tutto). Potrai cambiarli anche dopo, da Membri › Gestione permessi.',
     userOn: (u: string, h: string) => `${u} su ${h}`,
-    noOthers: 'Nessun altro membro ancora: gli utenti compaiono qui dopo il primo accesso al workspace.',
-    selected: (n: number) => `${n} ${n === 1 ? 'persona scelta' : 'persone scelte'}. Chi non è nella lista non vede il progetto, nemmeno nella barra laterale.`,
-    visibleAll: 'Visibile a chiunque apra questo workspace con la password.',
+    noOthers: 'Nessun altro membro ancora: per ora lo vedono solo gli amministratori.',
+    onlyAdmins: 'Nessun utente scelto: per ora lo vedono solo gli amministratori.',
   },
   en: {
-    whoCanSee: 'Who can see and edit the project',
-    all: 'All workspace members',
-    restricted: 'Only some people',
-    adminsSeeAll: 'Administrators always see every project',
+    visibility: 'Visibility',
+    public: 'Public',
+    restricted: 'Restricted',
+    publicHint: 'Visible to every workspace member, including whoever joins in the future.',
+    restrictedHint: 'Visible only to the chosen users (administrators always see everything). You can change them later in Members › Manage permissions.',
     userOn: (u: string, h: string) => `${u} on ${h}`,
-    noOthers: 'No other members yet: users appear here after their first access to the workspace.',
-    selected: (n: number) => `${n} ${n === 1 ? 'person selected' : 'people selected'}. Anyone not on the list cannot see the project, not even in the sidebar.`,
-    visibleAll: 'Visible to anyone who opens this workspace with the password.',
+    noOthers: 'No other members yet: for now only administrators can see it.',
+    onlyAdmins: 'No user chosen: for now only administrators can see it.',
   },
 })
 
-/** Chi può vedere il progetto (workspace di rete): tutti, oppure solo le persone scelte. */
-const access = defineModel<ProjectAccess>('access', { required: true })
+/** Visibilità del progetto (pubblica o limitata) e, se limitata, gli utenti che lo vedono. */
+const visibility = defineModel<Visibility>('visibility', { required: true })
 const members = defineModel<string[]>('members', { required: true })
 const ws = useWorkspaceStore()
 
-/** Gli admin vedono sempre tutto: nella lista sono mostrati ma non selezionabili. */
-const admins = computed(() => ws.users.filter((u) => u.role === 'admin'))
 const others = computed(() => ws.users.filter((u) => u.role !== 'admin'))
-const selectedCount = computed(() => members.value.filter((id) => others.value.some((u) => u.id === id)).length)
+const chosen = computed(() => members.value.filter((id) => others.value.some((u) => u.id === id)).length)
 function toggleMember(id: string) {
   members.value = members.value.includes(id) ? members.value.filter((x) => x !== id) : [...members.value, id]
 }
 </script>
 
 <template>
-  <div>
-    <span class="label">{{ m.whoCanSee }}</span>
+  <div data-visibility-fields>
+    <span class="label">{{ m.visibility }}</span>
     <SegmentedControl
-      v-model="access"
+      v-model="visibility"
       :options="[
-        { value: 'all', label: m.all },
+        { value: 'public', label: m.public },
         { value: 'restricted', label: m.restricted },
       ]"
     />
-    <div v-if="access === 'restricted'" class="mt-2 rounded-md border border-line">
-      <ul class="max-h-44 divide-y divide-line overflow-y-auto">
-        <li v-for="u in admins" :key="u.id" class="flex items-center gap-2 px-2 py-1.5 text-[13.5px] text-ink-2">
-          <input type="checkbox" class="accent-accent" checked disabled />
-          <UserAvatar :name="u.displayName" size="xs" />
-          <span class="flex-1">{{ u.displayName }}<span v-if="u.id === ws.currentUser?.id"> ({{ common.you }})</span></span>
-          <span class="flex items-center gap-1 text-[11.5px] text-ink-3" :title="m.adminsSeeAll"><Shield :size="11" /> admin</span>
-        </li>
+    <p class="mt-1.5 flex items-start gap-1.5 text-[12px] text-ink-3">
+      <span class="mt-1 inline-block h-2 w-2 shrink-0 rounded-full" :class="visibility === 'restricted' ? 'bg-p-alta' : 'bg-ok'" />
+      {{ visibility === 'restricted' ? m.restrictedHint : m.publicHint }}
+    </p>
+    <div v-if="visibility === 'restricted'" class="mt-2 rounded-md border border-line">
+      <ul v-if="others.length" class="max-h-44 divide-y divide-line overflow-y-auto">
         <li v-for="u in others" :key="u.id">
           <label class="flex items-center gap-2 px-2 py-1.5 text-[13.5px] hover:bg-surface-2">
             <input type="checkbox" class="accent-accent" :checked="members.includes(u.id)" @change="toggleMember(u.id)" />
@@ -91,11 +76,10 @@ function toggleMember(id: string) {
           </label>
         </li>
       </ul>
-      <p class="border-t border-line px-2 py-1.5 text-[12px] text-ink-3">
-        <template v-if="others.length === 0">{{ m.noOthers }}</template>
-        <template v-else>{{ m.selected(selectedCount) }}</template>
+      <p v-if="!others.length || !chosen" class="flex items-center gap-1.5 border-t border-line px-2 py-1.5 text-[12px] text-ink-3 first:border-t-0">
+        <Shield :size="11" class="shrink-0" />
+        {{ !others.length ? m.noOthers : !chosen ? m.onlyAdmins : '' }}
       </p>
     </div>
-    <p v-else class="mt-1.5 text-[12px] text-ink-3">{{ m.visibleAll }}</p>
   </div>
 </template>

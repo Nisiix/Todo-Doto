@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { Layers, ListChecks, Paperclip, Star, Trash2 } from 'lucide-vue-next'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
+import VisibilityDot from '@/components/ui/VisibilityDot.vue'
 import { sectionParam, type ProjectSection } from '@/services/sections'
 import type { Project } from '@/types'
 import { defineMessages } from '@/i18n'
@@ -69,6 +70,8 @@ function trash() {
         :style="indent()"
       >
         <span class="truncate">{{ project.name }}</span>
+        <!-- Visibilità (workspace di rete): verde pubblica, arancione limitata -->
+        <VisibilityDot v-if="ws.isNetwork" :project="project" />
         <Star v-if="ws.isFavorite(project.id)" :size="11" class="shrink-0 fill-p-media text-p-media" />
         <span v-if="urgent" class="h-1.5 w-1.5 shrink-0 rounded-full bg-p-immediata" :title="m.urgent" />
         <span class="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-ink-3" :class="{ 'group-hover:invisible group-focus-within:invisible': canTrash }">

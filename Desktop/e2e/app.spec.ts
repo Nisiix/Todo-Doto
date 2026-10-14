@@ -90,27 +90,55 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await page.fill('#ws-pw2', 'segreto1')
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
   await expect(page.getByRole('heading', { name: 'Rete' })).toBeVisible()
-  await page.getByTitle('Membri del workspace').click()
+  await page.getByTitle('Membri del workspace', { exact: true }).click()
   await expect(page.getByText('Chi apre questa cartella di rete')).toBeVisible()
-  // Nuovo progetto: la scelta di accesso è esplicita
+  // Nuovo progetto: visibilità pubblica (predefinita) o limitata
+  const aside = page.locator('aside').first()
   await page.getByRole('button', { name: 'Progetto' }).first().click()
-  await expect(page.getByRole('radio', { name: 'Tutti i membri del workspace' })).toHaveAttribute('aria-checked', 'true')
-  await page.getByRole('radio', { name: 'Solo alcune persone' }).click()
-  await expect(page.getByText('Nessun altro membro ancora')).toBeVisible()
-  await page.getByRole('radio', { name: 'Tutti i membri del workspace' }).click()
+  await expect(page.getByRole('radio', { name: 'Pubblica' })).toHaveAttribute('aria-checked', 'true')
+  await page.getByRole('radio', { name: 'Limitata' }).click()
+  await expect(page.getByText('Nessun altro membro ancora: per ora lo vedono solo gli amministratori.')).toBeVisible()
+  await page.fill('#p-name', 'Riservato')
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'Riservato' })).toBeVisible()
+  // Pallino dopo il nome nella barra laterale: arancione = limitata
+  await expect(aside.getByRole('link', { name: /Riservato/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'restricted')
+  await expect(page.locator('[data-visibility-button]')).toContainText('Limitata')
+
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
   await page.fill('#p-name', 'Condiviso')
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await expect(page.getByRole('heading', { name: 'Condiviso' })).toBeVisible()
-  // Nella pagina del progetto non c'è «Gestione utenti»: i permessi stanno nella pagina Membri
+  await expect(aside.getByRole('link', { name: /Condiviso/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'public')
   await expect(page.getByRole('button', { name: 'Gestione utenti' })).toHaveCount(0)
-  await page.getByTitle('Membri del workspace').click()
+
+  // Nel progetto: l'amministratore cambia la visibilità dall'intestazione
+  await page.locator('[data-visibility-button]').click()
+  await page.getByRole('menuitem', { name: 'Limitata: solo utenti scelti' }).click()
+  await expect(page.getByText('Progetto limitato: per ora visibile solo agli amministratori')).toBeVisible()
+  await expect(aside.getByRole('link', { name: /Condiviso/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'restricted')
+  await page.locator('[data-visibility-button]').click()
+  await page.getByRole('menuitem', { name: 'Pubblica: visibile a tutti' }).click()
+  await expect(aside.getByRole('link', { name: /Condiviso/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'public')
+
+  // Gestione permessi (Membri): solo i progetti limitati; quelli pubblici non si selezionano
+  await page.getByTitle('Membri del workspace', { exact: true }).click()
   await page.getByRole('button', { name: 'Gestione permessi' }).click()
   await expect(dialog(page)).toContainText('Gestione permessi')
-  await expect(dialog(page).locator('#perm-filter')).toContainText('Tutti i progetti')
-  await expect(dialog(page).locator('#perm-filter')).toContainText('Condiviso')
+  await expect(dialog(page).locator('#perm-filter')).toContainText('Riservato')
+  await expect(dialog(page).locator('#perm-filter')).not.toContainText('Condiviso')
+  await expect(dialog(page).locator('[data-public-count]')).toContainText('1 progetto pubblico')
   // Solo l'admin nel workspace: nessun altro a cui dare permessi
   await expect(dialog(page)).toContainText('Nessun altro membro ancora')
   await expect(dialog(page).getByRole('button', { name: 'Salva' })).toBeDisabled()
+  await page.keyboard.press('Escape')
+
+  // Dal menu della visibilità di un progetto limitato si arriva ai suoi permessi
+  await aside.getByRole('link', { name: /Riservato/ }).click()
+  await page.locator('[data-visibility-button]').click()
+  await page.getByRole('menuitem', { name: 'Scegli gli utenti…' }).click()
+  await expect(dialog(page)).toContainText('Gestione permessi')
+  await expect(dialog(page).locator('#perm-filter')).toHaveValue(/.+/)
 })
 
 test('sidebar: preferiti, recenti, cestino progetti e cartelle a cascata', async ({ page }) => {
@@ -708,7 +736,7 @@ test('nome del progetto: è quello della cartella, si decide alla creazione e po
   await expect(page.locator('[data-edit-project]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Modifica il nome/ })).toHaveCount(0)
   // Workspace locale: nella pagina Membri non c'è «Gestione permessi» (c'è un solo utente)
-  await page.getByTitle('Membri del workspace').click()
+  await page.getByTitle('Membri del workspace', { exact: true }).click()
   await expect(page.getByRole('button', { name: 'Gestione permessi' })).toHaveCount(0)
 })
 

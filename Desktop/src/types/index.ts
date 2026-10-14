@@ -242,6 +242,12 @@ export const ProjectSchema = z.object({
   /** @deprecated Campo delle prime versioni (categorie): ignorato, resta solo per leggere i file esistenti. */
   categoryId: z.string().nullable().optional(),
   members: z.array(z.string()).default([]),
+  /**
+   * Visibilità: pubblica (tutti i membri del workspace) o limitata (solo gli
+   * utenti in `members`, oltre agli amministratori). Assente nei file delle
+   * versioni precedenti: vedi projectVisibility().
+   */
+  visibility: z.enum(['public', 'restricted']).optional(),
   version: z.number().default(0),
   createdAt: iso,
   createdBy: z.string(),
@@ -257,6 +263,11 @@ export const ProjectSchema = z.object({
   github: z.object({ owner: z.string(), repo: z.string(), syncedAt: iso.default('') }).nullable().default(null),
 })
 export type Project = z.infer<typeof ProjectSchema>
+export type Visibility = 'public' | 'restricted'
+
+/** Visibilità del progetto; per i file delle versioni precedenti la si ricava dagli utenti scelti. */
+export const projectVisibility = (p: Pick<Project, 'visibility' | 'members'>): Visibility =>
+  p.visibility ?? (p.members.length ? 'restricted' : 'public')
 
 // ---------------------------------------------------------------------------
 // Cronologia delle operazioni sugli elementi (per gli admin)

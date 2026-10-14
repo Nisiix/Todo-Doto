@@ -5,7 +5,8 @@ import { FolderOpen } from 'lucide-vue-next'
 import { getFs } from '@/services/fs'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import ProjectAccessFields, { resolveMembers, type ProjectAccess } from '@/components/project/ProjectAccessFields.vue'
+import ProjectAccessFields, { resolveMembers } from '@/components/project/ProjectAccessFields.vue'
+import type { Visibility } from '@/types'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { copyStack, hasStack, scaffoldFiles, writeProjectFolderAt } from '@/services/scaffold'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
@@ -16,7 +17,6 @@ import { common } from '@/i18n/common'
 const m = defineMessages({
   it: {
     errName: 'Il progetto ha bisogno di un nome.',
-    errMembers: 'Scegli almeno una persona, oppure apri il progetto a tutti.',
     newProject: 'Nuovo progetto',
     namePlaceholder: 'Es. Progetto di test',
     nameHint: (folder: string) => `Il nome del progetto è il nome della sua cartella sul disco${folder ? ` (${folder})` : ''} e dopo la creazione non si cambia più.`,
@@ -34,7 +34,6 @@ const m = defineMessages({
   },
   en: {
     errName: 'The project needs a name.',
-    errMembers: 'Choose at least one person, or open the project to everyone.',
     newProject: 'New project',
     namePlaceholder: 'E.g. Test project',
     nameHint: (folder: string) => `The project name is the name of its folder on disk${folder ? ` (${folder})` : ''} and cannot be changed after creation.`,
@@ -66,7 +65,7 @@ const router = useRouter()
 const ui = useUiStore()
 
 const name = ref('')
-const access = ref<ProjectAccess>('all')
+const visibility = ref<Visibility>('public')
 const members = ref<string[]>([])
 const error = ref('')
 const stackSource = ref<string | null>(null)
@@ -104,7 +103,7 @@ watch(open, (o) => {
   diskPath.value = ''
   name.value = ''
   members.value = []
-  access.value = 'all'
+  visibility.value = 'public'
   error.value = ''
   stackSource.value = null
 })
@@ -114,8 +113,9 @@ async function submit() {
   const folder = folderName(diskPath.value.trim())
   if (folder) name.value = folder
   if (!name.value.trim()) return (error.value = m.errName)
-  const memberIds = ws.isNetwork ? resolveMembers(ws.users, access.value, members.value) : []
-  if (!memberIds) return (error.value = m.errMembers)
+  // Visibilità: conta solo nei workspace di rete (in locale c'è un solo utente)
+  const vis: Visibility = ws.isNetwork ? visibility.value : 'public'
+  const memberIds = resolveMembers(ws.users, vis, members.value)
   // Cartella del progetto: raggiungibile (rete, permessi) e, se va creata, scrivibile
   const dir = diskPath.value.trim()
   const fs = await getFs()
@@ -124,7 +124,7 @@ async function submit() {
     if (problem) return (error.value = `${m.diskPath}: ${problem}`)
   }
   // Il progetto nasce nella cartella della barra laterale da cui lo si crea (o alla radice)
-  const p = await ws.createProject({ name: name.value, description: '', folderId: props.defaultFolderId ?? null, members: memberIds })
+  const p = await ws.createProject({ name: name.value, description: '', folderId: props.defaultFolderId ?? null, members: memberIds, visibility: vis })
   const source = stackSource.value ? ws.projects[stackSource.value] : null
   if (p && source) await ws.updateStack(p.id, copyStack(source.stack, source.name, p.name))
   if (p && dir) {
@@ -170,7 +170,7 @@ async function submit() {
         <p v-if="stackSource" class="mt-1 text-[12px] text-ink-3">{{ m.stackHint }}</p>
       </div>
 
-      <ProjectAccessFields v-if="ws.isNetwork && ws.isAdmin" v-model:access="access" v-model:members="members" />
+      <ProjectAccessFields v-if="ws.isNetwork && ws.isAdmin" v-model:visibility="visibility" v-model:members="members" />
 
       <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
     </form>
