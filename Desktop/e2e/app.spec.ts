@@ -1256,6 +1256,7 @@ test('stack: senza una cartella del progetto valida si cerca la cartella e «Con
   await expect(page.locator('[data-folder-problem]')).toContainText('non si trova su questo PC')
   await expect(page.getByText('Prerequisito: Node.js')).toHaveCount(0) // la configurazione non compare
   await expect(page.locator('[data-project-folder]')).toHaveCount(0) // né la cartella (che qui non c'è)
+  await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toHaveCount(0) // né la lettura dei file
 
   const put = (files: string[]) =>
     page.evaluate(async (fl) => {
@@ -1280,6 +1281,7 @@ test('stack: senza una cartella del progetto valida si cerca la cartella e «Con
   await expect(page.locator('[data-folder-check]')).toHaveCount(0)
   await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
   await expect(page.locator('[data-project-folder]')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toBeVisible()
   await expect(page.locator('[data-local-path]')).toHaveText('su questo PC')
   await expect(page.locator('code', { hasText: '/altrove/Progetto Rete' })).toBeVisible()
 })

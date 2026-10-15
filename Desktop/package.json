@@ -1,7 +1,7 @@
 {
   "name": "todo-doto",
   "private": true,
-  "version": "0.2.22",
+  "version": "0.2.23",
   "description": "Roadmap e todo di progetto, in locale o su cartella di rete",
   "type": "module",
   "scripts": {

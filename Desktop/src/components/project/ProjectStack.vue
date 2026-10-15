@@ -518,7 +518,8 @@ const showDoc = ref(false)
 // --- stack ricavato dai file della cartella del progetto (admin) ---------------------
 const detecting = ref(false)
 /** Niente di tecnico nello stack, ma c'è la cartella: si propone di ricavarlo dai file. */
-const needsDetect = computed(() => !!stack.value.sourcePath && !stack.value.languages.length && !stack.value.frameworks.length && !stack.value.prerequisites.length)
+/** Lo stack non ha ancora tecnologie e la cartella del progetto è valida su questo PC: si propone di leggerla. */
+const needsDetect = computed(() => !!folder.value?.ok && !stack.value.languages.length && !stack.value.frameworks.length && !stack.value.prerequisites.length)
 async function detectFromFolder() {
   const dir = folderPath.value
   if (!dir || detecting.value) return
@@ -846,7 +847,8 @@ async function ghSync() {
         <BaseButton size="sm" variant="ghost" :title="m.importFromHint"><Import :size="14" /> {{ m.importFrom }}</BaseButton>
       </BaseMenu>
       <!-- Stack ancora senza tecnologie: al posto del pulsante c'è il riquadro tratteggiato più sotto -->
-      <BaseButton v-if="canEdit && !editing && stack.sourcePath && !needsDetect" size="sm" variant="ghost" :title="m.detectHint" :disabled="detecting" data-detect-stack @click="detectFromFolder">
+      <!-- Solo con una cartella del progetto valida (altrimenti non c'è nulla da leggere) -->
+      <BaseButton v-if="canEdit && !editing && folder?.ok && !needsDetect" size="sm" variant="ghost" :title="m.detectHint" :disabled="detecting" data-detect-stack @click="detectFromFolder">
         <Loader2 v-if="detecting" :size="14" class="animate-spin" /><FolderSearch v-else :size="14" /> {{ detecting ? m.detecting : m.detect }}
       </BaseButton>
       <BaseButton v-if="canEdit" size="sm" variant="ghost" :title="m.importMdHint" @click="importMarkdown"><FileUp :size="14" /> {{ m.importMd }}</BaseButton>
