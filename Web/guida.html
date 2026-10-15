@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guida — Project Goal Manager</title>
+  <meta name="description" content="Guida all'uso di Project Goal Manager: creare e condividere un workspace, progetti ed elementi, domande e allegati, ruoli, licenza, backup, export e risoluzione dei problemi." />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Project Goal Manager
+      </a>
+      <nav class="nav" aria-label="Sezioni">
+        <a href="index.html#funzionalita">Funzionalità</a>
+        <a href="index.html#prezzi">Prezzi</a>
+        <a href="changelog.html">Novità</a>
+        <a class="btn btn--primary btn--sm" href="index.html#download">Scarica</a>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow guide">
+      <h1>Guida</h1>
+      <p class="upd">Tutto quello che serve per partire e per gestire l'ufficio. Dieci minuti di lettura.</p>
+
+      <nav class="toc" aria-label="Indice">
+        <b>Indice</b>
+        <ol>
+          <li><a href="#installare">Installare e aggiornare</a></li>
+          <li><a href="#workspace">Creare un workspace</a></li>
+          <li><a href="#condividere">Condividere con i colleghi</a></li>
+          <li><a href="#progetti">Progetti, cartelle, elementi</a></li>
+          <li><a href="#discussione">Domande, commenti, allegati</a></li>
+          <li><a href="#ruoli">Ruoli, membri, progetti riservati</a></li>
+          <li><a href="#licenza">Piani, prova e licenza</a></li>
+          <li><a href="#backup">Backup ed export</a></li>
+          <li><a href="#scorciatoie">Scorciatoie</a></li>
+          <li><a href="#problemi">Problemi comuni</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="installare">1. Installare e aggiornare</h2>
+      <p>Scarica il setup dalla <a href="index.html#download">pagina principale</a> (oppure <code>winget install Nisos.ProjectGoalManager</code>) e avvialo. Non servono permessi di amministratore: l'app si installa nel profilo utente. Se Windows mostra «PC protetto da Windows», scegli «Ulteriori informazioni → Esegui comunque»: l'avviso riguarda la novità del programma, non la sua sicurezza, e puoi confrontare l'impronta SHA-256 con quella pubblicata nella Release.</p>
+      <p>Gli aggiornamenti sono automatici: all'avvio l'app controlla se c'è una versione nuova e la propone con un avviso; puoi anche controllare da Impostazioni → Informazioni. Dopo l'aggiornamento compare la finestra «Novità».</p>
+
+      <h2 id="workspace">2. Creare un workspace</h2>
+      <p>Un workspace è una cartella. Al primo avvio scegli:</p>
+      <ul>
+        <li><b>Crea workspace</b>: dai un nome e scegli la cartella. «Solo su questo PC» per lavorare da solo; «Condiviso in rete» per l'ufficio (vedi sotto).</li>
+        <li><b>Apri cartella</b>: se un collega ha già creato il workspace sul server.</li>
+        <li><b>Prova con dati di esempio</b>: apre un workspace finto con tre progetti, per capire l'app in due minuti.</li>
+      </ul>
+      <p>All'avvio successivo l'ultimo workspace si riapre da solo (si disattiva dalle Impostazioni).</p>
+
+      <h2 id="condividere">3. Condividere con i colleghi</h2>
+      <ol>
+        <li>Chi avvia il workspace sceglie una cartella sul server (ad esempio <code>\\server\condivisa\Roadmap</code> o <code>Z:\Roadmap</code>), la modalità «Condiviso in rete» e una password di almeno 6 caratteri. Diventa amministratore.</li>
+        <li>Ogni collega installa l'app, usa «Apri cartella» sulla stessa cartella e inserisce la password una sola volta: viene memorizzata cifrata sul suo PC.</li>
+        <li>Da quel momento le modifiche di ciascuno compaiono sugli altri PC entro pochi secondi, con un avviso «Aggiornato da …» e la riga che lampeggia.</li>
+      </ol>
+      <p>Requisiti: tutti devono avere permessi di lettura e scrittura sulla cartella. La password protegge l'accesso tramite l'app, non i file: chi ha accesso alla cartella con Esplora file può leggerli.</p>
+
+      <h2 id="progetti">4. Progetti, cartelle, elementi</h2>
+      <p>Nella colonna sinistra crei <b>cartelle</b> (anche annidate) e <b>progetti</b>. Un progetto ha tre contenitori: <b>Da fare</b>, <b>Completati</b>, <b>Cestino</b>, più gli <b>Allegati</b>.</p>
+      <p>Ogni elemento ha titolo, descrizione, <b>priorità</b> (bassa, media, alta, immediata: la barra colorata a sinistra cresce con l'urgenza), <b>stato</b> (da valutare, da definire, confermato), <b>scadenza</b> facoltativa ed <b>etichetta</b>. La lista è ordinata per priorità, poi per scadenza. I filtri in alto restringono per periodo, stato, priorità, autore ed etichetta; la ricerca (<span class="kbd">Ctrl</span>+<span class="kbd">K</span>) cerca nel titolo e nella descrizione.</p>
+      <p>Completa un elemento con il cerchio accanto al titolo; cestinalo dal menu. Dal Cestino si ripristina o si elimina definitivamente (solo amministratori e Cleaner). Anche un intero progetto può essere cestinato e ripristinato.</p>
+
+      <h2 id="discussione">5. Domande, commenti, allegati</h2>
+      <p>Aprendo un elemento compare il pannello di dettaglio. Nei <b>commenti</b> e nelle <b>domande</b> puoi taggare un collega con <code>@nome</code>: riceverà una notifica. Le domande hanno risposte annidate; chi ha chiesto (o un amministratore) la segna «risolta». La pagina iniziale del workspace elenca le domande aperte di tutti i progetti.</p>
+      <p>Gli <b>allegati</b> sono riferimenti a file sul server, link o documenti Google Drive, organizzati in cartelle di allegati. Immagini, PDF, testo e pagine web si vedono dentro l'app; con un click si apre l'originale.</p>
+      <p>Le <b>notifiche</b> (campanella in alto) segnalano le novità fatte da altri sui progetti di cui fai parte; scegli quali ricevere dalle Impostazioni.</p>
+
+      <h2 id="ruoli">6. Ruoli, membri, progetti riservati</h2>
+      <ul>
+        <li><b>Amministratore</b>: tutto, incluse password, ruoli, membri, licenza, cronologia e ripristino dei backup. Chi crea il workspace lo è; può nominarne altri.</li>
+        <li><b>Cleaner</b>: come un membro, ma può eliminare definitivamente dal cestino e svuotarlo. Richiede il piano Team.</li>
+        <li><b>Membro</b>: crea, modifica, completa, cestina, ripristina.</li>
+      </ul>
+      <p>Un progetto può essere <b>riservato</b> ad alcune persone (piano Team): chi non è nella lista non lo vede, nemmeno nella barra laterale. Gli amministratori vedono sempre tutto.</p>
+      <p>La <b>cronologia</b> (menu del workspace → Cronologia operazioni) registra chi ha creato, completato, cestinato, ripristinato o eliminato cosa. Piano Team: ultimi 90 giorni; Business: tutto, con export.</p>
+
+      <h2 id="licenza">7. Piani, prova e licenza</h2>
+      <p>Il piano <b>Free</b> include l'uso personale senza limiti e i workspace di rete fino a 3 persone. Quando entra la quarta persona, l'amministratore vede un avviso: può avviare la <b>prova gratuita di 14 giorni</b> del piano Team (senza carta) oppure attivare una licenza. Chi è oltre i posti del piano lavora in sola lettura: nessun dato viene mai bloccato o cancellato.</p>
+      <p>La <b>licenza</b> è un file <code>license.json</code> che ricevi per email dopo l'acquisto. Per attivarla: menu del workspace → <b>Piano e licenza</b> → incolla il testo o scegli il file. Il file viene salvato nella cartella del workspace e vale per tutti i membri; la verifica avviene sul PC, senza internet. Una licenza, un workspace.</p>
+      <p>Alla scadenza dell'abbonamento il workspace torna al piano Free; rinnovando ricevi una nuova licenza. Gli aggiornamenti sono inclusi finché l'abbonamento è attivo.</p>
+
+      <h2 id="backup">8. Backup ed export</h2>
+      <p>Il workspace è una cartella: il backup del server la include. Con il piano Team l'app crea in più uno <b>snapshot al giorno</b> in <code>_backup/</code> (ne conserva 14); da Impostazioni → Backup l'amministratore lo ripristina, dopo che l'app ha salvato uno snapshot dello stato attuale.</p>
+      <p>Dal pulsante <b>Esporta o stampa</b> nell'intestazione del progetto: <b>CSV</b> (si apre in Excel, con punto e virgola e accenti corretti) oppure <b>Stampa o salva PDF</b> (una pagina pulita con da fare e completati; nella finestra di stampa scegli «Microsoft Print to PDF»). Dallo stesso menu, <b>Importa da CSV o Trello</b>: un CSV con colonne Titolo, Descrizione, Priorità, Stato, Scadenza, Etichetta, Contenitore (anche in inglese) o l'esportazione JSON di una bacheca Trello (Menu → Altro → Stampa ed esporta → JSON); prima di scrivere vedi un'anteprima con il conteggio e le etichette da creare.</p>
+      <p>La <b>Timeline</b> (barra in alto, piano Business) mostra le cose da fare di tutti i progetti in colonne: scadute, questa settimana, le prossime, più avanti, senza scadenza. Un click apre l'elemento.</p>
+      <p><b>Lingua</b>: l'app segue la lingua di Windows (italiano o inglese); si cambia in Impostazioni → Lingua. Le <b>notifiche di Windows</b> si attivano in Impostazioni → Notifiche.</p>
+
+      <h2 id="scorciatoie">9. Scorciatoie</h2>
+      <ul>
+        <li><span class="kbd">N</span> nuovo elemento nel progetto aperto</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">K</span> cerca</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span> tema chiaro/scuro</li>
+        <li><span class="kbd">Esc</span> chiude il pannello di dettaglio</li>
+        <li><span class="kbd">Invio</span> pubblica un commento, <span class="kbd">Shift</span>+<span class="kbd">Invio</span> va a capo</li>
+      </ul>
+
+      <h2 id="problemi">10. Problemi comuni</h2>
+      <h3>«Cartella non raggiungibile, riprovo…»</h3>
+      <p>Il server non risponde o la rete è caduta. L'app riprova da sola; le modifiche già salvate sono al sicuro. Se persiste, verifica di vedere la cartella in Esplora file.</p>
+      <h3>Le modifiche dei colleghi arrivano in ritardo</h3>
+      <p>Su alcuni server le notifiche di modifica non arrivano: l'app controlla comunque ogni 4 secondi e al ritorno in primo piano. Un ritardo maggiore indica una rete lenta.</p>
+      <h3>La password non viene accettata</h3>
+      <p>L'amministratore potrebbe averla cambiata: reinseriscila. Se l'hai dimenticata, l'amministratore la reimposta dalle Impostazioni.</p>
+      <h3>«Il file license.json presente nella cartella non è valido»</h3>
+      <p>Il file è stato modificato o incollato in modo incompleto. Riattiva la licenza dall'email originale; in caso di dubbio scrivici con l'id della licenza.</p>
+      <h3>Segnalare un errore</h3>
+      <p>Impostazioni → Informazioni → <b>Segnala un problema</b>: prepara un'email con versione, sistema e gli ultimi errori registrati. Niente parte senza che tu la invii.</p>
+
+      <div class="box" style="margin-top:2.5rem"><p style="margin:0">Non hai trovato la risposta? Scrivi a <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a>: rispondiamo entro un giorno lavorativo.</p></div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Project Goal Manager</span>
+      <nav class="foot__links" aria-label="Note legali">
+        <a href="termini.html">Termini di utilizzo</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="condizioni.html">Condizioni di utilizzo</a>
+        <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

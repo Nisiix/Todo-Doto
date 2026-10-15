@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Condizioni di utilizzo — Project Goal Manager</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Project Goal Manager
+      </a>
+      <nav class="nav" aria-label="Sezioni">
+        <a href="index.html#funzionalita">Funzionalità</a>
+        <a href="index.html#download">Scarica</a>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow">
+      <h1>Condizioni di utilizzo</h1>
+      <p class="upd">Ultimo aggiornamento: 15 ottobre 2026</p>
+
+      <p>Queste condizioni si applicano al download e all'installazione di <b>Project Goal Manager</b> da questo sito, da <code>winget</code> o dalle Release pubblicate nel repository GitHub, e integrano i <a href="termini.html">Termini di utilizzo e licenza</a>.</p>
+
+      <h2>1. Download</h2>
+      <p>Gli installer (<code>.msi</code>, setup <code>.exe</code>) sono resi disponibili gratuitamente. Scarica l'Applicazione solo da questo sito, da <code>winget</code> o dalle Release ufficiali su GitHub: copie ottenute altrove potrebbero essere modificate. A ogni Release è allegato il file <code>SHA256SUMS.txt</code> con le impronte dei file: confrontale con quella del file scaricato (<code>certutil -hashfile nomefile SHA256</code>).</p>
+
+      <h2>2. Requisiti</h2>
+      <ul>
+        <li>Windows 10 o Windows 11, 64 bit.</li>
+        <li>Microsoft Edge WebView2 Runtime (presente nelle installazioni recenti di Windows; l'installer lo scarica se manca).</li>
+        <li>Per i workspace condivisi: una cartella di rete raggiungibile da tutti i partecipanti, con permessi di lettura e scrittura.</li>
+      </ul>
+
+      <h2>3. Installazione e permessi</h2>
+      <p>L'installer scrive l'Applicazione nella cartella dei programmi dell'utente e crea i collegamenti di avvio. L'Applicazione richiede l'accesso in lettura e scrittura alle cartelle dei workspace che scegli e, se usi gli allegati, apre i file con i programmi di sistema. Non modifica impostazioni di sistema, non installa servizi in esecuzione automatica e non aggiunge componenti al browser.</p>
+
+      <h2>4. Firma e avvisi di Windows</h2>
+      <p>Gli installer e l'eseguibile sono firmati digitalmente. Windows SmartScreen può comunque mostrare l'avviso «PC protetto da Windows» finché il programma non ha accumulato reputazione: è un comportamento normale per software nuovo. Dopo aver verificato l'impronta SHA-256, puoi procedere con «Ulteriori informazioni → Esegui comunque». Un installer non firmato o con firma non valida non va eseguito: segnalacelo.</p>
+
+      <h2>5. Aggiornamenti</h2>
+      <p>L'Applicazione controlla all'avvio se esiste una versione più recente e la propone; l'installazione avviene solo con il tuo consenso (Impostazioni → Informazioni). I pacchetti di aggiornamento sono firmati con una chiave il cui corrispettivo pubblico è incorporato nell'Applicazione: un pacchetto non firmato o alterato viene rifiutato. I dati dei workspace non vengono toccati dall'aggiornamento; è comunque consigliata una copia di sicurezza della cartella.</p>
+
+      <h2>6. Licenze</h2>
+      <p>I piani a pagamento sono descritti nei <a href="termini.html">Termini</a>. Il file di licenza ricevuto per email va conservato: in caso di smarrimento lo riemettiamo su richiesta all'indirizzo dell'acquirente.</p>
+
+      <h2>7. Uso in rete aziendale</h2>
+      <p>In un workspace condiviso ogni partecipante installa l'Applicazione sul proprio computer e apre la stessa cartella di rete. Le modifiche sono scritte direttamente nei file: la disponibilità e le prestazioni dipendono dalla tua rete e dal server. In caso di cartella non raggiungibile l'Applicazione segnala il problema e riprova, senza perdere le modifiche già salvate.</p>
+
+      <h2>8. Disinstallazione</h2>
+      <p>Puoi disinstallare l'Applicazione da «Impostazioni → App» di Windows. La disinstallazione non elimina i workspace (restano nelle cartelle che hai scelto) né i dati locali in <code>%APPDATA%\com.nisos.projectgoalmanager</code>, che puoi cancellare manualmente.</p>
+
+      <h2>9. Assistenza</h2>
+      <p>Supporto via e-mail a <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a>: entro un giorno lavorativo per il piano Team, entro quattro ore lavorative per il piano Business, secondo disponibilità per il piano Free. Segnalazioni e proposte sono benvenute anche nel repository GitHub.</p>
+
+      <h2>10. Responsabilità</h2>
+      <p>Valgono le limitazioni indicate nei <a href="termini.html">Termini di utilizzo</a>. In particolare, non rispondiamo di perdite di dati dovute a guasti, cancellazioni, conflitti di rete o a copie di sicurezza mancanti: fai regolarmente un backup della cartella del workspace (gli snapshot automatici del piano Team non sostituiscono il backup del server).</p>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Project Goal Manager</span>
+      <nav class="foot__links" aria-label="Note legali">
+        <a href="termini.html">Termini di utilizzo</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="condizioni.html">Condizioni di utilizzo</a>
+        <a href="https://github.com/Nisiix/Project-goal-manager">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

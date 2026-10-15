@@ -1,0 +1,79 @@
+# Pubblica il sito statico (Web/) su GitHub Pages.
+#
+# - push su main che tocca Web/: deploy
+# - release pubblicata: rigenera Web/downloads/manifest.json dagli asset della Release
+#   (nome, dimensione, SHA-256) così i pulsanti «Scarica» puntano ai file giusti
+#
+# Prerequisito: Settings → Pages → Source = GitHub Actions. Per un dominio proprio
+# aggiungere il file Web/CNAME e configurare i DNS.
+name: Sito
+
+on:
+  push:
+    branches: [main]
+    paths: ['Web/**', 'Desktop/CHANGELOG.md', '.github/workflows/site.yml']
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Manifest dei download dall'ultima Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          rel=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName,publishedAt,assets 2>/dev/null || echo '')
+          if [ -z "$rel" ]; then echo "Nessuna release: i pulsanti rimandano alle Release"; exit 0; fi
+          echo "$rel" | node -e '
+            const rel = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const sums = {};
+            const files = {};
+            for (const a of rel.assets) {
+              const kind = a.name.endsWith(".msi") ? "msi" : a.name.endsWith("-setup.exe") ? "exe" : null;
+              if (!kind) continue;
+              files[kind] = { name: a.name, url: a.url, size: (a.size / 1048576).toFixed(1) + " MB", sha256: "" };
+            }
+            const out = { version: rel.tagName.replace(/^v/, ""), date: rel.publishedAt.slice(0, 10), files };
+            require("fs").mkdirSync("Web/downloads", { recursive: true });
+            require("fs").writeFileSync("Web/downloads/manifest.json", JSON.stringify(out, null, 2));
+            console.log(JSON.stringify(out, null, 2));
+          '
+          # SHA-256 dal file SHA256SUMS.txt allegato alla release, se c'è
+          if gh release download --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS.txt -D /tmp/sums 2>/dev/null; then
+            node -e '
+              const fs = require("fs");
+              const m = JSON.parse(fs.readFileSync("Web/downloads/manifest.json", "utf8"));
+              for (const line of fs.readFileSync("/tmp/sums/SHA256SUMS.txt", "utf8").split(/\r?\n/)) {
+                const [hash, name] = line.trim().split(/\s+/);
+                for (const f of Object.values(m.files)) if (f.name === name) f.sha256 = hash;
+              }
+              fs.writeFileSync("Web/downloads/manifest.json", JSON.stringify(m, null, 2));
+            '
+          fi
+
+      - name: Changelog per il sito
+        run: cp Desktop/CHANGELOG.md Web/changelog.md
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: Web
+      - id: deployment
+        uses: actions/deploy-pages@v4

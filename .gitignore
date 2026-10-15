@@ -1,0 +1,7 @@
+# radice del monorepo
+.DS_Store
+Thumbs.db
+Web/downloads/*.msi
+Web/downloads/*.exe
+Web/downloads/manifest.json
+.claude/

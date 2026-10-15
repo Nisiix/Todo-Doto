@@ -1,0 +1,124 @@
+# Build dell'installer Windows (monorepo: l'app è in Desktop/).
+#
+# - push su main che tocca Desktop/ o questo file: typecheck, test, build; installer come artefatto
+# - tag v*: in più crea la Release su GitHub con .msi, setup .exe, latest.json (updater) e SHA256SUMS.txt
+# - manuale: Actions → Build Windows → Run workflow
+#
+# Segreti (Settings → Secrets and variables → Actions):
+#   TAURI_SIGNING_PRIVATE_KEY           contenuto di ~/.tauri/project-goal-manager.key (obbligatorio per l'updater)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  password della chiave (vuota se generata senza)
+#   WINDOWS_CERT_PFX_BASE64             facoltativo: certificato OV di code signing in base64 (certutil -encode)
+#   WINDOWS_CERT_PASSWORD               facoltativo: password del .pfx
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+    paths: ['Desktop/**', '.github/workflows/build-windows.yml']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Desktop/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: Desktop/src-tauri
+
+      - name: Dipendenze
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck e test unitari
+        run: |
+          npm run typecheck
+          npx vitest run
+
+      - name: Test end-to-end
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      # --- firma del codice (solo se il certificato è configurato) ---------------
+      - name: Importa certificato di code signing
+        if: ${{ env.HAS_CERT == 'true' }}
+        env:
+          HAS_CERT: ${{ secrets.WINDOWS_CERT_PFX_BASE64 != '' }}
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String('${{ secrets.WINDOWS_CERT_PFX_BASE64 }}'))
+          $pwd = ConvertTo-SecureString '${{ secrets.WINDOWS_CERT_PASSWORD }}' -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pwd
+          "TAURI_CONFIG_SIGN={""bundle"":{""windows"":{""certificateThumbprint"":""$($cert.Thumbprint)"",""digestAlgorithm"":""sha256"",""timestampUrl"":""http://timestamp.digicert.com""}}}" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Remove-Item $pfx
+
+      - name: Build installer (e Release sui tag)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: Desktop
+          args: ${{ env.TAURI_CONFIG_SIGN != '' && format('--config "{0}"', env.TAURI_CONFIG_SIGN) || '' }}
+          # Release solo sui tag v*
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && 'v__VERSION__' || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && 'Project Goal Manager __VERSION__' || '' }}
+          releaseBody: 'Installer per Windows 10/11 (64 bit). Verifica l''integrità con SHA256SUMS.txt.'
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+
+      - name: Impronte SHA-256 e manifest per il sito
+        shell: pwsh
+        run: |
+          $bundle = 'src-tauri/target/release/bundle'
+          $files = Get-ChildItem -Recurse $bundle -Include *.msi, *-setup.exe
+          $sums = @()
+          $manifest = @{ version = (Get-Content package.json | ConvertFrom-Json).version; date = (Get-Date -Format 'yyyy-MM-dd'); files = @{} }
+          foreach ($f in $files) {
+            $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+            $sums += "$h  $($f.Name)"
+            $kind = if ($f.Extension -eq '.msi') { 'msi' } else { 'exe' }
+            $manifest.files[$kind] = @{ name = $f.Name; size = ('{0:N1} MB' -f ($f.Length / 1MB)); sha256 = $h }
+          }
+          New-Item -ItemType Directory -Force dist-installer | Out-Null
+          $sums | Out-File -FilePath dist-installer/SHA256SUMS.txt -Encoding ascii
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -FilePath dist-installer/manifest.json -Encoding utf8
+          foreach ($f in $files) { Copy-Item $f.FullName dist-installer/ }
+          Get-ChildItem -Recurse $bundle -Include *.sig, latest.json | ForEach-Object { Copy-Item $_.FullName dist-installer/ }
+          Get-ChildItem dist-installer
+
+      - name: Artefatto
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-goal-manager-windows
+          path: Desktop/dist-installer/*
+          if-no-files-found: error
+
+      - name: Allega SHA256SUMS alla Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" dist-installer/SHA256SUMS.txt dist-installer/manifest.json --clobber
