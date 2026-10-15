@@ -494,6 +494,7 @@ test('membri: ruoli Admin, Cleaner, Membro e cronologia per l’admin', async ({
   await expect(page.getByText('Nessuna notifica')).toBeVisible()
   await page.keyboard.press('Escape')
   await page.getByTitle('Impostazioni').click()
+  await page.locator('[data-settings-tab="notifications"]').click()
   await expect(page.getByText('Nuova domanda')).toBeVisible()
 })
 
@@ -1056,6 +1057,7 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
   await addItem(page, 'Prima della copia')
 
   await page.getByTitle('Impostazioni', { exact: true }).click()
+  await page.locator('[data-settings-tab="backup"]').click()
   const settings = page.locator('[data-backup-settings]')
   await expect(settings).toContainText('non i file dei progetti')
   await settings.getByRole('button', { name: 'Crea copia ora' }).click()
@@ -1070,6 +1072,7 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
   // Dopo la copia: un altro task; il ripristino lo toglie e crea prima una copia dello stato attuale
   await addItem(page, 'Dopo la copia')
   await page.getByTitle('Impostazioni', { exact: true }).click()
+  await page.locator('[data-settings-tab="backup"]').click()
   await settings.getByRole('button', { name: 'Ripristina…' }).click()
   const restore = page.getByRole('dialog', { name: 'Ripristina da una copia' })
   await restore.locator('[data-backup-list] button').first().click()
@@ -1084,6 +1087,7 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
 
   // La copia "prima del ripristino" c'è
   await page.getByTitle('Impostazioni', { exact: true }).click()
+  await page.locator('[data-settings-tab="backup"]').click()
   await settings.getByRole('button', { name: 'Ripristina…' }).click()
   await expect(restore.locator('[data-backup-list]')).toContainText('prima di un ripristino')
 })
@@ -1208,4 +1212,62 @@ test('Gantt: solo task Confermati con scadenza, per etichetta o priorità; scade
   // Un clic apre il task nella lista, con il dettaglio
   await page.locator('[data-gantt-bar="Login"]').click()
   await expect(page.locator('#d-status')).toHaveValue('confermato')
+})
+
+test('stack: senza una cartella del progetto valida si cerca la cartella e «Configura sul tuo PC» non compare', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Progetto Rete')
+  await openSection(page, 'Stack')
+  // Lo stack indica una cartella che su questo PC non esiste
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+  await page.keyboard.press('Enter')
+  await page.fill('#st-src', '/rete/messina/Progetto Rete')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.locator('[data-folder-check]')).toHaveAttribute('data-problem', 'missing')
+  await expect(page.locator('[data-folder-problem]')).toContainText('non si trova su questo PC')
+  await expect(page.getByText('Prerequisito: Node.js')).toHaveCount(0) // la configurazione non compare
+
+  const put = (files: string[]) =>
+    page.evaluate(async (fl) => {
+      const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+      for (const f of fl) await fs.writeTextAtomic(f, '{}')
+    }, files)
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await put(['/altrove/Altro nome/package.json', '/altrove/Progetto Rete/package.json', '/altrove/Documenti/note.txt'])
+
+  // Nome diverso da quello del progetto: rifiutata
+  await pick('/altrove/Altro nome')
+  await page.locator('[data-search-folder]').click()
+  await expect(page.locator('[data-pick-error]')).toContainText('non ha il nome del progetto')
+  // Nessun progetto dentro: rifiutata
+  await pick('/altrove/Documenti')
+  await page.locator('[data-search-folder]').click()
+  await expect(page.locator('[data-pick-error]')).toContainText('non contiene un progetto riconoscibile')
+  // Quella giusta: vale per questo PC e la configurazione compare
+  await pick('/altrove/Progetto Rete')
+  await page.locator('[data-search-folder]').click()
+  await expect(page.getByText('Cartella del progetto trovata')).toBeVisible()
+  await expect(page.locator('[data-folder-check]')).toHaveCount(0)
+  await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
+  await expect(page.locator('[data-local-path]')).toHaveText('su questo PC')
+  await expect(page.locator('code', { hasText: '/altrove/Progetto Rete' })).toBeVisible()
+})
+
+test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Notifiche', 'Backup'])
+  await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
+  await expect(page.locator('#s-projects')).toBeVisible()
+  await expect(page.locator('[data-backup-settings]')).toBeHidden()
+  await page.locator('[data-settings-tab="notifications"]').click()
+  await expect(page.getByText('Nuova domanda')).toBeVisible()
+  await expect(page.locator('#s-projects')).toBeHidden()
+  await page.locator('[data-settings-tab="backup"]').click()
+  await expect(page.locator('[data-backup-settings]')).toBeVisible()
+  // Riaprendo si riparte da Generali
+  await page.keyboard.press('Escape')
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
 })

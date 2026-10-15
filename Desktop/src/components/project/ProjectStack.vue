@@ -16,6 +16,7 @@ import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus 
 import { parseGitHubRepo } from '@/services/github'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
 import { correctPrerequisites, detectStack } from '@/services/projectScan'
+import { folderName, getLocalProjectPath, setLocalProjectPath, validateProjectFolder, type FolderCheck } from '@/services/projectFolder'
 import { useGitHubStore } from '@/stores/github'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -84,6 +85,20 @@ const m = defineMessages({
     emptyAdmin: 'Nessuna informazione ancora. Aggiungi lo stack tecnologico (o importalo da un altro progetto): linguaggi, framework, repository, prerequisiti e i passi per configurare il progetto. Gli altri utenti troveranno qui una procedura guidata.',
     emptyMember: 'L’amministratore non ha ancora descritto lo stack di questo progetto.',
     setupTitle: 'Configura sul tuo PC',
+    folderChecking: 'Controllo la cartella del progetto…',
+    folderEmpty: 'Il progetto non ha ancora una cartella sul disco: cercala per poter configurare il PC.',
+    folderMissing: (p: string) => `La cartella del progetto non si trova su questo PC: ${p}. Cercala: su questo PC può avere un percorso diverso (es. un’altra unità o un percorso di rete).`,
+    folderUnreachable: (d: string) => `La cartella del progetto non è raggiungibile: ${d}`,
+    folderNotProject: (p: string) => `La cartella ${p} non contiene un progetto riconoscibile: cerca quella giusta.`,
+    folderBadName: (folder: string, name: string) => `La cartella «${folder}» non ha il nome del progetto: cerca la cartella che si chiama «${name}».`,
+    folderHidden: 'La configurazione sul tuo PC compare quando la cartella del progetto è stata trovata.',
+    searchFolder: 'Cerca la cartella del progetto',
+    pickProjectFolder: 'Scegli la cartella del progetto',
+    recheckFolder: 'Ricontrolla',
+    forEveryone: 'Usa la cartella trovata per tutti i PC (altrimenti vale solo per questo PC)',
+    folderFound: 'Cartella del progetto trovata: la configurazione sul PC è disponibile',
+    folderRejected: (why: string) => `Questa cartella non va bene. ${why}`,
+    onThisPc: 'su questo PC',
     gitAutoClose: 'Chiudi i task dai commit git',
     gitOn: 'I task si chiudono dai commit git',
     gitOff: 'Chiusura dei task dai commit disattivata',
@@ -248,6 +263,20 @@ const m = defineMessages({
     emptyAdmin: 'No information yet. Add the technology stack (or import it from another project): languages, frameworks, repository, prerequisites and the steps to set up the project. Other users will find a guided procedure here.',
     emptyMember: 'The administrator has not described this project’s stack yet.',
     setupTitle: 'Set up on your PC',
+    folderChecking: 'Checking the project folder…',
+    folderEmpty: 'The project has no folder on disk yet: look for it to set up the PC.',
+    folderMissing: (p: string) => `The project folder is not on this PC: ${p}. Look for it: on this PC it may have a different path (e.g. another drive or a network path).`,
+    folderUnreachable: (d: string) => `The project folder cannot be reached: ${d}`,
+    folderNotProject: (p: string) => `The folder ${p} does not contain a recognizable project: look for the right one.`,
+    folderBadName: (folder: string, name: string) => `The folder “${folder}” does not have the project name: look for the folder named “${name}”.`,
+    folderHidden: 'The setup on your PC appears once the project folder has been found.',
+    searchFolder: 'Look for the project folder',
+    pickProjectFolder: 'Choose the project folder',
+    recheckFolder: 'Check again',
+    forEveryone: 'Use the folder found for every PC (otherwise it applies to this PC only)',
+    folderFound: 'Project folder found: the setup on the PC is available',
+    folderRejected: (why: string) => `This folder is not suitable. ${why}`,
+    onThisPc: 'on this PC',
     gitAutoClose: 'Close tasks from git commits',
     gitOn: 'Tasks are closed from git commits',
     gitOff: 'Closing tasks from commits is off',
@@ -491,7 +520,7 @@ const detecting = ref(false)
 /** Niente di tecnico nello stack, ma c'è la cartella: si propone di ricavarlo dai file. */
 const needsDetect = computed(() => !!stack.value.sourcePath && !stack.value.languages.length && !stack.value.frameworks.length && !stack.value.prerequisites.length)
 async function detectFromFolder() {
-  const dir = view.value.sourcePath.trim()
+  const dir = folderPath.value
   if (!dir || detecting.value) return
   detecting.value = true
   try {
@@ -526,13 +555,93 @@ async function importFrom(source: Project) {
   ui.toast(m.imported(source.name), 'info', undefined, 4000)
 }
 
+// --- cartella del progetto su questo PC: dev'essere valida per configurare il PC --------
+/** Cartella trovata su questo PC (se diversa da quella salvata nel progetto). */
+const localPath = ref('')
+watch(
+  () => [ws.meta?.id, props.project.id] as const,
+  ([wsId, pid]) => (localPath.value = wsId ? getLocalProjectPath(wsId, pid) : ''),
+  { immediate: true },
+)
+/** Cartella del progetto da usare su questo PC: quella trovata qui, altrimenti quella del progetto. */
+const folderPath = computed(() => localPath.value || view.value.sourcePath.trim())
+const folder = ref<FolderCheck | null>(null)
+const checkingFolder = ref(false)
+let folderSeq = 0
+async function checkProjectFolder() {
+  const n = ++folderSeq
+  checkingFolder.value = true
+  try {
+    let r = await validateProjectFolder(folderPath.value, props.project.name)
+    // La cartella trovata qui non va più bene ma quella del progetto sì: si torna a quella
+    if (!r.ok && localPath.value && view.value.sourcePath.trim()) {
+      const shared = await validateProjectFolder(view.value.sourcePath, props.project.name)
+      if (shared.ok) {
+        forgetLocalPath()
+        r = shared
+      }
+    }
+    if (n === folderSeq) folder.value = r
+  } finally {
+    if (n === folderSeq) checkingFolder.value = false
+  }
+}
+watch(() => [folderPath.value, props.project.name], checkProjectFolder, { immediate: true })
+useEventListener(window, 'focus', () => void (folder.value && !folder.value.ok && checkProjectFolder()))
+/** Progetto da clonare: la cartella non c'è ancora e la crea proprio la configurazione (primo passo git clone). */
+const willClone = computed(() => view.value.steps.some((x) => x.kind === 'command' && /^\s*git clone\s/m.test(x.command)))
+const folderOk = computed(() => !!folder.value?.ok || ((folder.value?.problem === 'missing' || folder.value?.problem === 'empty') && willClone.value))
+const folderProblemText = computed(() => problemText(folder.value))
+function problemText(f: FolderCheck | null): string {
+  if (!f || f.ok) return ''
+  switch (f.problem) {
+    case 'empty':
+      return m.folderEmpty
+    case 'unreachable':
+      return m.folderUnreachable(f.detail)
+    case 'missing':
+      return m.folderMissing(f.path)
+    case 'not-project':
+      return m.folderNotProject(f.path)
+    case 'name':
+      return m.folderBadName(folderName(f.path), props.project.name)
+    default:
+      return ''
+  }
+}
+function forgetLocalPath() {
+  if (ws.meta) setLocalProjectPath(ws.meta.id, props.project.id, null)
+  localPath.value = ''
+}
+/** L'amministratore può rendere la cartella trovata quella del progetto per tutti (sempre, se il progetto non ne aveva una). */
+const forEveryone = ref(false)
+watch(() => stack.value.sourcePath, (sp) => (forEveryone.value = !sp.trim()), { immediate: true })
+const pickError = ref('')
+async function searchProjectFolder() {
+  pickError.value = ''
+  const p = await (await getFs()).pickFolder(m.pickProjectFolder)
+  if (!p) return
+  const r = await validateProjectFolder(p, props.project.name)
+  if (!r.ok) return (pickError.value = m.folderRejected(problemText(r)))
+  if (canEdit.value && forEveryone.value) {
+    // Per tutti: diventa la cartella del progetto (rifiutata se è già di un altro progetto)
+    if (!(await ws.setProjectSourcePath(props.project.id, p))) return
+    forgetLocalPath()
+  } else if (ws.meta) {
+    setLocalProjectPath(ws.meta.id, props.project.id, p)
+    localPath.value = p
+  }
+  ui.toast(m.folderFound, 'success', undefined, 3000)
+  await checkProjectFolder()
+}
+
 // --- cartella del progetto (creata insieme al progetto) ----------------------------
 /**
  * Cartella del progetto sul disco: quella indicata nello stack, altrimenti
  * <cartella dei progetti del workspace>/<nome del progetto>; vuota se nessuna delle due è nota.
  */
 async function projectDir(): Promise<string> {
-  if (stack.value.sourcePath) return view.value.sourcePath
+  if (folderPath.value) return folderPath.value
   const root = ws.projectsRoot
   return root ? (await getFs()).join(root, props.project.name) : ''
 }
@@ -930,9 +1039,9 @@ async function ghSync() {
             <span class="block text-ink-3">{{ m.repo }}</span>
             <span class="flex items-center gap-2"><code class="truncate font-mono text-[12.5px]">{{ view.repoUrl }}</code><BaseButton size="icon-sm" variant="ghost" :title="common.actions.copy" @click="copy(view.repoUrl)"><Copy :size="13" /></BaseButton><BaseButton v-if="/^https?:/.test(view.repoUrl)" size="icon-sm" variant="ghost" :title="common.actions.open" @click="open(view.repoUrl, 'link')"><ExternalLink :size="13" /></BaseButton></span>
           </div>
-          <div v-if="view.sourcePath" class="text-[13px]">
-            <span class="block text-ink-3">{{ m.sourcePath }}</span>
-            <span class="flex items-center gap-2"><code class="truncate font-mono text-[12.5px]">{{ view.sourcePath }}</code><BaseButton size="icon-sm" variant="ghost" :title="m.copyPath" @click="copy(view.sourcePath)"><Copy :size="13" /></BaseButton><BaseButton size="icon-sm" variant="ghost" :title="m.openFolder" @click="open(view.sourcePath, 'file')"><FolderOpen :size="13" /></BaseButton></span>
+          <div v-if="folderPath" class="text-[13px]">
+            <span class="block text-ink-3">{{ m.sourcePath }} <span v-if="localPath" class="rounded-full bg-surface-2 px-1.5 text-[11px]" data-local-path>{{ m.onThisPc }}</span></span>
+            <span class="flex items-center gap-2"><code class="truncate font-mono text-[12.5px]">{{ folderPath }}</code><BaseButton size="icon-sm" variant="ghost" :title="m.copyPath" @click="copy(folderPath)"><Copy :size="13" /></BaseButton><BaseButton size="icon-sm" variant="ghost" :title="m.openFolder" @click="open(folderPath, 'file')"><FolderOpen :size="13" /></BaseButton></span>
           </div>
           <!-- Commit git → task: solo se la cartella del progetto è un repository git -->
           <div v-if="git.hasGit[project.id]" class="md:col-span-2 flex items-start gap-2 rounded-md bg-surface-2 px-3 py-2 text-[12.5px]" data-git-autoclose>
@@ -949,8 +1058,29 @@ async function ghSync() {
           <p v-if="view.notes" class="md:col-span-2 whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-2">{{ view.notes }}</p>
         </section>
 
+        <!-- Cartella del progetto da trovare: finché non è valida la configurazione sul PC non compare -->
+        <section
+          v-if="(totalSteps || view.envVars.length || view.files.length) && !folderOk"
+          class="rounded-lg border border-dashed border-p-alta/60 bg-surface p-5"
+          data-folder-check
+          :data-problem="checkingFolder ? 'checking' : (folder?.problem ?? '')"
+        >
+          <h3 class="text-[15px] font-bold">{{ m.setupTitle }}</h3>
+          <p v-if="checkingFolder && !folder" class="mt-1 flex items-center gap-1.5 text-[13px] text-ink-3"><Loader2 :size="13" class="animate-spin" /> {{ m.folderChecking }}</p>
+          <template v-else>
+            <p class="mt-1 flex items-start gap-1.5 text-[13px] text-ink" data-folder-problem><AlertTriangle :size="14" class="mt-0.5 shrink-0 text-p-alta" /> {{ folderProblemText }}</p>
+            <p class="mt-1 text-[12.5px] text-ink-3">{{ m.folderHidden }}</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <BaseButton variant="primary" size="sm" :disabled="readOnly" data-search-folder @click="searchProjectFolder"><FolderSearch :size="14" /> {{ m.searchFolder }}</BaseButton>
+              <BaseButton variant="ghost" size="sm" :disabled="checkingFolder" @click="checkProjectFolder"><RefreshCw :size="13" :class="{ 'animate-spin': checkingFolder }" /> {{ m.recheckFolder }}</BaseButton>
+            </div>
+            <label v-if="canEdit" class="mt-2 flex items-center gap-2 text-[12.5px] text-ink-2"><input v-model="forEveryone" type="checkbox" class="accent-accent" /> {{ m.forEveryone }}</label>
+            <p v-if="pickError" class="mt-2 text-[12.5px] text-danger" data-pick-error>{{ pickError }}</p>
+          </template>
+        </section>
+
         <!-- Procedura guidata -->
-        <section v-if="totalSteps || view.envVars.length || view.files.length" class="rounded-lg border border-line bg-surface p-5">
+        <section v-if="(totalSteps || view.envVars.length || view.files.length) && folderOk" class="rounded-lg border border-line bg-surface p-5">
           <div class="flex flex-wrap items-center gap-3">
             <div class="min-w-0 flex-1">
               <h3 class="text-[15px] font-bold">{{ m.setupTitle }}</h3>

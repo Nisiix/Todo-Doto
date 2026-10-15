@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { Archive, ArchiveRestore, FolderOpen, KeyRound, Lock } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Bell, FolderOpen, KeyRound, Lock, SlidersHorizontal } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import RestoreDialog from './RestoreDialog.vue'
 import { getFs } from '@/services/fs'
@@ -25,13 +25,16 @@ const m = defineMessages({
     dark: 'Scuro',
     system: 'Come il sistema',
     title: 'Impostazioni',
+    tabGeneral: 'Generali',
+    tabNotifications: 'Notifiche',
+    tabBackup: 'Backup',
     appearance: 'Aspetto',
     displayName: 'Il tuo nome visibile',
     userOn: (u: string, h: string) => `${u} su ${h}`,
     wsName: 'Nome workspace',
     projectsFolder: 'Cartella dei progetti',
     projectsEmpty: 'Non ancora impostata (workspace creato con una versione precedente, senza progetti collegati a una cartella): indicala qui.',
-    projectsHint: 'Dove si trovano (o verranno creati) i progetti. Serve a proporre la cartella dei progetti nuovi (<cartella>/<nome>, anche per quelli da GitHub) e a «Crea cartella del progetto» per i progetti senza cartella; è quella mostrata nei workspace recenti. Cambiarla non sposta né rinomina i progetti esistenti.',
+    projectsHint: 'Dove si trovano (o verranno creati) i progetti. Serve a proporre la cartella dei progetti nuovi (<cartella>/<nome>, anche per quelli da GitHub); è quella mostrata nei workspace recenti. Cambiarla non sposta né rinomina i progetti esistenti.',
     pickProjects: 'Scegli la cartella dei progetti',
     dataFolder: 'Cartella Dati Todo Doto',
     dataHint: 'Qui l’app salva i propri dati; per spostarla, copia la cartella e riaprila da «Apri cartella».',
@@ -69,13 +72,16 @@ const m = defineMessages({
     dark: 'Dark',
     system: 'Same as system',
     title: 'Settings',
+    tabGeneral: 'General',
+    tabNotifications: 'Notifications',
+    tabBackup: 'Backup',
     appearance: 'Appearance',
     displayName: 'Your display name',
     userOn: (u: string, h: string) => `${u} on ${h}`,
     wsName: 'Workspace name',
     projectsFolder: 'Projects folder',
     projectsEmpty: 'Not set yet (workspace created with an earlier version, with no project linked to a folder): set it here.',
-    projectsHint: 'Where the projects are (or will be created). It is used to suggest the folder of new projects (<folder>/<name>, GitHub ones too) and by “Create project folder” for projects without a folder; it is the one shown in the recent workspaces. Changing it does not move or rename existing projects.',
+    projectsHint: 'Where the projects are (or will be created). It is used to suggest the folder of new projects (<folder>/<name>, GitHub ones too); it is the one shown in the recent workspaces. Changing it does not move or rename existing projects.',
     pickProjects: 'Choose the projects folder',
     dataFolder: 'Todo Doto data folder',
     dataHint: 'This is where the app stores its data; to move it, copy the folder and reopen it with “Open folder”.',
@@ -149,8 +155,18 @@ async function backupNow() {
 }
 const lastBackup = computed(() => ws.backups[0] ?? null)
 
+/** Schede: Generali (con la password), Notifiche, Backup (solo amministratori). */
+type Tab = 'general' | 'notifications' | 'backup'
+const tab = ref<Tab>('general')
+const tabs = computed(() => [
+  { id: 'general' as Tab, label: m.tabGeneral, icon: SlidersHorizontal },
+  { id: 'notifications' as Tab, label: m.tabNotifications, icon: Bell },
+  ...(ws.isAdmin ? [{ id: 'backup' as Tab, label: m.tabBackup, icon: Archive }] : []),
+])
+
 watch(open, (o) => {
   if (!o) return
+  tab.value = 'general'
   wsName.value = ws.meta?.name ?? ''
   // Anche per i workspace che non l'hanno salvata: quella ricavata dalle cartelle dei progetti
   projectsPath.value = ws.projectsRoot
@@ -167,15 +183,15 @@ watch(open, (o) => {
 async function save() {
   if (ws.isAdmin && wsName.value.trim() && wsName.value.trim() !== ws.meta?.name) await ws.renameWorkspace(wsName.value)
   if (ws.isAdmin && projectsPath.value.trim() !== (ws.meta?.projectsPath ?? '')) {
-    if (projectsPath.value.trim() && ws.storage && samePath(projectsPath.value, ws.storage.root)) return (folderMsg.value = m.errSame)
+    if (projectsPath.value.trim() && ws.storage && samePath(projectsPath.value, ws.storage.root)) return ((tab.value = 'general'), (folderMsg.value = m.errSame))
     const problem = await checkFolder(await getFs(), projectsPath.value)
-    if (problem) return (folderMsg.value = problem)
+    if (problem) return ((tab.value = 'general'), (folderMsg.value = problem))
     await ws.setProjectsPath(projectsPath.value)
   }
   if (ws.isAdmin && (backupEnabled.value !== ws.meta?.backup.enabled || backupDir.value.trim() !== ws.meta?.backup.dir)) {
     if (backupDir.value.trim()) {
       const problem = await checkFolder(await getFs(), backupDir.value, { write: true })
-      if (problem) return (backupMsg.value = problem)
+      if (problem) return ((tab.value = 'backup'), (backupMsg.value = problem))
     }
     await ws.setBackupSettings({ enabled: backupEnabled.value, dir: backupDir.value })
   }
@@ -185,8 +201,8 @@ async function save() {
     await saveConfig(session.config)
   }
   if (pw1.value || pw2.value) {
-    if (pw1.value.length < 6) return (pwMsg.value = common.password.tooShort)
-    if (pw1.value !== pw2.value) return (pwMsg.value = common.password.mismatch)
+    if (pw1.value.length < 6) return ((tab.value = 'general'), (pwMsg.value = common.password.tooShort))
+    if (pw1.value !== pw2.value) return ((tab.value = 'general'), (pwMsg.value = common.password.mismatch))
     await ws.changePassword(pw1.value)
     ui.toast(m.pwUpdated, 'success', undefined, 6000)
   }
@@ -207,7 +223,24 @@ const themes: { value: Theme; label: string }[] = [
 
 <template>
   <BaseDialog v-model:open="open" :title="m.title">
-    <div class="space-y-5">
+    <!-- Schede: Generali (con la password), Notifiche, Backup -->
+    <div class="-mt-1 mb-4 flex gap-1 border-b border-line" role="tablist" :aria-label="m.title">
+      <button
+        v-for="t in tabs"
+        :key="t.id"
+        type="button"
+        role="tab"
+        class="-mb-px flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1 text-[13.5px] font-semibold transition-colors"
+        :class="tab === t.id ? 'border-accent text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'"
+        :aria-selected="tab === t.id"
+        :data-settings-tab="t.id"
+        @click="tab = t.id"
+      >
+        <component :is="t.icon" :size="14" /> {{ t.label }}
+      </button>
+    </div>
+
+    <div v-show="tab === 'general'" class="space-y-5" role="tabpanel" data-settings-panel="general">
       <section>
         <span class="label">{{ m.appearance }}</span>
         <SegmentedControl :model-value="ui.theme" :options="themes" @update:model-value="ui.setTheme" />
@@ -246,6 +279,27 @@ const themes: { value: Theme; label: string }[] = [
         {{ m.reopenLast }}
       </label>
 
+      <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-pw-title">
+        <span id="s-pw-title" class="label">{{ m.pwSection }}</span>
+        <div class="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2">
+          <component :is="ws.passwordRemembered ? KeyRound : Lock" :size="15" class="mt-0.5 shrink-0 text-ink-3" />
+          <p class="flex-1 text-[12.5px] leading-snug text-ink-2">{{ ws.passwordRemembered ? m.pwRemembered : m.pwNotRemembered }}</p>
+          <BaseButton v-if="ws.passwordRemembered" size="sm" variant="ghost" @click="forgetPw">{{ m.forgetPw }}</BaseButton>
+        </div>
+
+        <template v-if="ws.isAdmin">
+          <span class="label mt-4">{{ m.changePw }}</span>
+          <div class="grid grid-cols-2 gap-3">
+            <input v-model="pw1" type="password" class="field" :placeholder="m.newPw" :aria-label="m.newPw" autocomplete="new-password" />
+            <input v-model="pw2" type="password" class="field" :placeholder="m.repeat" :aria-label="m.repeat" autocomplete="new-password" />
+          </div>
+          <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
+          <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }} {{ m.changePwHint }}</p>
+        </template>
+      </section>
+    </div>
+
+    <div v-show="tab === 'notifications'" class="space-y-5" role="tabpanel" data-settings-panel="notifications">
       <section>
         <span class="label">{{ m.notifications }}</span>
         <p class="mb-1.5 text-[12px] text-ink-3">{{ m.notificationsHint }}</p>
@@ -257,7 +311,10 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
-      <section v-if="ws.isAdmin" aria-labelledby="s-backup-title" data-backup-settings>
+    </div>
+
+    <div v-if="ws.isAdmin" v-show="tab === 'backup'" class="space-y-5" role="tabpanel" data-settings-panel="backup">
+      <section aria-labelledby="s-backup-title" data-backup-settings>
         <span id="s-backup-title" class="label">{{ m.backupSection }}</span>
         <label class="flex items-center gap-2 text-[13.5px]">
           <input v-model="backupEnabled" type="checkbox" class="accent-accent" />
@@ -279,24 +336,6 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
-      <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-pw-title">
-        <span id="s-pw-title" class="label">{{ m.pwSection }}</span>
-        <div class="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2">
-          <component :is="ws.passwordRemembered ? KeyRound : Lock" :size="15" class="mt-0.5 shrink-0 text-ink-3" />
-          <p class="flex-1 text-[12.5px] leading-snug text-ink-2">{{ ws.passwordRemembered ? m.pwRemembered : m.pwNotRemembered }}</p>
-          <BaseButton v-if="ws.passwordRemembered" size="sm" variant="ghost" @click="forgetPw">{{ m.forgetPw }}</BaseButton>
-        </div>
-
-        <template v-if="ws.isAdmin">
-          <span class="label mt-4">{{ m.changePw }}</span>
-          <div class="grid grid-cols-2 gap-3">
-            <input v-model="pw1" type="password" class="field" :placeholder="m.newPw" :aria-label="m.newPw" autocomplete="new-password" />
-            <input v-model="pw2" type="password" class="field" :placeholder="m.repeat" :aria-label="m.repeat" autocomplete="new-password" />
-          </div>
-          <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
-          <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }} {{ m.changePwHint }}</p>
-        </template>
-      </section>
     </div>
     <template #footer>
       <BaseButton variant="ghost" @click="open = false">{{ common.actions.cancel }}</BaseButton>

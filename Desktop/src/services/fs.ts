@@ -341,6 +341,13 @@ function memoryFs(): FsApi {
       return '/appdata'
     },
     async pickFolder() {
+      // Test end-to-end: cartella "scelta" decisa dal test (window.__pgmPickFolder), una volta
+      const w = window as unknown as { __pgmPickFolder?: string }
+      const next = w.__pgmPickFolder
+      if (next) {
+        delete w.__pgmPickFolder
+        return next
+      }
       return '/demo/' + Math.random().toString(36).slice(2, 7)
     },
     async pickFile() {
