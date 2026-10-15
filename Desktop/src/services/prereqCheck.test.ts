@@ -163,8 +163,8 @@ describe('blocco della configurazione automatica', () => {
 
 describe('parseGitHubRepo', () => {
   it.each([
-    ['https://github.com/Nisiix/Project-goal-manager', 'Nisiix', 'Project-goal-manager'],
-    ['https://github.com/Nisiix/Project-goal-manager.git', 'Nisiix', 'Project-goal-manager'],
+    ['https://github.com/Nisiix/Todo-Doto', 'Nisiix', 'Todo-Doto'],
+    ['https://github.com/Nisiix/Todo-Doto.git', 'Nisiix', 'Todo-Doto'],
     ['git@github.com:owner/repo.git', 'owner', 'repo'],
     ['owner/repo', 'owner', 'repo'],
   ])('%s', (url, owner, repo) => expect(parseGitHubRepo(url)).toEqual({ owner, repo }))

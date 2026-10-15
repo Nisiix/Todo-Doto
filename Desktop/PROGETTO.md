@@ -274,7 +274,7 @@ Errori di rete (percorso non raggiungibile) → banner "Cartella non raggiungibi
 ## 8. Struttura del repository
 
 ```
-Project goal manager/
+Todo-Doto/
   PROGETTO.md                 ← questo documento
   README.md                   avvio, build, distribuzione
   package.json  vite.config.ts  tsconfig.json  index.html

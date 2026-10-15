@@ -45,7 +45,7 @@ Il workflow `.github/workflows/build-windows.yml` (nella radice del repository) 
 
 Per pubblicare il progetto:
 
-Il repository è `Nisiix/Project-goal-manager`: ogni push su `main` che tocca `Desktop/` avvia la build.
+Il repository è `Nisiix/Todo-Doto`: ogni push su `main` che tocca `Desktop/` avvia la build.
 
 ### Build locale con uno script
 
