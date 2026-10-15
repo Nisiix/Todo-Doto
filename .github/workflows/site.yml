@@ -6,7 +6,7 @@
 # La sezione download della landing legge da sola l'ultima Release su GitHub
 # (asset per lingua); la pagina «Novità» legge Web/changelog.md, copiato qui da
 # Desktop/CHANGELOG.md.
-# Prerequisito: Settings → Pages → Source = GitHub Actions. Per un dominio proprio
+# Il primo deploy attiva da solo GitHub Pages (sorgente: Actions). Per un dominio proprio
 # aggiungere il file Web/CNAME e configurare i DNS (vedi GUIDA-OPERATIVA.md).
 name: Sito
 
@@ -36,6 +36,8 @@ jobs:
       - name: Note di versione per la pagina Novità
         run: cp Desktop/CHANGELOG.md Web/changelog.md
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true # attiva GitHub Pages (sorgente: Actions) se non lo è ancora
       - uses: actions/upload-pages-artifact@v3
         with:
           path: Web
