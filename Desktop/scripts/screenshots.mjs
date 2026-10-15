@@ -32,16 +32,16 @@ const LANGS = {
   it: {
     tag: 'it-IT',
     ui: {
-      createWs: 'Crea workspace', browse: 'Sfoglia', settings: 'Impostazioni', save: 'Salva', create: 'Crea', close: 'Chiudi',
+      createWs: 'Crea workspace', browse: 'Sfoglia', pickProjects: 'Scegli la cartella dei progetti', pickData: 'Scegli la cartella Dati Todo Doto', folderActions: 'Azioni cartella', newProjectHere: 'Nuovo progetto qui', settings: 'Impostazioni', save: 'Salva', create: 'Crea', close: 'Chiudi',
       labels: 'Etichette', newLabelPh: 'Nuova etichetta', labelName: 'Nome etichetta', add: 'Aggiungi', color: 'Colore', closeEsc: 'Chiudi (Esc)',
       newFolder: 'Nuova cartella', folderName: 'Nome cartella', createFolder: 'Crea cartella',
       project: 'Progetto', createProject: 'Crea progetto', newItem: 'Nuovo task', markDone: 'Segna come completato (C)',
       ask: 'Fai una domanda', favorite: 'Aggiungi ai preferiti', answer: 'Rispondi', yourAnswer: 'La tua risposta', comment: 'Scrivi un commento',
       attachmentsTab: 'Allegati', folderBtn: 'Cartella', folderPh: 'Es. Specifiche, Mockup, Contratti', attachmentBtn: 'Allegato',
-      fillStack: 'Compila lo stack', languagesPh: 'Es. TypeScript, C#, Rust', frameworksPh: 'Es. Vue 3, Tauri, .NET 4.0',
+      fillStack: 'Aggiungi stack tecnologico', languagesPh: 'Es. TypeScript, C#, Rust', frameworksPh: 'Es. Vue 3, Tauri, .NET 4.0',
       prereq: 'Prerequisito', prereqName: 'Nome, es. Node.js', version: 'Versione', downloadUrl: 'Dove scaricarlo (URL)', checkCmd: 'Comando di verifica, es. node -v',
       step: 'Passo', stepTitle: 'Titolo del passo, es. Installa le dipendenze', commands: 'Uno o più comandi, uno per riga (es. npm install)',
-      envVar: 'Variabile', varName: 'NOME_VARIABILE', varExample: 'valore di esempio', varNotes: 'A cosa serve / dove si prende', markStepDone: 'Segna come fatto', file: 'File', filePath: 'Percorso, es. package.json o src/main.ts', fileContent: 'Contenuto del file', newFromStack: 'Nuovo progetto con questo stack',
+      envVar: 'Variabile', varName: 'NOME_VARIABILE', varExample: 'valore di esempio', varNotes: 'A cosa serve / dove si prende', markStepDone: 'Segna come fatto', file: 'File', filePath: 'Percorso, es. package.json o src/main.ts', fileContent: 'Contenuto del file', copyFrom: (n) => `Copia da «${n}»`,
       aiSection: 'Strumenti AI', newTool: 'Nuovo strumento', connector: 'Connettore', skill: 'Skill', pastePh: '…oppure incolla',
       audit: 'Cronologia operazioni', analytics: 'Analisi',
     },
@@ -99,16 +99,16 @@ const LANGS = {
   en: {
     tag: 'en-US',
     ui: {
-      createWs: 'Create workspace', browse: 'Browse', settings: 'Settings', save: 'Save', create: 'Create', close: 'Close',
+      createWs: 'Create workspace', browse: 'Browse', pickProjects: 'Choose the projects folder', pickData: 'Choose the Todo Doto data folder', folderActions: 'Folder actions', newProjectHere: 'New project here', settings: 'Settings', save: 'Save', create: 'Create', close: 'Close',
       labels: 'Labels', newLabelPh: 'New label', labelName: 'Label name', add: 'Add', color: 'Color', closeEsc: 'Close (Esc)',
       newFolder: 'New folder', folderName: 'Folder name', createFolder: 'Create folder',
       project: 'Project', createProject: 'Create project', newItem: 'New task', markDone: 'Mark as completed (C)',
       ask: 'Ask a question', favorite: 'Add to favorites', answer: 'Answer', yourAnswer: 'Your answer', comment: 'Write a comment',
       attachmentsTab: 'Attachments', folderBtn: 'Folder', folderPh: 'E.g. Specs, Mockups, Contracts', attachmentBtn: 'Attachment',
-      fillStack: 'Fill in the stack', languagesPh: 'E.g. TypeScript, C#, Rust', frameworksPh: 'E.g. Vue 3, Tauri, .NET 4.0',
+      fillStack: 'Add technology stack', languagesPh: 'E.g. TypeScript, C#, Rust', frameworksPh: 'E.g. Vue 3, Tauri, .NET 4.0',
       prereq: 'Prerequisite', prereqName: 'Name, e.g. Node.js', version: 'Version', downloadUrl: 'Where to download it (URL)', checkCmd: 'Check command, e.g. node -v',
       step: 'Step', stepTitle: 'Step title, e.g. Install the dependencies', commands: 'One or more commands, one per line (e.g. npm install)',
-      envVar: 'Variable', varName: 'VARIABLE_NAME', varExample: 'example value', varNotes: 'What it is for / where to get it', markStepDone: 'Mark as done', file: 'File', filePath: 'Path, e.g. package.json or src/main.ts', fileContent: 'File content', newFromStack: 'New project with this stack',
+      envVar: 'Variable', varName: 'VARIABLE_NAME', varExample: 'example value', varNotes: 'What it is for / where to get it', markStepDone: 'Mark as done', file: 'File', filePath: 'Path, e.g. package.json or src/main.ts', fileContent: 'File content', copyFrom: (n) => `Copy from “${n}”`,
       aiSection: 'AI tools', newTool: 'New tool', connector: 'Connector', skill: 'Skill', pastePh: '…or paste',
       audit: 'Activity log', analytics: 'Analytics',
     },
@@ -225,9 +225,10 @@ async function capture(lang) {
     await page.goto(url)
     await page.getByRole('button', { name: T.createWs }).first().click()
     await page.fill('#ws-name', D.ws)
-    // Cartella dei progetti e cartella Dati Todo Doto (percorsi di esempio)
-    await page.fill('#ws-path', D.projectsPath)
-    await page.fill('#ws-data', D.dataPath)
+    // Cartella dei progetti e cartella Dati Todo Doto: con i pulsanti Sfoglia del dialog
+    // (nel browser il filesystem è in memoria: i percorsi digitati non esisterebbero)
+    await page.getByRole('button', { name: T.pickProjects }).click()
+    await page.getByRole('button', { name: T.pickData }).click()
     await page.getByRole('button', { name: T.createWs }).last().click()
     await page.getByRole('heading', { name: D.ws }).waitFor()
 
@@ -253,23 +254,28 @@ async function capture(lang) {
     await page.getByRole('button', { name: T.createFolder }).click()
 
     // --- progetti ed elementi -----------------------------------------------------
-    const createProject = async (name, desc, inFolder) => {
-      await page.getByRole('button', { name: T.project, exact: true }).click()
+    // Il dialog attuale chiede solo il nome (la cartella del progetto si propone da sola);
+    // la descrizione arriva da import/GitHub e la cartella della barra laterale dal menu della cartella.
+    const createProject = async (name, _desc, inFolder) => {
+      if (inFolder) {
+        await page.locator('aside').first().getByText(D.folder, { exact: true }).hover()
+        await page.locator('aside').first().getByLabel(T.folderActions).click()
+        await page.getByText(T.newProjectHere).click()
+      } else await page.getByRole('button', { name: T.project, exact: true }).click()
       await page.fill('#p-name', name)
-      if (desc) await page.fill('#p-desc', desc)
-      if (inFolder) await page.selectOption('#p-folder', { label: D.folder })
       await page.getByRole('button', { name: T.createProject }).click()
       await page.getByRole('heading', { name, level: 1 }).waitFor()
     }
     const fillItem = async (it) => {
       await page.fill('#i-title', it.title)
       if (it.notes) await page.fill('#i-notes', it.notes)
-      const selects = dialog().locator('select')
-      await selects.nth(0).selectOption(it.priority)
-      await selects.nth(1).selectOption(it.status)
-      if (it.due !== undefined) await dialog().locator('input[type=date]').fill(day(it.due))
-      if (it.label) await selects.nth(2).selectOption({ label: it.label })
-      if (it.assign) await selects.nth(3).selectOption({ index: 1 })
+      // Campi per id (prefisso "i-" nel dialog del nuovo task): priorità, stato, scadenza, assegnatario, etichetta
+      await dialog().locator('#i-priority').selectOption(it.priority)
+      await dialog().locator('#i-status').selectOption(it.status)
+      // La scadenza si indica solo con stato Confermato (il campo è disattivato altrimenti)
+      if (it.due !== undefined && it.status === 'confermato') await dialog().locator('#i-due').fill(day(it.due))
+      if (it.label) await dialog().locator('#i-label').selectOption({ label: it.label })
+      if (it.assign) await dialog().locator('#i-assignee').selectOption({ index: 1 })
     }
     const addItem = async (it) => {
       await page.getByRole('button', { name: T.newItem }).click()
@@ -368,8 +374,9 @@ async function capture(lang) {
     await page.getByTitle(T.markStepDone).first().click()
     await shot('stack')
 
-    // 4b) Nuovo progetto che parte da questo stack: si chiede solo il nome
-    await page.getByRole('button', { name: T.newFromStack }).click()
+    // 4b) Nuovo progetto che parte da questo stack: nel dialog del progetto si sceglie «Copia da …»
+    await page.getByRole('button', { name: T.project, exact: true }).click()
+    await page.selectOption('#p-stack', { label: T.copyFrom(D.main.name) })
     await page.fill('#p-name', D.fromTemplate)
     await page.waitForTimeout(300)
     await page.screenshot({ path: join(dir, 'stack-template.png') })

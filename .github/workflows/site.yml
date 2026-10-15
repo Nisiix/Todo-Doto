@@ -1,0 +1,43 @@
+# Pubblica il sito statico (Web/) su GitHub Pages.
+#
+# - push su main che tocca Web/ o Desktop/CHANGELOG.md: deploy
+# - manuale: Actions → Sito → Run workflow
+#
+# La sezione download della landing legge da sola l'ultima Release su GitHub
+# (asset per lingua); la pagina «Novità» legge Web/changelog.md, copiato qui da
+# Desktop/CHANGELOG.md.
+# Prerequisito: Settings → Pages → Source = GitHub Actions. Per un dominio proprio
+# aggiungere il file Web/CNAME e configurare i DNS (vedi GUIDA-OPERATIVA.md).
+name: Sito
+
+on:
+  push:
+    branches: [main]
+    paths: ['Web/**', 'Desktop/CHANGELOG.md', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Note di versione per la pagina Novità
+        run: cp Desktop/CHANGELOG.md Web/changelog.md
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: Web
+      - id: deployment
+        uses: actions/deploy-pages@v4

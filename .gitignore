@@ -17,3 +17,6 @@ installer/
 /projects/
 *.json.lock
 *.json.*.tmp
+
+# configurazione locale dell'editor
+.claude/

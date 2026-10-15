@@ -3,10 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title data-i18n="meta.title">Todo Doto — la roadmap dei tuoi progetti, in una cartella</title>
-  <meta name="description" data-i18n-content="meta.description" content="App desktop per Windows che gestisce la roadmap di uno o più progetti: cose da fare con priorità, scadenze e assegnatari, domande e commenti, allegati, stack tecnologico con configurazione guidata, condivisione in rete locale senza server." />
+  <title data-i18n="meta.title">Todo Doto — la roadmap condivisa del tuo ufficio, in una cartella di rete</title>
+  <meta name="description" data-i18n-content="meta.description" content="App desktop per Windows per la roadmap dei progetti di un ufficio: task con priorità, scadenze e assegnatari, Gantt, domande e commenti, allegati, stack tecnologico con configurazione guidata. Dati in una cartella di rete: nessun server, nessun account, nessun cloud. Gratis per uso personale, piani Team e Business a prezzo fisso." />
+  <link rel="canonical" href="https://projectgoalmanager.app/" />
   <link rel="alternate" hreflang="it" href="?lang=it" />
   <link rel="alternate" hreflang="en" href="?lang=en" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Todo Doto — roadmap condivisa senza server" />
+  <meta property="og:description" content="La roadmap del tuo ufficio in una cartella di rete. Task, Gantt, stack con configurazione guidata. Nessun server, nessun account, nessun cloud. Windows 10/11." />
+  <meta property="og:image" content="https://projectgoalmanager.app/assets/screens/it/project-list.png" />
+  <meta property="og:url" content="https://projectgoalmanager.app/" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="assets/icon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,6 +30,22 @@
       if (l !== 'it') { document.documentElement.lang = l; document.documentElement.classList.add('i18n-pending') }
     } catch (e) {}
   </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Todo Doto",
+    "operatingSystem": "Windows 10, Windows 11",
+    "applicationCategory": "BusinessApplication",
+    "description": "Roadmap condivisa dei progetti di un ufficio, salvata in una cartella di rete: task, Gantt, stack tecnologico con configurazione guidata. Nessun server, nessun account, nessun cloud.",
+    "url": "https://projectgoalmanager.app/",
+    "offers": [
+      { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR" },
+      { "@type": "Offer", "name": "Team", "price": "49.90", "priceCurrency": "EUR", "description": "per workspace all'anno (o 5,90 € al mese), fino a 10 utenti" },
+      { "@type": "Offer", "name": "Business", "price": "149.90", "priceCurrency": "EUR", "description": "per workspace all'anno (o 14,90 € al mese), utenti illimitati" }
+    ]
+  }
+  </script>
 </head>
 <body>
   <header class="top">
@@ -36,8 +59,10 @@
       </a>
       <nav class="nav" aria-label="Sezioni" data-i18n-aria-label="nav.label">
         <a href="#perche" data-i18n="nav.why">Perché</a>
-        <a href="#come-funziona" data-i18n="nav.how">Come funziona</a>
         <a href="#funzionalita" data-i18n="nav.features">Funzionalità</a>
+        <a href="#prezzi" data-i18n="nav.pricing">Prezzi</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+        <a href="guida.html" data-i18n="nav.guide" data-i18n-href="link.guide">Guida</a>
         <a class="btn btn--primary btn--sm" href="#download" data-i18n="nav.download">Scarica</a>
         <div class="lang" role="group" aria-label="Lingua" data-i18n-aria-label="nav.language">
           <button type="button" data-set-lang="it" lang="it" title="Italiano">IT</button>
@@ -54,18 +79,24 @@
     <section class="hero">
       <div class="wrap hero__grid">
         <div>
-          <h1 data-i18n="hero.title">La roadmap dei tuoi progetti, in una cartella.</h1>
-          <p data-i18n="hero.lead">Da fare, completati, cestino. Priorità, scadenze, assegnatari, domande e allegati. E per ogni progetto lo stack tecnologico, con la configurazione guidata. Sul tuo PC o su una cartella di rete condivisa con i colleghi: nessun server da installare, nessun abbonamento.</p>
+          <h1 data-i18n="hero.title">La roadmap condivisa del tuo ufficio, in una cartella di rete.</h1>
+          <p data-i18n="hero.lead">Task con priorità, scadenze e assegnatari, Gantt, domande e allegati. E per ogni progetto lo stack tecnologico, con la configurazione guidata del PC. Sul server che avete già, anche senza internet: nessun server da installare, nessun account, nessun cloud. Le modifiche dei colleghi si sommano, non si sovrascrivono.</p>
           <div class="hero__cta">
             <a class="btn btn--primary" href="#download" data-i18n="hero.cta">Scarica per Windows</a>
-            <a class="btn btn--outline" href="#come-funziona" data-i18n="hero.how">Guarda come funziona</a>
+            <a class="btn btn--outline" href="#prezzi" data-i18n="hero.pricing">Vedi i prezzi</a>
           </div>
-          <p class="hero__meta" data-i18n="hero.meta">Gratuita · Windows 10/11 · in italiano e in inglese · i dati restano tuoi, in file leggibili</p>
+          <p class="hero__meta" data-i18n="hero.meta">Gratis per uso personale e fino a 3 persone · Team da 49,90 €/anno per tutto l'ufficio · Windows 10/11 · in italiano e in inglese</p>
         </div>
         <figure class="window" style="margin:0">
           <div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div>
-          <img data-shot src="assets/screens/it/project-list.png" width="1600" height="1000" alt="La lista Da fare di un progetto: elementi ordinati per priorità, con assegnatario, etichetta, scadenza e stato" data-i18n-alt="alt.hero" />
+          <img data-shot src="assets/screens/it/project-list.png" width="1600" height="1000" alt="La lista Todo di un progetto: task ordinati per priorità, con assegnatario, etichetta, scadenza e stato" data-i18n-alt="alt.hero" />
         </figure>
+      </div>
+      <div class="wrap trust" aria-label="Garanzie" data-i18n-aria-label="trust.label">
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t1">Nessun dato lascia il vostro server</span></span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t2">Senza account e senza telemetria</span></span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t3">Installer o eseguibile portabile, in italiano e in inglese</span></span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t4">Un prezzo per ufficio, non per persona</span></span>
       </div>
     </section>
 
@@ -84,7 +115,7 @@
           </div>
           <div class="strength" style="--bar: var(--p-media)">
             <h3 data-i18n="why.s3.t">Ruoli e permessi chiari</h3>
-            <p data-i18n="why.s3.p">Password d'accesso al workspace, progetti riservati, elementi assegnati alle persone. Cestina chi è assegnatario, un Cleaner o un amministratore; l'eliminazione definitiva spetta solo agli amministratori.</p>
+            <p data-i18n="why.s3.p">Password d'accesso al workspace, progetti pubblici o limitati, task assegnati alle persone. Cestina chi è assegnatario, un Cleaner o un amministratore; l'eliminazione definitiva spetta solo agli amministratori.</p>
           </div>
           <div class="strength" style="--bar: var(--p-bassa)">
             <h3 data-i18n="why.s4.t">Veloce, da tastiera</h3>
@@ -101,15 +132,15 @@
         <div class="steps">
           <div class="step">
             <h3 data-i18n="how.s1.t">Crea un workspace</h3>
-            <p data-i18n="how.s1.p">Indica la cartella dei progetti (dove si trovano o dove li creerai) e una cartella per i dati dell’app, sul tuo PC o su un server condiviso. Se i progetti ci sono già, l’app li aggiunge per te.</p>
+            <p data-i18n="how.s1.p">Indica la cartella dei progetti (dove si trovano o dove li creerai) e una cartella per i dati dell’app, sul tuo PC o su un server condiviso. Se i progetti ci sono già, l’app li aggiunge per te e ne ricava lo stack dai file.</p>
           </div>
           <div class="step">
             <h3 data-i18n="how.s2.t">Organizza i progetti</h3>
-            <p data-i18n="how.s2.p">Cartelle e sottocartelle, preferiti, recenti. Ogni progetto ha le sue sezioni nella barra laterale: Todo, Stack e Allegati. Un progetto nuovo può partire dallo stack di uno esistente.</p>
+            <p data-i18n="how.s2.p">Cartelle e sottocartelle, preferiti, recenti. Ogni progetto ha le sue sezioni nella barra laterale: Stack, Todo, Gantt e Allegati. Un progetto nuovo può partire dallo stack di uno esistente o da un repository GitHub.</p>
           </div>
           <div class="step">
             <h3 data-i18n="how.s3.t">Lavora insieme</h3>
-            <p data-i18n="how.s3.p">Aggiungi gli elementi, assegnali, decidi priorità, stato, scadenza ed etichetta; fai domande, rispondi, allega documenti. Le notifiche ti avvisano delle novità.</p>
+            <p data-i18n="how.s3.p">Aggiungi i task, assegnali, decidi priorità, stato, scadenza ed etichetta; fai domande, rispondi, allega documenti. Le notifiche ti avvisano delle novità, e un commit con «chiude TODO-12» completa il task da solo.</p>
           </div>
         </div>
       </div>
@@ -122,7 +153,7 @@
 
         <article class="feature">
           <div class="feature__text">
-            <h3 data-i18n="f1.t">Elementi che si leggono a colpo d'occhio</h3>
+            <h3 data-i18n="f1.t">Task che si leggono a colpo d'occhio</h3>
             <p data-i18n="f1.p">La barra colorata a sinistra di ogni riga cresce con la priorità: la lista si legge come un istogramma di urgenza, senza etichette da decifrare.</p>
             <p style="display:flex;gap:.4rem;flex-wrap:wrap">
               <span class="pill" style="--c:var(--p-bassa)"><i></i><span data-i18n="prio.low">Bassa</span></span>
@@ -132,34 +163,34 @@
             </p>
             <ul>
               <li data-i18n="f1.l1">Stato: da valutare, da definire, confermato</li>
-              <li data-i18n="f1.l2">Assegnatario, con notifica a chi riceve l'elemento</li>
-              <li data-i18n="f1.l3">Scadenza facoltativa, con evidenza di quelle vicine o passate</li>
+              <li data-i18n="f1.l2">Assegnatario, con notifica a chi riceve il task</li>
+              <li data-i18n="f1.l3">Scadenza facoltativa, con evidenza di quelle vicine o passate, e Gantt dei task confermati</li>
               <li><span data-i18n="f1.l4">Etichette personalizzate per nome e colore</span> <span class="badge" style="--c:#d64545">Bug</span> <span class="badge" style="--c:#9b7bd6" data-i18n="f1.badge">Cliente</span></li>
               <li data-i18n="f1.l5">Filtri per periodo, stato, priorità, «assegnato a», «creato da» ed etichetta</li>
             </ul>
           </div>
-          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/new-item-dark.png" width="1600" height="1000" alt="Finestra di creazione di un nuovo elemento, tema scuro" data-i18n-alt="alt.newItem" /></figure>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/new-item-dark.png" width="1600" height="1000" alt="Finestra di creazione di un nuovo task, tema scuro" data-i18n-alt="alt.newItem" /></figure>
         </article>
 
         <article class="feature">
           <div class="feature__text">
             <h3 data-i18n="f2.t">Domande, risposte e commenti dove servono</h3>
-            <p data-i18n="f2.p">Ogni elemento ha il suo spazio di discussione. Tagga un collega con <b>@</b>, rispondi alle domande, e chi ha chiesto segna «risolta» quando ha avuto la risposta.</p>
+            <p data-i18n="f2.p">Ogni task ha il suo spazio di discussione. Tagga un collega con <b>@</b>, rispondi alle domande, e chi ha chiesto segna «risolta» quando ha avuto la risposta.</p>
             <ul>
               <li data-i18n="f2.l1">Titolo e descrizione, modificabili con Salva (o <span class="kbd">Ctrl</span> <span class="kbd">S</span>)</li>
-              <li data-i18n="f2.l2">Gli elementi completati o cestinati diventano di sola lettura</li>
+              <li data-i18n="f2.l2">I task completati o cestinati diventano di sola lettura</li>
               <li data-i18n="f2.l3">Chi aspetta una risposta lo vede in prima pagina</li>
             </ul>
           </div>
-          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/project-detail.png" width="1600" height="1000" alt="Pannello di dettaglio di un elemento con domanda, risposta e commento" data-i18n-alt="alt.detail" /></figure>
+          <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/project-detail.png" width="1600" height="1000" alt="Pannello di dettaglio di un task con domanda, risposta e commento" data-i18n-alt="alt.detail" /></figure>
         </article>
 
         <article class="feature">
           <div class="feature__text">
             <h3 data-i18n="f3.t">Trovi tutto, senza mouse</h3>
-            <p data-i18n="f3.p">Una sola ricerca per tutti i progetti: nomi, elementi e allegati, con i risultati raggruppati per progetto. Frecce e Invio per aprire quello che cerchi.</p>
+            <p data-i18n="f3.p">Una sola ricerca per tutti i progetti: nomi, task e allegati, con i risultati raggruppati per progetto. Frecce e Invio per aprire quello che cerchi.</p>
             <ul>
-              <li data-i18n="f3.l1"><span class="kbd">Ctrl</span> <span class="kbd">K</span> oppure <span class="kbd">/</span> per cercare, <span class="kbd">N</span> per un nuovo elemento</li>
+              <li data-i18n="f3.l1"><span class="kbd">Ctrl</span> <span class="kbd">K</span> oppure <span class="kbd">/</span> per cercare, <span class="kbd">N</span> per un nuovo task</li>
               <li data-i18n="f3.l2">Nella lista: <span class="kbd">↑</span> <span class="kbd">↓</span> per scorrere, <span class="kbd">Invio</span> per aprire, <span class="kbd">C</span> per completare, <span class="kbd">Canc</span> per cestinare</li>
               <li data-i18n="f3.l3"><span class="kbd">?</span> mostra tutte le scorciatoie</li>
             </ul>
@@ -170,12 +201,12 @@
         <article class="feature">
           <div class="feature__text">
             <h3 data-i18n="f4.t">Lo stack del progetto, con la configurazione guidata</h3>
-            <p data-i18n="f4.p">L'amministratore descrive con cosa è fatto il progetto e come metterlo in piedi; chi arriva segue la procedura passo per passo e spunta quello che ha fatto.</p>
+            <p data-i18n="f4.p">L'amministratore descrive con cosa è fatto il progetto e come metterlo in piedi; chi arriva segue la procedura passo per passo e spunta quello che ha fatto. L'app verifica da sola i prerequisiti installati sul PC.</p>
             <ul>
               <li data-i18n="f4.l1">Tipo di applicazione, linguaggi, framework, repository e cartella</li>
               <li data-i18n="f4.l2">Prerequisiti con il comando di verifica, passi da eseguire, variabili d'ambiente</li>
               <li data-i18n="f4.l3">Configurazione automatica: con un clic l’app esegue sul PC le verifiche e i comandi, nella cartella del progetto, fino all’apertura dell’editor</li>
-              <li data-i18n="f4.l4">Prerequisiti compilati in automatico: da linguaggi e framework (TypeScript → Node.js, Tauri → Rust…) con link e comando di verifica</li>
+              <li data-i18n="f4.l4">Stack ricavato dai file del progetto o da un repository GitHub: linguaggi, framework, prerequisiti con link e comando di verifica</li>
               <li data-i18n="f4.l5">Importa un documento di architettura <code>.md</code> per precompilare lo stack: il documento resta salvato nel progetto</li>
             </ul>
           </div>
@@ -187,7 +218,7 @@
             <h3 data-i18n="f5.t">Progetti nuovi, già configurati</h3>
             <p data-i18n="f5.p">Lo stack di un progetto diventa il modello per il successivo: scegli «Nuovo progetto con questo stack», dai un nome e la configurazione è copiata, con il nome del progetto aggiornato in comandi e link.</p>
             <ul>
-              <li data-i18n="f5.l1">«Crea cartella del progetto» la genera sul tuo PC, nella posizione che scegli</li>
+              <li data-i18n="f5.l1">La cartella del progetto nasce con il progetto, nella posizione che scegli</li>
               <li data-i18n="f5.l2">Dentro: <code>README.md</code>, <code>.env.example</code>, lo script di configurazione e i file iniziali definiti dall'amministratore</li>
               <li data-i18n="f5.l3">Segnaposto <code>{{name}}</code> e <code>{{slug}}</code> nei file, nei comandi e nei link</li>
               <li data-i18n="f5.l4">Si può anche importare lo stack di un altro progetto in uno esistente</li>
@@ -226,8 +257,8 @@
             <h3 data-i18n="f8.t">Il quadro del workspace, per gli amministratori</h3>
             <p data-i18n="f8.p">La pagina Analisi dice quanto c'è da fare, in che stato, con quale urgenza e su chi pesa. Si aggiorna da sola con i dati.</p>
             <ul>
-              <li data-i18n="f8.l1">Elementi per stato e priorità, scaduti e in scadenza, domande aperte</li>
-              <li data-i18n="f8.l2">Carico per utente (elementi assegnati) e per progetto</li>
+              <li data-i18n="f8.l1">Task per stato e priorità, scaduti e in scadenza, domande aperte</li>
+              <li data-i18n="f8.l2">Carico per utente (task assegnati) e per progetto</li>
             </ul>
           </div>
           <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/analytics.png" width="1600" height="1000" alt="Pagina Analisi con i numeri del workspace" data-i18n-alt="alt.analytics" /></figure>
@@ -235,16 +266,97 @@
 
         <article class="feature">
           <div class="feature__text">
-            <h3 data-i18n="f9.t">Sotto controllo: notifiche, ruoli, cronologia</h3>
-            <p data-i18n="f9.p">Scegli quali novità ricevere (nuovi elementi, assegnazioni, cambi di stato, completamenti, domande, risposte, commenti, menzioni). Gli amministratori hanno un registro di chi ha creato, completato, cestinato o eliminato cosa.</p>
+            <h3 data-i18n="f9.t">Sotto controllo: notifiche, ruoli, cronologia, copie di sicurezza</h3>
+            <p data-i18n="f9.p">Scegli quali novità ricevere (nuovi task, assegnazioni, cambi di stato, completamenti, domande, risposte, commenti, menzioni). Gli amministratori hanno un registro di chi ha creato, completato, cestinato o eliminato cosa, e le copie di sicurezza del workspace.</p>
             <ul>
               <li data-i18n="f9.l1">Ruoli: Amministratore, Cleaner, Membro</li>
-              <li data-i18n="f9.l2">Cestino per elementi e per interi progetti, con ripristino</li>
+              <li data-i18n="f9.l2">Cestino per task e per interi progetti, con ripristino</li>
               <li data-i18n="f9.l3">Cronologia filtrabile per progetto, operazione e utente</li>
             </ul>
           </div>
           <figure class="window" style="margin:0"><div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div><img data-shot loading="lazy" src="assets/screens/it/audit.png" width="1600" height="1000" alt="Cronologia delle operazioni divisa per progetto" data-i18n-alt="alt.audit" /></figure>
         </article>
+      </div>
+    </section>
+
+    <section id="prezzi">
+      <div class="wrap">
+        <h2 class="sec__title" data-i18n="price.title">Prezzi</h2>
+        <p class="sec__lead" data-i18n="price.lead">Un prezzo fisso per workspace, cioè per ufficio: aggiungere un collega non costa nulla. Nessun costo nascosto, nessun server da pagare. Prezzi IVA esclusa, fattura intestata all'azienda.</p>
+        <div class="launch" role="status" data-i18n="price.launch">🎉 Prezzo di lancio: <b>-40% per i primi 100 workspace</b> in cambio di una testimonianza: Team a 29,90 €/anno, Business a 89,90 €/anno.</div>
+        <div class="plans">
+          <div class="plan">
+            <h3>Free</h3>
+            <p class="plan__price" data-i18n="price.free.price">0 €</p>
+            <p class="plan__alt" data-i18n="price.free.alt">per sempre</p>
+            <p class="plan__for" data-i18n="price.free.for">Per una persona, o per provare l'app con due colleghi.</p>
+            <ul>
+              <li data-i18n="price.free.l1">Workspace locali illimitati</li>
+              <li data-i18n="price.free.l2">Workspace di rete fino a 3 persone</li>
+              <li data-i18n="price.free.l3">Progetti, task, cartelle, etichette illimitati</li>
+              <li data-i18n="price.free.l4">Stack, configurazione guidata, Gantt, allegati</li>
+              <li data-i18n="price.free.l5">Domande, commenti, @menzioni, notifiche</li>
+              <li class="no" data-i18n="price.free.n1">Progetti limitati, ruolo Cleaner, assegnazione</li>
+              <li class="no" data-i18n="price.free.n2">Analisi, cronologia, GitHub, copie di sicurezza</li>
+            </ul>
+            <a class="btn btn--outline btn--block" href="#download" data-i18n="price.free.cta">Scarica gratis</a>
+          </div>
+          <div class="plan plan--hot">
+            <span class="plan__tag" data-i18n="price.team.tag">Il più scelto</span>
+            <h3>Team</h3>
+            <p class="plan__price" data-i18n="price.team.price">49,90 € <small>/ anno</small></p>
+            <p class="plan__alt" data-i18n="price.team.alt">oppure 5,90 €/mese · per workspace</p>
+            <p class="plan__for" data-i18n="price.team.for">Per uffici fino a 10 persone che condividono una cartella di rete.</p>
+            <ul>
+              <li data-i18n="price.team.l1">Tutto il piano Free</li>
+              <li data-i18n="price.team.l2"><b>Fino a 10 utenti</b> nel workspace</li>
+              <li data-i18n="price.team.l3">Progetti limitati ad alcune persone, task assegnati</li>
+              <li data-i18n="price.team.l4">Ruolo Cleaner e gestione permessi</li>
+              <li data-i18n="price.team.l5">Cronologia delle operazioni e pagina Analisi</li>
+              <li data-i18n="price.team.l6">Progetti da GitHub e commit che chiudono i task</li>
+              <li data-i18n="price.team.l7">Copie di sicurezza del workspace</li>
+              <li data-i18n="price.team.l8">Replica di una cartella Google Drive</li>
+              <li data-i18n="price.team.l9">Supporto via email entro 1 giorno lavorativo</li>
+            </ul>
+            <a class="btn btn--primary btn--block" href="mailto:supporto@projectgoalmanager.app?subject=Licenza%20Team" data-checkout="team" data-i18n="price.team.cta">Acquista Team</a>
+          </div>
+          <div class="plan">
+            <h3>Business</h3>
+            <p class="plan__price" data-i18n="price.biz.price">149,90 € <small>/ anno</small></p>
+            <p class="plan__alt" data-i18n="price.biz.alt">oppure 14,90 €/mese · per workspace</p>
+            <p class="plan__for" data-i18n="price.biz.for">Per aziende senza limiti di persone, con più uffici o più workspace.</p>
+            <ul>
+              <li data-i18n="price.biz.l1">Tutto il piano Team</li>
+              <li data-i18n="price.biz.l2"><b>Utenti illimitati</b> nel workspace</li>
+              <li data-i18n="price.biz.l3">Configurazione dei PC condivisa: chi ha i prerequisiti mancanti, a colpo d'occhio</li>
+              <li data-i18n="price.biz.l4">Supporto prioritario entro 4 ore lavorative</li>
+              <li data-i18n="price.biz.l5">30 minuti di avvio guidato da remoto</li>
+            </ul>
+            <a class="btn btn--outline btn--block" href="mailto:supporto@projectgoalmanager.app?subject=Licenza%20Business" data-checkout="business" data-i18n="price.biz.cta">Acquista Business</a>
+          </div>
+        </div>
+        <p class="plans__note" data-i18n="price.note"><b>Come funziona la licenza.</b> La licenza vale per un workspace (una cartella) e per tutti i suoi membri, fino ai posti del piano: una licenza, un ufficio. Alla scadenza dell'abbonamento l'app continua a funzionare con il piano Free: i dati sono tuoi, sempre. Consulenti IT e rivenditori: <a href="mailto:supporto@projectgoalmanager.app?subject=Partner">scrivici</a> per il piano multi-workspace.</p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <h2 class="sec__title" data-i18n="faq.title">Domande frequenti</h2>
+        <p class="sec__lead" data-i18n="faq.lead">Le risposte che diamo più spesso a chi sta decidendo.</p>
+        <div class="faq">
+          <details><summary data-i18n="faq.q1">Dove sono i miei dati?</summary><p data-i18n="faq.a1">In una cartella che scegli tu: sul tuo PC oppure su un server di rete (percorso UNC o unità mappata). Sono file JSON leggibili, un file per progetto. Nessun dato viene inviato a noi o a terzi: l'app non ha un server e non raccoglie telemetria.</p></details>
+          <details><summary data-i18n="faq.q2">Funziona senza internet?</summary><p data-i18n="faq.a2">Sì. Tutto avviene nella rete locale. Internet serve solo per scaricare le nuove versioni e, se le usi, per le funzioni Google Drive e GitHub.</p></details>
+          <details><summary data-i18n="faq.q3">Come si condivide con i colleghi?</summary><p data-i18n="faq.a3">Crei il workspace su una cartella del server in modalità «Condiviso in rete» con una password. I colleghi installano l'app, aprono la stessa cartella e inseriscono la password una sola volta. Da quel momento le modifiche di ciascuno compaiono sugli altri PC entro pochi secondi.</p></details>
+          <details><summary data-i18n="faq.q4">Cosa succede se due persone modificano lo stesso progetto?</summary><p data-i18n="faq.a4">Ogni modifica prende un lock sul file del progetto, lo rilegge, applica il cambiamento e lo riscrive in modo atomico: le modifiche si sommano anche se avvengono nello stesso istante. Se un collega ha toccato il progetto che stai guardando, la riga lampeggia e un avviso dice chi è stato.</p></details>
+          <details><summary data-i18n="faq.q5">Posso partire dai progetti che ho già?</summary><p data-i18n="faq.a5">Sì. Scegli la cartella che li contiene: l'app li riconosce dai file (<code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>…), li crea nel workspace e ne ricava lo stack con prerequisiti e passi. Oppure collega GitHub con un token in sola lettura e crea i progetti dai repository.</p></details>
+          <details><summary data-i18n="faq.q6">Cosa succede quando scade l'abbonamento?</summary><p data-i18n="faq.a6">Il workspace torna al piano Free: continui a usare l'app, i dati restano dove sono, ma le funzioni dei piani a pagamento si disattivano finché non rinnovi. L'abbonamento è annuale (o mensile) e include tutti gli aggiornamenti.</p></details>
+          <details><summary data-i18n="faq.q7">Serve una licenza per ogni PC?</summary><p data-i18n="faq.a7">No: una licenza per workspace, cioè per cartella condivisa. Vale per tutti i membri fino al numero di posti del piano. Se hai più uffici con più cartelle, servono più licenze oppure il piano Business con più workspace.</p></details>
+          <details><summary data-i18n="faq.q8">Come faccio i backup?</summary><p data-i18n="faq.a8">Il workspace è una cartella: qualsiasi backup del server la include. In più l'app crea copie di sicurezza del workspace, che l'amministratore ripristina dalle Impostazioni.</p></details>
+          <details><summary data-i18n="faq.q9">È conforme al GDPR?</summary><p data-i18n="faq.a9">I dati non lasciano la vostra infrastruttura e l'app non raccoglie informazioni personali oltre al nome utente e al nome del PC con cui firmare le modifiche. Non ci sono trasferimenti a terzi da documentare. Leggi l'<a href="privacy.html" data-i18n-href="link.privacy">informativa</a>.</p></details>
+          <details><summary data-i18n="faq.q10">Windows mostra «PC protetto da Windows» all'installazione.</summary><p data-i18n="faq.a10">È SmartScreen, che diffida dei programmi che vede per la prima volta. L'avviso scompare man mano che la reputazione cresce; nel frattempo scegli «Ulteriori informazioni → Esegui comunque» dopo aver scaricato il file dalle fonti ufficiali, oppure usa l'eseguibile portabile.</p></details>
+          <details><summary data-i18n="faq.q11">L'app è anche in inglese?</summary><p data-i18n="faq.a11">Sì: esiste in italiano e in inglese. La lingua è scelta al download (ogni installer contiene una lingua); il sito propone quella selezionata in alto.</p></details>
+          <details><summary data-i18n="faq.q12">Esiste per Mac o Linux?</summary><p data-i18n="faq.a12">Oggi solo Windows 10/11. La tecnologia usata permette versioni per Mac e Linux: arriveranno se ci sarà richiesta. Scrivici se ti servono.</p></details>
+        </div>
       </div>
     </section>
 
@@ -269,7 +381,7 @@
           </div>
           <p class="dl-other"><span data-i18n="dl.other">Ti serve l'app in inglese?</span> <button type="button" class="link" data-set-lang="en" data-i18n="dl.otherLink" data-i18n-data-set-lang="dl.otherLang">Passa alla versione inglese</button></p>
           <div class="dl-note" hidden></div>
-          <p style="margin:1rem 0 0;font-size:.85rem;color:var(--ink-3)"><span data-i18n="dl.accept">Scaricando accetti le</span> <a href="condizioni.html" data-i18n="dl.conditions" data-i18n-href="link.conditions">condizioni di utilizzo</a>. <span data-i18n="dl.integrity">Codice e verifiche di integrità sono pubblici nel repository.</span></p>
+          <p style="margin:1rem 0 0;font-size:.85rem;color:var(--ink-3)"><span data-i18n="dl.accept">Scaricando accetti le</span> <a href="condizioni.html" data-i18n="dl.conditions" data-i18n-href="link.conditions">condizioni di utilizzo</a>. <span data-i18n="dl.integrity">Codice e verifiche di integrità sono pubblici nel repository.</span> <a href="changelog.html" data-i18n="dl.changelog">Novità per versione</a>.</p>
         </div>
       </div>
     </section>
@@ -277,12 +389,17 @@
 
   <footer>
     <div class="wrap foot">
-      <span>© 2026 Todo Doto</span>
-      <nav class="foot__links" aria-label="Note legali" data-i18n-aria-label="foot.label">
-        <a href="termini.html" data-i18n="foot.terms" data-i18n-href="link.terms">Termini di utilizzo</a>
+      <span>© 2026 Todo Doto · <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a></span>
+      <nav class="foot__links" aria-label="Collegamenti" data-i18n-aria-label="foot.label">
+        <a href="guida.html" data-i18n="foot.guide" data-i18n-href="link.guide">Guida</a>
+        <a href="changelog.html" data-i18n="foot.changelog">Novità</a>
+        <a href="vs-trello.html" data-i18n="foot.vsTrello">vs Trello</a>
+        <a href="vs-excel.html" data-i18n="foot.vsExcel">vs Excel</a>
+        <a href="termini.html" data-i18n="foot.terms" data-i18n-href="link.terms">Termini</a>
         <a href="privacy.html" data-i18n="foot.privacy" data-i18n-href="link.privacy">Privacy</a>
-        <a href="condizioni.html" data-i18n="foot.conditions" data-i18n-href="link.conditions">Condizioni di utilizzo</a>
+        <a href="condizioni.html" data-i18n="foot.conditions" data-i18n-href="link.conditions">Condizioni</a>
         <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>
+        <a href="https://github.com/Nisiix/Todo-Doto/releases.atom" data-i18n="foot.feed">Feed novità</a>
       </nav>
     </div>
   </footer>

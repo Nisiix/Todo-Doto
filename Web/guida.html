@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guida — Todo Doto</title>
+  <meta name="description" content="Guida all'uso di Todo Doto: creare e condividere un workspace, progetti e task, Stack con configurazione guidata, Gantt, GitHub, ruoli, copie di sicurezza, scorciatoie e problemi comuni." />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="alternate" hreflang="en" href="guide.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Todo Doto
+      </a>
+      <nav class="nav" aria-label="Sezioni">
+        <a href="index.html#funzionalita">Funzionalità</a>
+        <a href="index.html#prezzi">Prezzi</a>
+        <a href="changelog.html">Novità</a>
+        <a class="btn btn--primary btn--sm" href="index.html#download">Scarica</a>
+        <div class="lang" role="group" aria-label="Lingua">
+          <a href="guida.html" aria-pressed="true" lang="it" title="Italiano">IT</a>
+          <a href="guide.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow guide">
+      <h1>Guida</h1>
+      <p class="upd">Tutto quello che serve per partire e per gestire l'ufficio. Dieci minuti di lettura.</p>
+
+      <nav class="toc" aria-label="Indice">
+        <b>Indice</b>
+        <ol>
+          <li><a href="#installare">Installare e aggiornare</a></li>
+          <li><a href="#workspace">Creare un workspace</a></li>
+          <li><a href="#condividere">Condividere con i colleghi</a></li>
+          <li><a href="#progetti">Progetti, cartelle, task</a></li>
+          <li><a href="#stack">Stack e configurazione del PC</a></li>
+          <li><a href="#github">GitHub e commit che chiudono i task</a></li>
+          <li><a href="#discussione">Domande, commenti, allegati</a></li>
+          <li><a href="#ruoli">Ruoli, permessi, Analisi, cronologia</a></li>
+          <li><a href="#licenza">Piani e licenza</a></li>
+          <li><a href="#backup">Copie di sicurezza</a></li>
+          <li><a href="#scorciatoie">Scorciatoie</a></li>
+          <li><a href="#problemi">Problemi comuni</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="installare">1. Installare e aggiornare</h2>
+      <p>Scarica dalla <a href="index.html#download">pagina principale</a> il setup, l'installer <code>.msi</code> oppure l'eseguibile portabile (si avvia senza installare nulla), nella lingua che preferisci: ogni file contiene una lingua, italiano o inglese. Non servono permessi di amministratore. Se Windows mostra «PC protetto da Windows», scegli «Ulteriori informazioni → Esegui comunque»: l'avviso riguarda la novità del programma, non la sua sicurezza.</p>
+      <p>Per aggiornare installa la versione più recente sopra quella esistente: i dati dei workspace non vengono toccati. Le novità di ogni versione sono nella pagina <a href="changelog.html">Novità</a> e nel feed delle Release.</p>
+
+      <h2 id="workspace">2. Creare un workspace</h2>
+      <p>Un workspace ha due cartelle: quella dei <b>progetti</b> (dove si trovano, o dove li creerai) e quella dei <b>dati</b> dell'app. Al primo avvio scegli:</p>
+      <ul>
+        <li><b>Crea workspace</b>: nome, cartella dei progetti e cartella dei dati. «Solo su questo PC» per lavorare da solo; «Condiviso in rete» per l'ufficio (vedi sotto).</li>
+        <li><b>Apri cartella</b>: se un collega ha già creato il workspace sul server, oppure una cartella che contiene già dei progetti.</li>
+      </ul>
+      <p>Se la cartella scelta contiene già dei progetti (sottocartelle con <code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>go.mod</code>…), l'app li elenca e propone di crearli tutti nel workspace: nome dalla cartella, Stack ricavato dai file. In questo caso i dati del workspace vanno in un'altra cartella, suggerita accanto. All'avvio successivo l'ultimo workspace si riapre da solo.</p>
+
+      <h2 id="condividere">3. Condividere con i colleghi</h2>
+      <ol>
+        <li>Chi avvia il workspace sceglie una cartella sul server (ad esempio <code>\\server\condivisa\Roadmap</code> o <code>Z:\Roadmap</code>), la modalità «Condiviso in rete» e una password di almeno 6 caratteri. Diventa amministratore.</li>
+        <li>Ogni collega installa l'app, usa «Apri cartella» sulla stessa cartella e inserisce la password; può scegliere di ricordarla sul suo PC, cifrata con Windows.</li>
+        <li>Da quel momento le modifiche di ciascuno compaiono sugli altri PC entro pochi secondi, con un avviso «Aggiornato da …» e la riga che lampeggia. Quello che succede mentre sei scollegato ti arriva come notifica alla riapertura.</li>
+      </ol>
+      <p>Requisiti: tutti devono avere permessi di lettura e scrittura sulla cartella. La password protegge l'accesso tramite l'app, non i file: chi ha accesso alla cartella con Esplora file può leggerli.</p>
+
+      <h2 id="progetti">4. Progetti, cartelle, task</h2>
+      <p>Nella colonna sinistra crei <b>cartelle</b> (anche annidate) e <b>progetti</b>. Un progetto nuovo si crea dalla sua cartella sul disco (che gli dà il nome), dallo stack di un progetto esistente («Nuovo progetto con questo stack») o da un repository GitHub. Il progetto aperto mostra sotto di sé le sue sezioni: <b>Stack</b>, <b>Todo</b>, <b>Gantt</b> e <b>Allegati</b>.</p>
+      <p>Ogni task ha titolo, descrizione, <b>priorità</b> (bassa, media, alta, immediata: la barra colorata a sinistra cresce con l'urgenza), <b>stato</b> (da valutare, da definire, confermato), <b>scadenza</b> (solo con stato confermato), <b>assegnatario</b> ed <b>etichetta</b>. La lista è ordinata per priorità, poi per scadenza. I filtri restringono per periodo, stato, priorità, «assegnato a», «creato da» ed etichetta; la ricerca (<span class="kbd">Ctrl</span>+<span class="kbd">K</span> o <span class="kbd">/</span>) cerca in tutti i progetti.</p>
+      <p>Completa un task con il cerchio accanto al titolo (o <span class="kbd">C</span>); cestinalo dal menu (o <span class="kbd">Canc</span>). Dal Cestino si ripristina o, solo gli amministratori, si elimina definitivamente. Il <b>Gantt</b> mostra i task confermati con scadenza, raggruppati per etichetta o priorità, con la linea di oggi e i fine settimana.</p>
+
+      <h2 id="stack">5. Stack e configurazione del PC</h2>
+      <p>L'amministratore descrive con cosa è fatto il progetto: tipo di applicazione, linguaggi, framework, repository, cartella del progetto, note, <b>prerequisiti</b> (con versione, link e comando di verifica), <b>passi</b> ordinati (comando, link o operazione manuale) e <b>variabili d'ambiente</b>. Scrivendo il nome di uno strumento noto (Node.js, Git, Rust, .NET SDK, Python…) versione, link e comando si completano da soli; aggiungendo linguaggi o framework i prerequisiti che richiedono vengono proposti.</p>
+      <p>Lo stack si compila anche da solo: «Rileva dai file del progetto» legge la cartella (anche di rete), «Importa .md» legge un README o un documento di architettura, GitHub lo ricava dal repository. I file iniziali dello stack (<code>package.json</code>, <code>.gitignore</code>…) accettano i segnaposto <code>{{name}}</code> e <code>{{slug}}</code>.</p>
+      <p><b>Configura sul tuo PC</b>: la procedura come checklist, con i comandi da copiare e i link da aprire. L'app verifica da sola i prerequisiti installati (versione trovata, da aggiornare, mancante) e con «Avvia configurazione» esegue in una finestra del prompt le verifiche e i passi, nella cartella del progetto, fermandosi al primo errore. Nei workspace di rete l'esito è condiviso: nello Stack un banner avvisa l'amministratore se a qualcuno manca un prerequisito.</p>
+      <p>In fondo allo Stack, gli <b>Strumenti AI</b> del progetto: connettori, plugin e skill (allegate come file, ad esempio <code>SKILL.md</code>).</p>
+
+      <h2 id="github">6. GitHub e commit che chiudono i task</h2>
+      <p>Dalla pagina <b>GitHub</b> (accanto a Drive) ti colleghi con un token personale in sola lettura, salvato cifrato sul tuo PC. Dall'elenco dei repository l'amministratore crea i progetti: lo Stack si ricava dai file del repository e si risincronizza da «Sincronizza» o in automatico all'apertura del workspace.</p>
+      <p>Ogni task ha un codice <code>TODO-n</code>. Scrivendo nel messaggio di un commit <code>chiude TODO-12</code> (anche <code>risolve</code>, <code>closes</code>, <code>fixes</code>; più task con la virgola), all'apertura del progetto l'app legge gli ultimi commit del ramo e completa il task, annotando da quale commit. Si attiva dallo Stack con «Chiudi i task dai commit git».</p>
+
+      <h2 id="discussione">7. Domande, commenti, allegati</h2>
+      <p>Aprendo un task compare il pannello di dettaglio: titolo, descrizione e attributi si modificano insieme e si salvano con «Salva» (o <span class="kbd">Ctrl</span>+<span class="kbd">S</span>). Nei <b>commenti</b> e nelle <b>domande</b> tagghi un collega con <code>@nome</code>: riceverà una notifica. Le domande hanno risposte annidate; chi ha chiesto (o un amministratore) la segna «risolta». La pagina iniziale del workspace elenca le domande aperte di tutti i progetti.</p>
+      <p>Gli <b>allegati</b> hanno una sezione tutta loro: file sul server, link o documenti Google Drive, in cartelle di allegati. Immagini, PDF, testo e pagine web si vedono dentro l'app; con un click si apre l'originale. Le <b>notifiche</b> (campanella in alto) segnalano le novità fatte da altri; scegli quali ricevere dalle Impostazioni.</p>
+
+      <h2 id="ruoli">8. Ruoli, permessi, Analisi, cronologia</h2>
+      <ul>
+        <li><b>Amministratore</b>: tutto, incluse password, ruoli, permessi, stack, eliminazione definitiva e copie di sicurezza. Chi crea il workspace lo è; può nominarne altri.</li>
+        <li><b>Cleaner</b>: come un membro, ma può spostare nel cestino qualsiasi task.</li>
+        <li><b>Membro</b>: crea, modifica, completa, ripristina; cestina solo i task assegnati a lui o creati da lui.</li>
+      </ul>
+      <p>Un progetto è <b>pubblico</b> (visibile a tutti i membri) o <b>limitato</b> (solo agli utenti scelti, oltre agli amministratori): si decide alla creazione e si cambia nell'intestazione del progetto; gli utenti si assegnano dalla pagina Membri → «Gestione permessi». La pagina <b>Analisi</b> (amministratori) mostra task per stato e priorità, scaduti e in scadenza, domande aperte, carico per utente e per progetto. La <b>cronologia</b> registra chi ha creato, completato, cestinato, ripristinato o eliminato cosa.</p>
+
+      <h2 id="licenza">9. Piani e licenza</h2>
+      <p>Il piano <b>Free</b> include l'uso personale senza limiti e i workspace di rete fino a 3 persone. I piani <b>Team</b> (fino a 10 utenti) e <b>Business</b> (utenti illimitati) sono in abbonamento annuale o mensile, per workspace: una licenza, un ufficio, tutti i membri. I prezzi e il confronto delle funzioni sono nella <a href="index.html#prezzi">sezione Prezzi</a>; per acquistare o per domande scrivi a <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a>. Alla scadenza dell'abbonamento il workspace torna al piano Free, con tutti i dati.</p>
+
+      <h2 id="backup">10. Copie di sicurezza</h2>
+      <p>Il workspace è una cartella: il backup del server la include. In più, dalle Impostazioni l'amministratore crea e ripristina le <b>copie di sicurezza</b> del workspace (file <code>.pgmbackup</code> nella cartella dei dati). Tutte le cancellazioni dell'app restano confinate alla cartella dei dati: i file dei tuoi progetti non vengono mai toccati.</p>
+
+      <h2 id="scorciatoie">11. Scorciatoie</h2>
+      <ul>
+        <li><span class="kbd">N</span> nuovo task nel progetto aperto</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">K</span> oppure <span class="kbd">/</span> cerca in tutti i progetti</li>
+        <li><span class="kbd">↓</span> dalla pagina alla prima riga, poi <span class="kbd">↑</span> <span class="kbd">↓</span> per scorrere, <span class="kbd">Invio</span> apre, <span class="kbd">C</span> completa, <span class="kbd">Canc</span> cestina</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Invio</span> crea dal dialog, <span class="kbd">Ctrl</span>+<span class="kbd">S</span> salva nel dettaglio</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span> tema chiaro/scuro, <span class="kbd">Esc</span> chiude, <span class="kbd">?</span> mostra tutte le scorciatoie</li>
+      </ul>
+
+      <h2 id="problemi">12. Problemi comuni</h2>
+      <h3>«Cartella non raggiungibile, riprovo…»</h3>
+      <p>Il server non risponde o la rete è caduta. L'app riprova da sola; le modifiche già salvate sono al sicuro. Se persiste, verifica di vedere la cartella in Esplora file.</p>
+      <h3>Le modifiche dei colleghi arrivano in ritardo</h3>
+      <p>Su alcuni server le notifiche di modifica non arrivano: l'app controlla comunque ogni 4 secondi e al ritorno in primo piano. Un ritardo maggiore indica una rete lenta.</p>
+      <h3>«Configura sul tuo PC» non compare nello Stack</h3>
+      <p>Compare solo se la cartella del progetto è valida su questo PC: esiste, contiene un progetto riconoscibile e si chiama come il progetto. Il riquadro spiega il motivo e permette di cercarla; la cartella scelta si ricorda per questo PC.</p>
+      <h3>Un prerequisito risulta «non trovato» anche se è installato</h3>
+      <p>Probabilmente non è nel PATH: l'app lo dice quando lo trova nel percorso d'installazione standard. Chiudi e riapri il prompt dopo l'installazione, oppure usa «Ricontrolla». Un esito incerto si conferma a mano spuntando il cerchio.</p>
+      <h3>La password non viene accettata</h3>
+      <p>L'amministratore potrebbe averla cambiata: reinseriscila. Se l'hai dimenticata, l'amministratore la reimposta dalle Impostazioni.</p>
+
+      <div class="box" style="margin-top:2.5rem"><p style="margin:0">Non hai trovato la risposta? Scrivi a <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a> oppure apri una segnalazione su <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>.</p></div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Todo Doto</span>
+      <nav class="foot__links" aria-label="Note legali">
+        <a href="termini.html">Termini di utilizzo</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="condizioni.html">Condizioni di utilizzo</a>
+        <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/i18n.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

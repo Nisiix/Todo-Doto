@@ -139,5 +139,28 @@
     }
   }
 
+  // --- Novità: changelog.md (copiato dal workflow del sito da Desktop/CHANGELOG.md) → HTML ---
+  const log = document.querySelector('[data-changelog]')
+  if (log) {
+    const t = I18N.runtime[lang]
+    fetch('changelog.md', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error('no changelog'))))
+      .then((md) => {
+        const esc = (x) => x.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
+        const inline = (x) => esc(x).replace(/`([^`]+)`/g, '<code>$1</code>')
+        let html = ''
+        let open = false
+        for (const line of md.split('\n')) {
+          if (line.startsWith('# ')) continue
+          if (line.startsWith('## ')) { if (open) html += '</ul>'; html += `<h2>${inline(line.slice(3))}</h2><ul>`; open = true }
+          else if (line.startsWith('- ') && open) html += `<li>${inline(line.slice(2))}</li>`
+        }
+        if (open) html += '</ul>'
+        log.innerHTML = html || `<p>${t.noChangelog}</p>`
+      })
+      .catch(() => { log.innerHTML = `<p>${t.noChangelog}</p>` })
+  }
+
   applyLang(lang)
 })()
+

@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guide — Todo Doto</title>
+  <meta name="description" content="Todo Doto user guide: create and share a workspace, projects and tasks, Stack with guided setup, Gantt, GitHub, roles, backups, shortcuts and common problems." />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="alternate" hreflang="it" href="guida.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang','en')}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html?lang=en">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="17" width="4" height="9" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="12" width="4" height="14" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="7" width="4" height="19" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="2" width="4" height="24" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Todo Doto
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="index.html?lang=en#funzionalita">Features</a>
+        <a href="index.html?lang=en#prezzi">Pricing</a>
+        <a href="changelog.html?lang=en">Release notes</a>
+        <a class="btn btn--primary btn--sm" href="index.html?lang=en#download">Download</a>
+        <div class="lang" role="group" aria-label="Language">
+          <a href="guida.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="guide.html" aria-pressed="true" lang="en" title="English">EN</a>
+        </div>
+        <button class="theme" type="button" aria-label="Toggle light/dark theme" title="Theme (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow guide">
+      <h1>Guide</h1>
+      <p class="upd">Everything you need to get started and to run the office. A ten-minute read.</p>
+
+      <nav class="toc" aria-label="Contents">
+        <b>Contents</b>
+        <ol>
+          <li><a href="#install">Install and update</a></li>
+          <li><a href="#workspace">Create a workspace</a></li>
+          <li><a href="#share">Share with colleagues</a></li>
+          <li><a href="#projects">Projects, folders, tasks</a></li>
+          <li><a href="#stack">Stack and PC setup</a></li>
+          <li><a href="#github">GitHub and commits that close tasks</a></li>
+          <li><a href="#discussion">Questions, comments, attachments</a></li>
+          <li><a href="#roles">Roles, permissions, Analytics, activity log</a></li>
+          <li><a href="#license">Plans and license</a></li>
+          <li><a href="#backup">Backups</a></li>
+          <li><a href="#shortcuts">Shortcuts</a></li>
+          <li><a href="#problems">Common problems</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="install">1. Install and update</h2>
+      <p>From the <a href="index.html?lang=en#download">home page</a> download the setup, the <code>.msi</code> installer or the portable executable (runs without installing anything), in the language you prefer: each file contains one language, English or Italian. No administrator rights needed. If Windows shows “Windows protected your PC”, choose “More info → Run anyway”: the warning is about the program being new, not unsafe.</p>
+      <p>To update, install the latest version over the existing one: workspace data is never touched. What changed in each version is on the <a href="changelog.html?lang=en">Release notes</a> page and in the Releases feed.</p>
+
+      <h2 id="workspace">2. Create a workspace</h2>
+      <p>A workspace has two folders: the <b>projects</b> folder (where they are, or where you will create them) and the app <b>data</b> folder. On first launch choose:</p>
+      <ul>
+        <li><b>Create workspace</b>: name, projects folder and data folder. “Only on this PC” to work alone; “Shared on the network” for the office (see below).</li>
+        <li><b>Open folder</b>: when a colleague already created the workspace on the server, or a folder that already contains projects.</li>
+      </ul>
+      <p>If the chosen folder already contains projects (subfolders with <code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>go.mod</code>…), the app lists them and offers to create them all in the workspace: name from the folder, Stack read from the files. In that case the workspace data goes in another folder, suggested next to it. On the next launch the last workspace reopens by itself.</p>
+
+      <h2 id="share">3. Share with colleagues</h2>
+      <ol>
+        <li>Whoever starts the workspace picks a folder on the server (for example <code>\\server\shared\Roadmap</code> or <code>Z:\Roadmap</code>), the “Shared on the network” mode and a password of at least 6 characters. They become the administrator.</li>
+        <li>Every colleague installs the app, uses “Open folder” on the same folder and enters the password; they can choose to remember it on their PC, encrypted by Windows.</li>
+        <li>From then on everyone’s changes show up on the other PCs within seconds, with an “Updated by …” notice and a flashing row. Whatever happens while you are away reaches you as notifications when you reopen.</li>
+      </ol>
+      <p>Requirements: everyone needs read and write permissions on the folder. The password protects access through the app, not the files: anyone who can open the folder in File Explorer can read them.</p>
+
+      <h2 id="projects">4. Projects, folders, tasks</h2>
+      <p>In the left column you create <b>folders</b> (nested too) and <b>projects</b>. A new project is created from its folder on disk (which gives it its name), from the stack of an existing project (“New project with this stack”) or from a GitHub repository. The open project shows its sections underneath: <b>Stack</b>, <b>To-do</b>, <b>Gantt</b> and <b>Attachments</b>.</p>
+      <p>Every task has a title, description, <b>priority</b> (low, medium, high, urgent: the colored bar on the left grows with urgency), <b>status</b> (to evaluate, to define, confirmed), <b>due date</b> (confirmed status only), <b>assignee</b> and <b>label</b>. The list is sorted by priority, then due date. Filters narrow by period, status, priority, “assigned to”, “created by” and label; search (<span class="kbd">Ctrl</span>+<span class="kbd">K</span> or <span class="kbd">/</span>) looks across all projects.</p>
+      <p>Complete a task with the circle next to its title (or <span class="kbd">C</span>); trash it from the menu (or <span class="kbd">Del</span>). From the Trash you restore it or, administrators only, delete it permanently. The <b>Gantt</b> shows confirmed tasks with a due date, grouped by label or priority, with today’s line and weekends.</p>
+
+      <h2 id="stack">5. Stack and PC setup</h2>
+      <p>The administrator describes what the project is built with: application type, languages, frameworks, repository, project folder, notes, <b>prerequisites</b> (with version, link and check command), ordered <b>steps</b> (command, link or manual operation) and <b>environment variables</b>. Typing the name of a known tool (Node.js, Git, Rust, .NET SDK, Python…) fills in version, link and command; adding languages or frameworks suggests the prerequisites they need.</p>
+      <p>The stack can also fill itself: “Detect from project files” reads the folder (network folders too), “Import .md” reads a README or an architecture document, GitHub reads it from the repository. The stack’s initial files (<code>package.json</code>, <code>.gitignore</code>…) accept the <code>{{name}}</code> and <code>{{slug}}</code> placeholders.</p>
+      <p><b>Set up on your PC</b>: the procedure as a checklist, with commands to copy and links to open. The app checks installed prerequisites by itself (version found, to update, missing) and “Start setup” runs the checks and steps in a command prompt window, in the project folder, stopping at the first error. In network workspaces the outcome is shared: a banner in the Stack warns the administrator when someone is missing a prerequisite.</p>
+      <p>At the bottom of the Stack, the project’s <b>AI tools</b>: connectors, plugins and skills (attached as files, for example <code>SKILL.md</code>).</p>
+
+      <h2 id="github">6. GitHub and commits that close tasks</h2>
+      <p>From the <b>GitHub</b> page (next to Drive) you connect with a read-only personal token, stored encrypted on your PC. From the repository list the administrator creates projects: the Stack is read from the repository files and re-syncs from “Sync” or automatically when the workspace opens.</p>
+      <p>Every task has a <code>TODO-n</code> code. Writing <code>closes TODO-12</code> in a commit message (also <code>fixes</code>, <code>resolves</code>; several tasks separated by commas) makes the app complete the task when the project opens, noting which commit did it. Enable it in the Stack with “Close tasks from git commits”.</p>
+
+      <h2 id="discussion">7. Questions, comments, attachments</h2>
+      <p>Opening a task shows the detail panel: title, description and attributes are edited together and saved with “Save” (or <span class="kbd">Ctrl</span>+<span class="kbd">S</span>). In <b>comments</b> and <b>questions</b> you tag a colleague with <code>@name</code>: they get a notification. Questions have nested answers; whoever asked (or an administrator) marks it “resolved”. The workspace home page lists the open questions of every project.</p>
+      <p><b>Attachments</b> have a section of their own: files on the server, links or Google Drive documents, in attachment folders. Images, PDFs, text and web pages show inside the app; one click opens the original. <b>Notifications</b> (bell at the top) report what others did; choose which to receive in Settings.</p>
+
+      <h2 id="roles">8. Roles, permissions, Analytics, activity log</h2>
+      <ul>
+        <li><b>Administrator</b>: everything, including password, roles, permissions, stack, permanent deletion and backups. Whoever creates the workspace is one and can appoint others.</li>
+        <li><b>Cleaner</b>: like a member, but can move any task to the trash.</li>
+        <li><b>Member</b>: creates, edits, completes, restores; trashes only tasks assigned to them or created by them.</li>
+      </ul>
+      <p>A project is <b>public</b> (visible to every member) or <b>restricted</b> (to chosen users, plus administrators): decided at creation and changed in the project header; users are assigned from the Members page → “Permissions”. The <b>Analytics</b> page (administrators) shows tasks by status and priority, overdue and due soon, open questions, load per user and per project. The <b>activity log</b> records who created, completed, trashed, restored or deleted what.</p>
+
+      <h2 id="license">9. Plans and license</h2>
+      <p>The <b>Free</b> plan includes unlimited personal use and network workspaces up to 3 people. The <b>Team</b> (up to 10 users) and <b>Business</b> (unlimited users) plans are yearly or monthly subscriptions, per workspace: one license, one office, every member. Prices and the feature comparison are in the <a href="index.html?lang=en#prezzi">Pricing section</a>; to buy or for questions write to <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a>. When the subscription ends the workspace goes back to the Free plan, with all its data.</p>
+
+      <h2 id="backup">10. Backups</h2>
+      <p>The workspace is a folder: the server backup includes it. On top of that, from Settings the administrator creates and restores workspace <b>backups</b> (<code>.pgmbackup</code> files in the data folder). Every deletion the app performs stays inside the data folder: your project files are never touched.</p>
+
+      <h2 id="shortcuts">11. Shortcuts</h2>
+      <ul>
+        <li><span class="kbd">N</span> new task in the open project</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">K</span> or <span class="kbd">/</span> search across all projects</li>
+        <li><span class="kbd">↓</span> from the page to the first row, then <span class="kbd">↑</span> <span class="kbd">↓</span> to move, <span class="kbd">Enter</span> opens, <span class="kbd">C</span> completes, <span class="kbd">Del</span> trashes</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> creates from the dialog, <span class="kbd">Ctrl</span>+<span class="kbd">S</span> saves in the detail panel</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span> light/dark theme, <span class="kbd">Esc</span> closes, <span class="kbd">?</span> shows every shortcut</li>
+      </ul>
+
+      <h2 id="problems">12. Common problems</h2>
+      <h3>“Folder unreachable, retrying…”</h3>
+      <p>The server is not responding or the network is down. The app retries on its own; saved changes are safe. If it persists, check that you can see the folder in File Explorer.</p>
+      <h3>Colleagues’ changes arrive late</h3>
+      <p>On some servers change notifications never arrive: the app still checks every 4 seconds and when it comes back to the foreground. A longer delay means a slow network.</p>
+      <h3>“Set up on your PC” does not appear in the Stack</h3>
+      <p>It appears only when the project folder is valid on this PC: it exists, contains a recognizable project and is named like the project. The box explains why and lets you look for it; the chosen folder is remembered for this PC.</p>
+      <h3>A prerequisite shows as “not found” although it is installed</h3>
+      <p>It is probably not in the PATH: the app says so when it finds it in the standard install location. Close and reopen the prompt after installing, or use “Check again”. An uncertain outcome can be confirmed by hand by ticking the circle.</p>
+      <h3>The password is not accepted</h3>
+      <p>The administrator may have changed it: enter it again. If you forgot it, the administrator resets it from Settings.</p>
+
+      <div class="box" style="margin-top:2.5rem"><p style="margin:0">Didn’t find the answer? Write to <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a> or open an issue on <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>.</p></div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Todo Doto</span>
+      <nav class="foot__links" aria-label="Legal">
+        <a href="terms.html">Terms of use</a>
+        <a href="privacy-policy.html">Privacy</a>
+        <a href="conditions.html">Conditions of use</a>
+        <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/i18n.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

@@ -645,8 +645,9 @@ test('barra laterale: sottomenu del progetto; nessun cestino né modifica del no
   await createLocalWorkspace(page)
   await createProject(page, 'Uno')
   const submenu = sidebar(page).getByRole('list', { name: 'Sezioni di Uno' })
-  await expect(submenu.getByRole('link')).toHaveText([/^Todo/, /^Gantt/, /^Stack/, /^Allegati/])
-  for (const s of ['Todo', 'Gantt', 'Stack', 'Allegati'] as const) {
+  // Ordine delle sezioni: prima lo Stack (come si configura), poi Todo, Gantt e Allegati
+  await expect(submenu.getByRole('link')).toHaveText([/^Stack/, /^Todo/, /^Gantt/, /^Allegati/])
+  for (const s of ['Stack', 'Todo', 'Gantt', 'Allegati'] as const) {
     await openSection(page, s)
     // Il pulsante per cestinare il progetto non è più nell'intestazione delle sezioni
     await expect(page.getByRole('main').getByRole('button', { name: /nel cestino/i })).toHaveCount(0)

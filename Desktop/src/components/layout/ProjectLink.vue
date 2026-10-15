@@ -34,7 +34,7 @@ const m = defineMessages({
 
 /**
  * Voce di un progetto nella barra laterale. Con `sections` (albero dei
- * progetti) il progetto aperto mostra sotto di sé il sottomenu Todo, Stack,
+ * progetti) il progetto aperto mostra sotto di sé il sottomenu Stack, Todo,
  * Allegati. A destra, al passaggio del mouse, il cestino (solo amministratori).
  */
 const props = defineProps<{ project: Project; depth: number; hint?: string; sections?: boolean }>()
@@ -51,9 +51,9 @@ const canTrash = computed(() => ws.isAdmin && !props.project.trashedAt)
 const indent = (extra = 0) => ({ paddingLeft: `${22 + props.depth * 12 + extra}px` })
 
 const subItems = computed<{ id: ProjectSection; label: string; icon: unknown; count: number }[]>(() => [
+  { id: 'stack', label: m.stack, icon: Layers, count: props.project.stack.steps.length + props.project.aiTools.length },
   { id: 'todo', label: m.todo, icon: ListChecks, count: openCount.value },
   { id: 'gantt', label: m.gantt, icon: GanttChartSquare, count: ganttCount.value },
-  { id: 'stack', label: m.stack, icon: Layers, count: props.project.stack.steps.length + props.project.aiTools.length },
   { id: 'attachments', label: m.attachments, icon: Paperclip, count: props.project.attachments.length },
 ])
 
