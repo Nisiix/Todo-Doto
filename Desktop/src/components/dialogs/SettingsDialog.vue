@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { Archive, ArchiveRestore, Bell, FolderOpen, KeyRound, Lock, SlidersHorizontal } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Bell, FolderOpen, KeyRound, Lock, SlidersHorizontal, UserRound } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import RestoreDialog from './RestoreDialog.vue'
 import { getFs } from '@/services/fs'
@@ -26,6 +26,7 @@ const m = defineMessages({
     system: 'Come il sistema',
     title: 'Impostazioni',
     tabGeneral: 'Generali',
+    tabUser: 'Dati utente',
     tabNotifications: 'Notifiche',
     tabBackup: 'Backup',
     appearance: 'Aspetto',
@@ -73,6 +74,7 @@ const m = defineMessages({
     system: 'Same as system',
     title: 'Settings',
     tabGeneral: 'General',
+    tabUser: 'User data',
     tabNotifications: 'Notifications',
     tabBackup: 'Backup',
     appearance: 'Appearance',
@@ -155,11 +157,12 @@ async function backupNow() {
 }
 const lastBackup = computed(() => ws.backups[0] ?? null)
 
-/** Schede: Generali (con la password), Notifiche, Backup (solo amministratori). */
-type Tab = 'general' | 'notifications' | 'backup'
+/** Schede: Generali, Dati utente (nomi e password), Notifiche, Backup (solo amministratori). */
+type Tab = 'general' | 'user' | 'notifications' | 'backup'
 const tab = ref<Tab>('general')
 const tabs = computed(() => [
   { id: 'general' as Tab, label: m.tabGeneral, icon: SlidersHorizontal },
+  { id: 'user' as Tab, label: m.tabUser, icon: UserRound },
   { id: 'notifications' as Tab, label: m.tabNotifications, icon: Bell },
   ...(ws.isAdmin ? [{ id: 'backup' as Tab, label: m.tabBackup, icon: Archive }] : []),
 ])
@@ -201,8 +204,8 @@ async function save() {
     await saveConfig(session.config)
   }
   if (pw1.value || pw2.value) {
-    if (pw1.value.length < 6) return ((tab.value = 'general'), (pwMsg.value = common.password.tooShort))
-    if (pw1.value !== pw2.value) return ((tab.value = 'general'), (pwMsg.value = common.password.mismatch))
+    if (pw1.value.length < 6) return ((tab.value = 'user'), (pwMsg.value = common.password.tooShort))
+    if (pw1.value !== pw2.value) return ((tab.value = 'user'), (pwMsg.value = common.password.mismatch))
     await ws.changePassword(pw1.value)
     ui.toast(m.pwUpdated, 'success', undefined, 6000)
   }
@@ -223,7 +226,7 @@ const themes: { value: Theme; label: string }[] = [
 
 <template>
   <BaseDialog v-model:open="open" :title="m.title">
-    <!-- Schede: Generali (con la password), Notifiche, Backup -->
+    <!-- Schede: Generali, Dati utente, Notifiche, Backup -->
     <div class="-mt-1 mb-4 flex gap-1 border-b border-line" role="tablist" :aria-label="m.title">
       <button
         v-for="t in tabs"
@@ -240,22 +243,12 @@ const themes: { value: Theme; label: string }[] = [
       </button>
     </div>
 
+    <!-- Altezza fissa: la finestra non cambia dimensione passando da una scheda all'altra -->
+    <div class="-mr-2 h-[min(28rem,calc(100vh-14rem))] overflow-y-auto pr-2" data-settings-body>
     <div v-show="tab === 'general'" class="space-y-5" role="tabpanel" data-settings-panel="general">
       <section>
         <span class="label">{{ m.appearance }}</span>
         <SegmentedControl :model-value="ui.theme" :options="themes" @update:model-value="ui.setTheme" />
-      </section>
-
-      <section class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="label" for="s-me">{{ m.displayName }}</label>
-          <input id="s-me" v-model="displayName" class="field" />
-          <p class="mt-1 text-[12px] text-ink-3">{{ m.userOn(session.identity.username, session.identity.hostname) }}</p>
-        </div>
-        <div>
-          <label class="label" for="s-ws">{{ m.wsName }}</label>
-          <input id="s-ws" v-model="wsName" class="field" :disabled="!ws.isAdmin" />
-        </div>
       </section>
 
       <section class="space-y-3">
@@ -278,6 +271,21 @@ const themes: { value: Theme; label: string }[] = [
         <input v-model="reopenLast" type="checkbox" class="accent-accent" />
         {{ m.reopenLast }}
       </label>
+
+    </div>
+
+    <div v-show="tab === 'user'" class="space-y-5" role="tabpanel" data-settings-panel="user">
+      <section class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label" for="s-me">{{ m.displayName }}</label>
+          <input id="s-me" v-model="displayName" class="field" />
+          <p class="mt-1 text-[12px] text-ink-3">{{ m.userOn(session.identity.username, session.identity.hostname) }}</p>
+        </div>
+        <div>
+          <label class="label" for="s-ws">{{ m.wsName }}</label>
+          <input id="s-ws" v-model="wsName" class="field" :disabled="!ws.isAdmin" />
+        </div>
+      </section>
 
       <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-pw-title">
         <span id="s-pw-title" class="label">{{ m.pwSection }}</span>
@@ -336,6 +344,7 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
+    </div>
     </div>
     <template #footer>
       <BaseButton variant="ghost" @click="open = false">{{ common.actions.cancel }}</BaseButton>

@@ -231,7 +231,10 @@ async function capture(lang) {
     await page.getByRole('button', { name: T.createWs }).last().click()
     await page.getByRole('heading', { name: D.ws }).waitFor()
 
-    await page.getByRole('banner').getByTitle(T.settings).last().click()
+    // Impostazioni dal menu del workspace, scheda "Dati utente"
+    await page.locator('[data-workspace-menu]').click()
+    await page.getByRole('menuitem', { name: T.settings }).click()
+    await page.locator('[data-settings-tab="user"]').click()
     await page.fill('#s-me', D.user)
     await dialog().getByRole('button', { name: T.save, exact: true }).click()
     await dialog().waitFor({ state: 'hidden' })

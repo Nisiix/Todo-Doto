@@ -7,7 +7,6 @@ import dayjs from 'dayjs'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
-import UserAvatar from '@/components/ui/UserAvatar.vue'
 import SettingsDialog from '@/components/dialogs/SettingsDialog.vue'
 import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
 import ShortcutsDialog from '@/components/dialogs/ShortcutsDialog.vue'
@@ -106,7 +105,8 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 <template>
   <header class="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-surface px-3">
     <BaseMenu :items="menu" align="start">
-      <button class="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-surface-2 data-[state=open]:bg-surface-2">
+      <!-- Menu del workspace: anche le Impostazioni si aprono da qui -->
+      <button class="flex h-8 items-center gap-2 rounded-md px-2 hover:bg-surface-2 data-[state=open]:bg-surface-2" data-workspace-menu>
         <BrandMark :size="20" />
         <span class="max-w-56 truncate text-[14px] font-bold tracking-tight">{{ ws.meta?.name }}</span>
         <ChevronDown :size="14" class="text-ink-3" />
@@ -156,10 +156,6 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     <button class="rounded-md p-1.5 text-ink-2 hover:bg-surface-2 hover:text-ink" :title="ui.isDark ? m.lightTheme : m.darkTheme" @click="ui.toggleTheme()">
       <Sun v-if="ui.isDark" :size="16" />
       <Moon v-else :size="16" />
-    </button>
-
-    <button class="rounded-full" :title="m.settings" @click="showSettings = true">
-      <UserAvatar :name="ws.currentUser?.displayName ?? '?'" size="md" />
     </button>
 
     <SettingsDialog v-model:open="showSettings" />

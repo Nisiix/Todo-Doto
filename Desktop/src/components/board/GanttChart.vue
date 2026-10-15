@@ -6,9 +6,9 @@ import { GanttChartSquare } from 'lucide-vue-next'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { firstLine } from '@/services/items'
-import { ganttGroups, ganttRange, type GanttBar, type GanttGroupBy } from '@/services/gantt'
+import { ganttGroups, ganttItems, ganttRange, type GanttBar, type GanttGroupBy } from '@/services/gantt'
 import { DATE, defineMessages, localeTag, plural } from '@/i18n'
-import { PRIORITY_LABEL, type Project } from '@/types'
+import { PRIORITIES, PRIORITY_LABEL, PRIORITY_RANK, type Project } from '@/types'
 
 const m = defineMessages({
   it: {
@@ -20,7 +20,16 @@ const m = defineMessages({
     zoom: 'Scala',
     days: 'Giorni',
     weeks: 'Settimane',
-    showDone: 'Mostra anche i completati',
+    filters: 'Filtri',
+    assignee: 'Assegnato a',
+    anyone: 'Tutti',
+    unassigned: 'Nessuno',
+    priority: 'Priorità',
+    anyPriority: 'Tutte',
+    label: 'Etichetta',
+    anyLabel: 'Tutte',
+    reset: 'Azzera i filtri',
+    noMatch: 'Nessun task corrisponde ai filtri.',
     today: 'Oggi',
     noLabel: 'Senza etichetta',
     task: 'Task',
@@ -38,7 +47,16 @@ const m = defineMessages({
     zoom: 'Scale',
     days: 'Days',
     weeks: 'Weeks',
-    showDone: 'Also show completed',
+    filters: 'Filters',
+    assignee: 'Assigned to',
+    anyone: 'Everyone',
+    unassigned: 'Nobody',
+    priority: 'Priority',
+    anyPriority: 'All',
+    label: 'Label',
+    anyLabel: 'All',
+    reset: 'Clear filters',
+    noMatch: 'No task matches the filters.',
     today: 'Today',
     noLabel: 'No label',
     task: 'Task',
@@ -56,10 +74,26 @@ const router = useRouter()
 
 const groupBy = ref<GanttGroupBy>('label')
 const zoom = ref<'days' | 'weeks'>('days')
-const showDone = ref(false)
+/** Filtri: assegnatario ('' = tutti, '-' = nessuno), priorità, etichetta ('-' = senza etichetta). */
+const fAssignee = ref('')
+const fPriority = ref('')
+const fLabel = ref('')
+const filtered = computed(() =>
+  props.project.items.filter(
+    (i) =>
+      (!fAssignee.value || (fAssignee.value === '-' ? !i.assigneeId : i.assigneeId === fAssignee.value)) &&
+      (!fPriority.value || i.priority === fPriority.value) &&
+      (!fLabel.value || (fLabel.value === '-' ? !i.labelId : i.labelId === fLabel.value)),
+  ),
+)
+const filterActive = computed(() => !!(fAssignee.value || fPriority.value || fLabel.value))
+const resetFilters = () => ((fAssignee.value = ''), (fPriority.value = ''), (fLabel.value = ''))
+/** Task nel Gantt prima dei filtri (per distinguere "nessun task" da "nessuno corrisponde ai filtri"). */
+const unfilteredCount = computed(() => ganttItems(props.project.items).length)
 const today = dayjs().startOf('day')
 
-const groups = computed(() => ganttGroups(props.project.items, groupBy.value, ws.tree.labels, { noLabel: m.noLabel }, { includeDone: showDone.value, today }))
+// Solo i task da fare (i completati non entrano nel Gantt)
+const groups = computed(() => ganttGroups(filtered.value, groupBy.value, ws.tree.labels, { noLabel: m.noLabel }, { today }))
 const total = computed(() => groups.value.reduce((n, g) => n + g.bars.length, 0))
 const range = computed(() => ganttRange(groups.value, today))
 /** Larghezza di un giorno in pixel. */
@@ -115,11 +149,38 @@ watch(zoom, scrollToToday)
         <span class="text-ink-3">{{ m.zoom }}</span>
         <SegmentedControl v-model="zoom" :options="[{ value: 'days', label: m.days }, { value: 'weeks', label: m.weeks }]" />
       </span>
-      <label class="flex items-center gap-2 text-ink-2"><input v-model="showDone" type="checkbox" class="accent-accent" /> {{ m.showDone }}</label>
       <span class="ml-auto text-[12px] text-ink-3" data-gantt-count>{{ m.count(total) }}</span>
     </div>
 
-    <p v-if="!total" class="max-w-xl rounded-lg border border-dashed border-line-strong p-5 text-[13.5px] text-ink-2" data-gantt-empty>{{ m.empty }}</p>
+    <!-- Filtri: assegnatario, priorità, etichetta -->
+    <div class="flex flex-wrap items-end gap-3 text-[13px]" data-gantt-filters>
+      <label class="flex flex-col gap-1">
+        <span class="text-[12px] text-ink-3">{{ m.assignee }}</span>
+        <select v-model="fAssignee" class="field field-sm w-44" data-gantt-filter="assignee">
+          <option value="">{{ m.anyone }}</option>
+          <option value="-">{{ m.unassigned }}</option>
+          <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-[12px] text-ink-3">{{ m.priority }}</span>
+        <select v-model="fPriority" class="field field-sm w-36" data-gantt-filter="priority">
+          <option value="">{{ m.anyPriority }}</option>
+          <option v-for="p in [...PRIORITIES].sort((a, b) => PRIORITY_RANK[a] - PRIORITY_RANK[b])" :key="p" :value="p">{{ PRIORITY_LABEL[p] }}</option>
+        </select>
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="text-[12px] text-ink-3">{{ m.label }}</span>
+        <select v-model="fLabel" class="field field-sm w-44" data-gantt-filter="label">
+          <option value="">{{ m.anyLabel }}</option>
+          <option value="-">{{ m.noLabel }}</option>
+          <option v-for="l in ws.tree.labels" :key="l.id" :value="l.id">{{ l.name }}</option>
+        </select>
+      </label>
+      <button v-if="filterActive" type="button" class="mb-1.5 text-[12.5px] font-medium text-accent-ink hover:underline" @click="resetFilters">{{ m.reset }}</button>
+    </div>
+
+    <p v-if="!total" class="max-w-xl rounded-lg border border-dashed border-line-strong p-5 text-[13.5px] text-ink-2" data-gantt-empty>{{ unfilteredCount && filterActive ? m.noMatch : m.empty }}</p>
 
     <div v-else ref="scroller" class="relative max-h-[70vh] overflow-auto rounded-lg border border-line bg-surface">
       <div class="relative" :style="{ width: `${width + 280}px` }">

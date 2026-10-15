@@ -6,8 +6,8 @@ import { dueState, formatDue, type DueState } from '@/services/items'
 import { DATE, defineMessages } from '@/i18n'
 
 const m = defineMessages({
-  it: { due: (d: string) => `Scadenza ${d}`, add: 'Aggiungi scadenza', none: 'Nessuna scadenza' },
-  en: { due: (d: string) => `Due ${d}`, add: 'Add due date', none: 'No due date' },
+  it: { due: (d: string) => `Scadenza ${d}`, add: 'Aggiungi scadenza', none: 'Scadenza non impostata' },
+  en: { due: (d: string) => `Due ${d}`, add: 'Add due date', none: 'Due date not set' },
 })
 
 /** `readonly`: solo da vedere (es. nella riga della lista: si modifica dal dettaglio). */
@@ -34,7 +34,7 @@ const label = computed(() => (model.value ? formatDue(model.value) : ''))
     @click="!readonly && $event.stopPropagation()"
   >
     <CalendarDays :size="13" />
-    <span>{{ label || '—' }}</span>
+    <span data-due-label>{{ label || (readonly ? m.none : '—') }}</span>
     <input
       v-if="!readonly"
       type="date"

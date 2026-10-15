@@ -135,7 +135,7 @@ function onKeydown(e: KeyboardEvent) {
     <template v-if="editable && !compact">
       <!-- Solo da vedere: si modificano selezionando l'elemento, dal dettaglio, con «Salva» -->
       <LabelSelect class="w-32" :model-value="item.labelId" readonly />
-      <DueDateField class="w-20" :model-value="item.dueDate" readonly />
+      <DueDateField class="w-40" :model-value="item.dueDate" readonly />
       <StatusSelect class="w-28" :model-value="item.status" readonly />
       <PrioritySelect class="w-24" :model-value="item.priority" readonly />
     </template>

@@ -49,6 +49,12 @@ async function fakeChecks(page: Page, results: Record<string, { code: number | n
   }, results)
 }
 
+/** Impostazioni: dal menu del workspace in alto a sinistra (l'icona del profilo in alto a destra non c'è più). */
+async function openSettings(page: Page) {
+  await page.locator('[data-workspace-menu]').click()
+  await page.getByRole('menuitem', { name: 'Impostazioni' }).click()
+}
+
 const newItemButton = (page: Page) => page.getByRole('button', { name: 'Nuovo task' })
 const sidebar = (page: Page) => page.locator('aside').first()
 /** Voce del sottomenu del progetto aperto nella barra laterale (Todo, Stack, Allegati). */
@@ -179,7 +185,8 @@ test('workspace di rete: “Ricorda la password” a scelta, cambio password del
   // Ricordata: la riapertura non la chiede; le Impostazioni lo dicono
   await reopen()
   await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
+  await page.locator('[data-settings-tab="user"]').click()
   await expect(page.getByText(/Ricordata su questo PC, cifrata/)).toBeVisible()
 
   // Admin: cambia la password del workspace (resta ricordata, aggiornata)
@@ -191,7 +198,8 @@ test('workspace di rete: “Ricorda la password” a scelta, cambio password del
   await expect(page.getByRole('heading', { name: 'Rete2' })).toBeVisible()
 
   // "Dimentica su questo PC": al prossimo accesso viene richiesta, la vecchia non vale
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
+  await page.locator('[data-settings-tab="user"]').click()
   await page.getByRole('button', { name: 'Dimentica su questo PC' }).click()
   await expect(page.getByText(/Non ricordata su questo PC/)).toBeVisible()
   await page.keyboard.press('Escape')
@@ -493,7 +501,7 @@ test('membri: ruoli Admin, Cleaner, Membro e cronologia per l’admin', async ({
   await page.getByLabel('Notifiche').click()
   await expect(page.getByText('Nessuna notifica')).toBeVisible()
   await page.keyboard.press('Escape')
-  await page.getByTitle('Impostazioni').click()
+  await openSettings(page)
   await page.locator('[data-settings-tab="notifications"]').click()
   await expect(page.getByText('Nuova domanda')).toBeVisible()
 })
@@ -782,7 +790,7 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
   await page.getByRole('button', { name: 'Annulla', exact: true }).click()
 
   // Impostazioni: le due cartelle
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
   await expect(page.locator('#s-projects')).toHaveValue('/sviluppo')
   await expect(page.locator('[data-data-folder]')).toHaveText('/pgm/sviluppo')
   await page.keyboard.press('Escape')
@@ -1056,7 +1064,7 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
   await createProject(page, 'Alfa')
   await addItem(page, 'Prima della copia')
 
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
   await page.locator('[data-settings-tab="backup"]').click()
   const settings = page.locator('[data-backup-settings]')
   await expect(settings).toContainText('non i file dei progetti')
@@ -1071,7 +1079,7 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
 
   // Dopo la copia: un altro task; il ripristino lo toglie e crea prima una copia dello stato attuale
   await addItem(page, 'Dopo la copia')
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
   await page.locator('[data-settings-tab="backup"]').click()
   await settings.getByRole('button', { name: 'Ripristina…' }).click()
   const restore = page.getByRole('dialog', { name: 'Ripristina da una copia' })
@@ -1086,7 +1094,7 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
   await expect(page.getByText('Dopo la copia', { exact: true })).toHaveCount(0)
 
   // La copia "prima del ripristino" c'è
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
   await page.locator('[data-settings-tab="backup"]').click()
   await settings.getByRole('button', { name: 'Ripristina…' }).click()
   await expect(restore.locator('[data-backup-list]')).toContainText('prima di un ripristino')
@@ -1201,7 +1209,27 @@ test('Gantt: solo task Confermati con scadenza, per etichetta o priorità; scade
   await expect(page.locator('#i-due')).toBeDisabled()
   await page.keyboard.press('Escape')
 
+  // Nella lista, senza scadenza: "Scadenza non impostata"
+  await expect(rows(page).filter({ hasText: 'Da valutare' }).locator('[data-due-label]')).toHaveText('Scadenza non impostata')
+
   await openSection(page, 'Gantt')
+  await expect(page.locator('[data-gantt-count]')).toHaveText('3 task')
+  await expect(page.getByText('Mostra anche i completati')).toHaveCount(0)
+  // Filtri: priorità, etichetta, assegnatario
+  await page.locator('[data-gantt-filter="priority"]').selectOption('immediata')
+  await expect(page.locator('[data-gantt-row]')).toHaveCount(1)
+  await expect(page.locator('[data-gantt-row="Login"]')).toBeVisible()
+  await page.locator('[data-gantt-filter="priority"]').selectOption('')
+  await page.locator('[data-gantt-filter="label"]').selectOption({ label: 'UX' })
+  await expect(page.locator('[data-gantt-row]')).toHaveCount(1)
+  await expect(page.locator('[data-gantt-row="Tema scuro"]')).toBeVisible()
+  await page.locator('[data-gantt-filter="label"]').selectOption({ label: 'Senza etichetta' })
+  await expect(page.locator('[data-gantt-row="Report"]')).toBeVisible()
+  await page.locator('[data-gantt-filter="assignee"]').selectOption('-')
+  await expect(page.locator('[data-gantt-count]')).toHaveText('1 task')
+  await page.locator('[data-gantt-filter="assignee"]').selectOption({ index: 2 }) // un utente: nessun task assegnato
+  await expect(page.locator('[data-gantt-empty]')).toHaveText('Nessun task corrisponde ai filtri.')
+  await page.getByRole('button', { name: 'Azzera i filtri' }).click()
   await expect(page.locator('[data-gantt-count]')).toHaveText('3 task')
   await expect(page.locator('[data-gantt-group]')).toHaveText([/^Bug/, /^UX/, /^Senza etichetta/])
   await expect(page.locator('[data-gantt-row="Da valutare"]')).toHaveCount(0)
@@ -1256,10 +1284,26 @@ test('stack: senza una cartella del progetto valida si cerca la cartella e «Con
 
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {
   await createLocalWorkspace(page)
-  await page.getByTitle('Impostazioni', { exact: true }).click()
-  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Notifiche', 'Backup'])
+  await openSettings(page)
+  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Dati utente', 'Notifiche', 'Backup'])
   await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
   await expect(page.locator('#s-projects')).toBeVisible()
+  await expect(page.locator('#s-me')).toBeHidden()
+  // La finestra non cambia dimensione passando da una scheda all'altra
+  const size = async () => (await page.getByRole('dialog').boundingBox())!
+  await page.waitForTimeout(400) // fine dell'animazione di apertura
+  const before = await size()
+  for (const t of ['user', 'notifications', 'backup', 'general']) {
+    await page.locator(`[data-settings-tab="${t}"]`).click()
+    const now = await size()
+    expect([Math.round(now.width), Math.round(now.height)]).toEqual([Math.round(before.width), Math.round(before.height)])
+  }
+  // Dati utente: nome visibile e nome del workspace
+  await page.locator('[data-settings-tab="user"]').click()
+  await expect(page.locator('#s-me')).toBeVisible()
+  await expect(page.locator('#s-ws')).toBeVisible()
+  await expect(page.locator('#s-projects')).toBeHidden()
+  await page.locator('[data-settings-tab="general"]').click()
   await expect(page.locator('[data-backup-settings]')).toBeHidden()
   await page.locator('[data-settings-tab="notifications"]').click()
   await expect(page.getByText('Nuova domanda')).toBeVisible()
@@ -1268,6 +1312,6 @@ test('impostazioni in schede: Generali (con la password), Notifiche, Backup', as
   await expect(page.locator('[data-backup-settings]')).toBeVisible()
   // Riaprendo si riparte da Generali
   await page.keyboard.press('Escape')
-  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await openSettings(page)
   await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
 })
