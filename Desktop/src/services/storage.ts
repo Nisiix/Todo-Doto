@@ -37,6 +37,7 @@ import {
   type WorkspaceMeta,
 } from '@/types'
 import { nowIso } from './ids'
+import { normalizeSeq } from './gitLink'
 import {
   autoBackupDue,
   backupFileName,
@@ -300,7 +301,10 @@ export class WorkspaceStorage {
   }
 
   async readProject(id: string): Promise<Project> {
-    return this.readJson(await this.projectPath(id), (r) => ProjectSchema.parse(r))
+    const p = await this.readJson(await this.projectPath(id), (r) => ProjectSchema.parse(r))
+    // Task dei file di versioni precedenti: numerati in memoria (il file si aggiorna alla prossima modifica)
+    normalizeSeq(p)
+    return p
   }
 
   async listProjectIds(): Promise<string[]> {

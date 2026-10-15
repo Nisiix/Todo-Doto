@@ -19,6 +19,8 @@ const base: Item = {
   trashedAt: null,
   comments: [],
   questions: [],
+  seq: 0,
+  closedByCommit: null,
 }
 const item = (over: Partial<Item>): Item => ({ ...base, ...over })
 

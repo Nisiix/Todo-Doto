@@ -8,6 +8,7 @@ import LabelBadge from '@/components/board/LabelBadge.vue'
 import ItemFields from '@/components/board/ItemFields.vue'
 import ItemComments from '@/components/detail/ItemComments.vue'
 import ItemQuestions from '@/components/detail/ItemQuestions.vue'
+import GitTaskHint from '@/components/detail/GitTaskHint.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
@@ -198,6 +199,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
           </span>
         </div>
         <p class="mt-2 text-[12px] text-ink-3">{{ m.createdBy(created) }}</p>
+        <GitTaskHint class="mt-3" :item="item" :project="project" />
       </div>
 
       <div>

@@ -10,6 +10,7 @@ import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { firstLine } from '@/services/items'
+import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
 import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
@@ -552,6 +553,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       stack: { ...EMPTY_STACK },
       aiTools: [],
       github: null,
+      nextSeq: 1,
+      git: { autoClose: true, handled: [], baselineDone: false },
       visibility: data.visibility ?? (data.members.length ? 'restricted' : 'public'),
     }
     const ok = await guard(async () => {
@@ -659,8 +662,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       trashedAt: null,
       comments: [],
       questions: [],
+      seq: 0,
+      closedByCommit: null,
     }
-    const r = await mutateProject(projectId, (p) => void p.items.push(item))
+    // Numero progressivo del progetto (codice TODO-<n>), assegnato sotto lock sul file aggiornato
+    const r = await mutateProject(projectId, (p) => {
+      normalizeSeq(p)
+      item.seq = p.nextSeq++
+      p.items.push(item)
+    })
     if (r) await record('item_created', r, item)
     return item
   }
@@ -693,6 +703,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       it.bucket = bucket
       it.completedAt = bucket === 'done' ? nowIso() : null
       it.trashedAt = bucket === 'trash' ? nowIso() : null
+      if (bucket !== 'done') it.closedByCommit = null // riaperto a mano: la nota del commit non vale più
     })
     const it = r?.items.find((i) => i.id === itemId)
     if (r && it && from) {
@@ -976,6 +987,46 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   /** Cambia la cartella dei progetti del workspace (admin). */
+  // --- commit git → task ------------------------------------------------------------
+
+  /**
+   * Applica i commit letti dalla cartella del progetto: completa i task citati
+   * con "chiude TODO-n" e segna i commit come usati (una volta sola). Alla
+   * prima lettura i commit esistenti si segnano come visti senza chiudere nulla.
+   * Restituisce i task completati.
+   */
+  async function applyGitCommits(projectId: string, commits: GitCommit[]) {
+    const current = projects.value[projectId]
+    if (!current || current.trashedAt || !current.git.autoClose) return []
+    // Controllo veloce in memoria: niente scrittura se non c'è niente di nuovo
+    if (current.git.baselineDone && !planGitClose(current, commits).handled.length) return []
+    const closed: { item: Item; commit: GitCommit }[] = []
+    const r = await mutateProject(projectId, (p) => {
+      normalizeSeq(p)
+      const plan = planGitClose(p, commits)
+      if (p.git.baselineDone && !plan.handled.length) return false
+      for (const { item, commit } of plan.close) {
+        item.bucket = 'done'
+        item.completedAt = nowIso()
+        item.trashedAt = null
+        item.closedByCommit = { hash: commit.hash, author: commit.author, date: commit.date, subject: subjectOf(commit.message) }
+        closed.push({ item, commit })
+      }
+      p.git = { ...p.git, baselineDone: true, handled: [...p.git.handled, ...plan.handled].slice(-MAX_HANDLED) }
+    })
+    if (!r) return []
+    for (const { item } of closed) {
+      const fresh = r.items.find((i) => i.id === item.id)
+      if (fresh) await record('item_completed', r, fresh)
+    }
+    for (const { item, commit } of closed) ui.toast(common.git.closedToast(taskCode(item.seq), commit.hash.slice(0, 7), commit.author), 'success', undefined, 5000)
+    return closed.map((c) => c.item)
+  }
+
+  /** Attiva o disattiva la chiusura dei task dai commit (amministratori). */
+  const setGitAutoClose = (projectId: string, on: boolean) =>
+    isAdmin.value ? mutateProject(projectId, (p) => void (p.git = { ...p.git, autoClose: on })) : Promise.resolve(undefined)
+
   // --- copie di sicurezza ------------------------------------------------------------
 
   async function refreshBackups() {
@@ -1161,6 +1212,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setBackupSettings,
     readBackup,
     restoreBackup,
+    applyGitCommits,
+    setGitAutoClose,
     writeMyReadiness,
     currentUser,
     isAdmin,

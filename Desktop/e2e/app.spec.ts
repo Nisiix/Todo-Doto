@@ -1087,3 +1087,68 @@ test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async 
   await settings.getByRole('button', { name: 'Ripristina…' }).click()
   await expect(restore.locator('[data-backup-list]')).toContainText('prima di un ripristino')
 })
+
+test('commit git → task: codice TODO-n con frase da copiare, chiusura automatica dal commit, solo con .git', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic('/esterni/conrepo/package.json', JSON.stringify({ dependencies: { vue: '^3.5.0' } }))
+    await fs.writeTextAtomic('/esterni/conrepo/.git/HEAD', 'ref: refs/heads/main')
+    await fs.writeTextAtomic('/esterni/senzarepo/package.json', JSON.stringify({ dependencies: { vue: '^3.5.0' } }))
+  })
+  const setCommits = (repo: string, commits: { hash: string; author: string; message: string }[]) =>
+    page.evaluate(
+      ([r, c]) => {
+        const w = window as unknown as { __pgmGit?: Record<string, unknown[]> }
+        w.__pgmGit = { ...(w.__pgmGit ?? {}), [r as string]: (c as { hash: string }[]).map((x) => ({ date: '2026-10-15T10:00:00+02:00', ...x })) }
+      },
+      [repo, commits] as const,
+    )
+  const importFolder = async (path: string, name: string) => {
+    await page.getByRole('button', { name: 'Progetto' }).first().click()
+    await page.fill('#p-disk', path)
+    await expect(page.locator('[data-folder-kind]')).toHaveAttribute('data-kind', 'project')
+    await page.getByRole('button', { name: 'Importa progetto' }).click()
+    await expect(page.getByRole('heading', { name })).toBeVisible()
+    await openSection(page, 'Todo') // un progetto importato si apre sullo Stack
+  }
+
+  // Progetto senza .git: nessuna traccia di commit
+  await setCommits('/esterni/senzarepo', [])
+  await importFolder('/esterni/senzarepo', 'senzarepo')
+  await addItem(page, 'Task senza repo')
+  await rows(page).first().getByText('Task senza repo').click()
+  await expect(page.locator('[data-git-hint]')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await openSection(page, 'Stack')
+  await expect(page.locator('[data-git-autoclose]')).toHaveCount(0)
+
+  // Progetto con .git: codice e frase da copiare nel dettaglio del task
+  await setCommits('/esterni/conrepo', [{ hash: '0ld00001', author: 'Mario', message: 'commit iniziale' }])
+  await importFolder('/esterni/conrepo', 'conrepo')
+  await addItem(page, 'Export XBRL')
+  await addItem(page, 'Login')
+  await rows(page).filter({ hasText: 'Export XBRL' }).getByText('Export XBRL').click()
+  const hint = page.locator('[data-git-hint]')
+  await expect(hint).toContainText('TODO-1')
+  await expect(hint.locator('[data-close-phrase]')).toHaveText('chiude TODO-1')
+  await expect(hint).toContainText('Scrivi nel messaggio del commit')
+  await page.keyboard.press('Escape')
+  // Nello Stack l'admin vede l'interruttore, attivo
+  await openSection(page, 'Stack')
+  await expect(page.locator('[data-git-autoclose] input[type=checkbox]')).toBeChecked()
+
+  // Arriva un commit con "chiude TODO-1": tornando sulla finestra il task si completa da solo
+  await setCommits('/esterni/conrepo', [
+    { hash: 'a1b2c3d4e5', author: 'Anna', message: 'Export XBRL con validazione\n\nchiude TODO-1' },
+    { hash: '0ld00001', author: 'Mario', message: 'commit iniziale' },
+  ])
+  await openSection(page, 'Todo')
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.getByText('TODO-1 completato dal commit a1b2c3d di Anna')).toBeVisible()
+  await expect(rows(page)).toHaveCount(1) // resta "Login"
+  await page.getByRole('button', { name: /^Completati/ }).click()
+  await rows(page).first().getByText('Export XBRL').click()
+  await expect(page.locator('[data-closed-by-commit]')).toContainText('Completato dal commit a1b2c3d di Anna')
+  await expect(page.locator('[data-closed-by-commit]')).toContainText('Export XBRL con validazione')
+})

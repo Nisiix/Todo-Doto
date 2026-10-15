@@ -36,6 +36,8 @@ const project = (id: string): Project => ({
   stack: { ...EMPTY_STACK },
   aiTools: [],
   github: null,
+  nextSeq: 0,
+  git: { autoClose: true, handled: [], baselineDone: false },
 })
 
 const ITEM: Item = {
@@ -54,6 +56,8 @@ const ITEM: Item = {
   trashedAt: null,
   comments: [],
   questions: [],
+  seq: 0,
+  closedByCommit: null,
 }
 
 async function freshWorkspace(root = '/ws') {

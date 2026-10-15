@@ -17,6 +17,7 @@ import ProjectStack from '@/components/project/ProjectStack.vue'
 import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
+import { useGitStore } from '@/stores/git'
 import { useConfirm } from '@/composables/useConfirm'
 import { BUCKET_LABEL, EMPTY_FILTER, projectVisibility, type Bucket, type ItemFilter, type Visibility } from '@/types'
 import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
@@ -89,6 +90,19 @@ const router = useRouter()
 const confirm = useConfirm()
 
 const project = computed(() => ws.projects[props.id] ?? null)
+
+// Commit git → task: all'apertura del progetto o di una sua sezione, quando cambia la sua cartella e al ritorno sulla finestra
+const git = useGitStore()
+watch(
+  () => [props.id, props.section, project.value?.stack.sourcePath, project.value?.git.autoClose] as const,
+  () => {
+    if (project.value) void git.scan(project.value, true)
+  },
+  { immediate: true },
+)
+useEventListener(window, 'focus', () => {
+  if (project.value) void git.scan(project.value)
+})
 const accessible = computed(() => !!project.value && (ws.visibleProjects.some((p) => p.id === props.id) || ws.trashedProjects.some((p) => p.id === props.id)))
 watch(
   accessible,

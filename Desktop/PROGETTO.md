@@ -353,13 +353,15 @@ Nella barra laterale il progetto aperto mostra sotto di sé un sottomenu con tre
 
 Dati nel file del progetto: `stack` (con `files` per i file iniziali e `doc` per il documento di architettura) e `aiTools` (vedi schemi in `types/index.ts`); gli elementi hanno `assigneeId`.
 
-## 9d. Pianificato: commit git → task completato
+## 9d. Commit git → task completato
 
-Non ancora implementato. Obiettivo: far capire in modo semplice come collegare un commit a un task e chiudere il task in automatico dal commit; nient'altro.
+Scopo: far capire in modo semplice come collegare un commit a un task e chiudere il task in automatico dal commit; nient'altro.
 - **Solo se la cartella del progetto contiene `.git`** (cartella o file): altrimenti non compare nulla.
-- **Codice del task**: ogni task ha un numero progressivo per progetto e un codice da copiare con la sigla del progetto, es. `BEW-12` (non `#12`, che su GitHub chiuderebbe anche la issue 12), mostrato nel dettaglio accanto al titolo con "Copia" e un suggerimento: *scrivi `chiude BEW-12` nel messaggio del commit per completare questo task*. Una riga sotto spiega le parole riconosciute (`chiude`, `closes`, `fixes`, `risolve`).
-- **Chiusura automatica**: l'app legge in sola lettura i commit della cartella del progetto (git log, all'apertura del progetto e al ritorno sulla finestra) e, quando trova `chiude BEW-12`, completa il task e lo annota ("Completato dal commit a1b2c3 di Mario"). Ogni commit viene usato una volta sola; un task riaperto a mano non viene richiuso dallo stesso commit.
-- Niente elenchi di commit, badge o impostazioni in più. Un interruttore solo per l'admin nello Stack ("Chiudi i task dai commit"), attivo di default quando c'è `.git`.
+- **Codice del task**: ogni task ha un numero progressivo nel progetto (non riusato, nemmeno dopo un'eliminazione) e il codice `TODO-<n>`. Nel dettaglio del task un riquadro "Completa da un commit" mostra la frase da scrivere nel messaggio, `chiude TODO-12` (in inglese `closes TODO-12`), con "Copia". Valgono anche `chiudi`, `risolve`, `closes`, `fixes`, `resolves`…, e più task insieme: `chiude TODO-3, TODO-4`. Una semplice citazione ("lavoro su TODO-12") non chiude nulla.
+- **Chiusura automatica**: all'apertura del progetto o di una sua sezione, e al ritorno sulla finestra, l'app legge in sola lettura gli ultimi commit del ramo corrente (`git log`, senza shell e senza finestra; se git non è installato, il reflog di `.git`). Quando trova `chiude TODO-12` completa il task e lo annota ("Completato dal commit a1b2c3d di Anna" con l'oggetto del commit). Alla prima lettura i commit già presenti si segnano come visti senza chiudere nulla.
+- **Ogni commit vale una volta sola**: un task riaperto a mano non viene richiuso dallo stesso commit (la nota del commit sparisce alla riapertura). Si chiudono solo i task da fare.
+- **Interruttore** nello Stack per l'admin ("Chiudi i task dai commit git"), attivo di default quando c'è `.git`.
+- Non si scrive mai nulla nel repository: niente hook, niente modifiche.
 
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 

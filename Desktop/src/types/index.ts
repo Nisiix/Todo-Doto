@@ -141,6 +141,13 @@ export const ItemSchema = z.object({
   trashedAt: iso.nullable().default(null),
   comments: z.array(CommentSchema).default([]),
   questions: z.array(QuestionSchema).default([]),
+  /** Numero progressivo nel progetto: il codice del task è TODO-<seq> (0 = da assegnare, vedi normalizeSeq). */
+  seq: z.number().default(0),
+  /** Completato in automatico da un commit git ("chiude TODO-12"). */
+  closedByCommit: z
+    .object({ hash: z.string(), author: z.string().default(''), date: z.string().default(''), subject: z.string().default('') })
+    .nullable()
+    .default(null),
 })
 export type Item = z.infer<typeof ItemSchema>
 
@@ -265,6 +272,16 @@ export const ProjectSchema = z.object({
   attachments: z.array(AttachmentSchema).default([]),
   stack: StackSchema.default(EMPTY_STACK),
   aiTools: z.array(AiToolSchema).default([]),
+  /** Prossimo numero di task (i numeri non si riusano, nemmeno dopo un'eliminazione). */
+  nextSeq: z.number().default(0),
+  /**
+   * Chiusura dei task dai commit git della cartella del progetto. `handled`:
+   * commit già usati (ognuno vale una volta sola); `baselineDone`: alla prima
+   * lettura i commit esistenti si segnano come visti senza chiudere nulla.
+   */
+  git: z
+    .object({ autoClose: z.boolean().default(true), handled: z.array(z.string()).default([]), baselineDone: z.boolean().default(false) })
+    .default({ autoClose: true, handled: [], baselineDone: false }),
   /** Repository GitHub collegato: lo Stack si sincronizza dai suoi file. */
   github: z.object({ owner: z.string(), repo: z.string(), syncedAt: iso.default('') }).nullable().default(null),
 })

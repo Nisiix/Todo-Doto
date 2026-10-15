@@ -10,6 +10,7 @@ use std::sync::Mutex;
 use serde::Serialize;
 
 mod secrets;
+mod git;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -204,7 +205,7 @@ fn expand_env(s: &str) -> String {
 /// PATH come lo vedrebbe un nuovo prompt dei comandi: sistema + utente (dal
 /// registro) + quello del processo, senza duplicati.
 #[cfg(windows)]
-fn fresh_path() -> Option<String> {
+pub(crate) fn fresh_path() -> Option<String> {
     use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     use winreg::RegKey;
     let read = |root: RegKey, key: &str| -> String {
@@ -372,7 +373,8 @@ pub fn run() {
             run_check,
             allow_paths,
             secrets::protect_secret,
-            secrets::unprotect_secret
+            secrets::unprotect_secret,
+            git::git_log
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Project Goal Manager");

@@ -98,6 +98,9 @@ export const common = defineMessages({
       cannotTrash: 'Puoi cestinare solo gli elementi assegnati a te (o creati da te se non assegnati).',
       removedUser: 'Utente rimosso',
     },
+    git: {
+      closedToast: (code: string, hash: string, author: string) => `${code} completato dal commit ${hash}${author ? ` di ${author}` : ''}`,
+    },
     projectFiles: {
       /** Ripetuto ovunque un progetto viene cestinato o eliminato: l'app non tocca mai i file del progetto. */
       untouched: 'La cartella del progetto e i suoi file sul disco non vengono toccati: il progetto viene tolto solo dal workspace di Project Goal Manager.',
@@ -235,6 +238,9 @@ export const common = defineMessages({
       onlyAdminsPurge: 'Only administrators can delete permanently.',
       cannotTrash: 'You can only trash items assigned to you (or created by you if unassigned).',
       removedUser: 'Removed user',
+    },
+    git: {
+      closedToast: (code: string, hash: string, author: string) => `${code} completed by commit ${hash}${author ? ` by ${author}` : ''}`,
     },
     projectFiles: {
       untouched: 'The project folder and its files on disk are not touched: the project is only removed from the Project Goal Manager workspace.',

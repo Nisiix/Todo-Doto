@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertTriangle, ArrowDown, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -8,6 +8,7 @@ import ChipsInput from '@/components/ui/ChipsInput.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
 import ReadinessBanner from './ReadinessBanner.vue'
+import { useGitStore } from '@/stores/git'
 import { useReadinessStore } from '@/stores/readiness'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePrereqChecks } from '@/composables/usePrereqChecks'
@@ -83,6 +84,10 @@ const m = defineMessages({
     emptyAdmin: 'Nessuna informazione ancora. Aggiungi lo stack tecnologico (o importalo da un altro progetto): linguaggi, framework, repository, prerequisiti e i passi per configurare il progetto. Gli altri utenti troveranno qui una procedura guidata.',
     emptyMember: 'L’amministratore non ha ancora descritto lo stack di questo progetto.',
     setupTitle: 'Configura sul tuo PC',
+    gitAutoClose: 'Chiudi i task dai commit git',
+    gitOn: 'I task si chiudono dai commit git',
+    gitOff: 'Chiusura dei task dai commit disattivata',
+    gitAutoCloseHint: 'La cartella del progetto è un repository git: un commit con «chiude TODO-12» nel messaggio completa il task TODO-12. Il codice e la frase da copiare sono nel dettaglio di ogni task.',
     setupLead: (done: number, total: number) => `Segui i passi nell’ordine e spunta quelli fatti: il progresso è tuo, non si vede agli altri. ${done} di ${total} completati.`,
     restart: 'Ricomincia',
     scriptHint: 'Esegue sul tuo PC, in sequenza, le verifiche dei prerequisiti e i comandi dei passi',
@@ -242,6 +247,10 @@ const m = defineMessages({
     emptyAdmin: 'No information yet. Add the technology stack (or import it from another project): languages, frameworks, repository, prerequisites and the steps to set up the project. Other users will find a guided procedure here.',
     emptyMember: 'The administrator has not described this project’s stack yet.',
     setupTitle: 'Set up on your PC',
+    gitAutoClose: 'Close tasks from git commits',
+    gitOn: 'Tasks are closed from git commits',
+    gitOff: 'Closing tasks from commits is off',
+    gitAutoCloseHint: 'The project folder is a git repository: a commit with “closes TODO-12” in its message completes task TODO-12. The code and the phrase to copy are in the details of each task.',
     setupLead: (done: number, total: number) => `Follow the steps in order and tick the ones you have done: your progress is yours only, others cannot see it. ${done} of ${total} completed.`,
     restart: 'Start over',
     scriptHint: 'Runs the prerequisite checks and step commands on your PC, in sequence',
@@ -559,6 +568,7 @@ const totalSteps = computed(() => stack.value.prerequisites.length + stack.value
 const checks = usePrereqChecks(computed(() => view.value.prerequisites))
 // A verifica finita, l'esito di questo PC viene condiviso (e notificato se manca qualcosa)
 const readiness = useReadinessStore()
+const git = useGitStore()
 watch(
   () => checks.busy.value,
   (busy) => {
@@ -919,6 +929,18 @@ async function ghSync() {
           <div v-if="view.sourcePath" class="text-[13px]">
             <span class="block text-ink-3">{{ m.sourcePath }}</span>
             <span class="flex items-center gap-2"><code class="truncate font-mono text-[12.5px]">{{ view.sourcePath }}</code><BaseButton size="icon-sm" variant="ghost" :title="m.copyPath" @click="copy(view.sourcePath)"><Copy :size="13" /></BaseButton><BaseButton size="icon-sm" variant="ghost" :title="m.openFolder" @click="open(view.sourcePath, 'file')"><FolderOpen :size="13" /></BaseButton></span>
+          </div>
+          <!-- Commit git → task: solo se la cartella del progetto è un repository git -->
+          <div v-if="git.hasGit[project.id]" class="md:col-span-2 flex items-start gap-2 rounded-md bg-surface-2 px-3 py-2 text-[12.5px]" data-git-autoclose>
+            <GitCommitHorizontal :size="15" class="mt-px shrink-0 text-ink-3" />
+            <div class="min-w-0 flex-1">
+              <label v-if="ws.isAdmin && !readOnly" class="flex items-center gap-2 font-medium text-ink">
+                <input type="checkbox" class="accent-accent" :checked="project.git.autoClose" @change="ws.setGitAutoClose(project.id, ($event.target as HTMLInputElement).checked)" />
+                {{ m.gitAutoClose }}
+              </label>
+              <p v-else class="font-medium text-ink">{{ project.git.autoClose ? m.gitOn : m.gitOff }}</p>
+              <p class="mt-0.5 text-ink-3">{{ m.gitAutoCloseHint }}</p>
+            </div>
           </div>
           <p v-if="view.notes" class="md:col-span-2 whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-2">{{ view.notes }}</p>
         </section>

@@ -6,6 +6,7 @@
  * l'interfaccia si può provare senza compilare il backend.
  */
 import type { Identity } from '@/types'
+import { parseReflog, type GitCommit } from './gitLink'
 import { common } from '@/i18n/common'
 import { locale } from '@/i18n'
 import { pathRoot } from './fsErrors'
@@ -78,6 +79,12 @@ export interface FsApi {
    * si decifra solo dallo stesso account sullo stesso PC. `null` se il sistema
    * non la offre (altri OS, anteprima nel browser): si usa allora AES-GCM locale.
    */
+  /**
+   * Ultimi commit del ramo corrente del repository nella cartella `repo`, in
+   * sola lettura. Senza git installato si leggono quelli registrati in
+   * .git/logs/HEAD. Errore se non è un repository o non è leggibile.
+   */
+  gitLog(repo: string, max?: number): Promise<GitCommit[]>
   protectSecret(plain: string): Promise<Uint8Array | null>
   unprotectSecret(data: Uint8Array): Promise<string | null>
 }
@@ -198,6 +205,16 @@ async function tauriFs(): Promise<FsApi> {
     oauthStart: () => invoke<number>('oauth_start'),
     oauthWait: () => invoke('oauth_wait', { locale }),
     runCheck: (command, timeoutMs) => invoke<CheckOutput>('run_check', { command, timeoutMs }),
+    async gitLog(repo, max = 300) {
+      try {
+        return await invoke<GitCommit[]>('git_log', { repo, max })
+      } catch (e) {
+        if (String(e) !== 'git-missing') throw e instanceof Error ? e : new Error(String(e))
+        // git non installato: i commit fatti in questa cartella, dal reflog
+        const sep = repo.includes('\\') ? '\\' : '/'
+        return parseReflog(await fs.readTextFile(`${repo.replace(/[\\/]+$/, '')}${sep}.git${sep}logs${sep}HEAD`)).slice(0, max)
+      }
+    },
     async protectSecret(plain) {
       try {
         return new Uint8Array(await invoke<number[]>('protect_secret', { plain }))
@@ -224,7 +241,7 @@ async function tauriFs(): Promise<FsApi> {
     allowed.add(root.toLowerCase())
     await invoke('allow_paths', { paths: [root] }).catch(() => {})
   }
-  const PATH_METHODS = ['readText', 'readBinary', 'writeBinary', 'writeTextAtomic', 'createExclusive', 'exists', 'mkdir', 'listDir', 'readDir', 'remove', 'stat', 'watchDir'] as const
+  const PATH_METHODS = ['readText', 'readBinary', 'writeBinary', 'gitLog', 'writeTextAtomic', 'createExclusive', 'exists', 'mkdir', 'listDir', 'readDir', 'remove', 'stat', 'watchDir'] as const
   for (const name of PATH_METHODS) {
     const original = api[name] as (p: string, ...rest: unknown[]) => Promise<unknown>
     ;(api as unknown as Record<string, unknown>)[name] = async (p: string, ...rest: unknown[]) => {
@@ -348,6 +365,12 @@ function memoryFs(): FsApi {
       // Nell'anteprima nel browser i comandi non si possono eseguire; i test
       // end-to-end possono simulare i risultati con window.__pgmChecks.
       const fake = (window as unknown as { __pgmChecks?: Record<string, CheckOutput> }).__pgmChecks?.[command]
+      if (fake) return fake
+      throw new Error(common.drive.desktopOnly)
+    },
+    async gitLog(repo) {
+      // Nell'anteprima nel browser git non c'è; i test simulano i commit con window.__pgmGit
+      const fake = (window as unknown as { __pgmGit?: Record<string, GitCommit[]> }).__pgmGit?.[norm(repo)]
       if (fake) return fake
       throw new Error(common.drive.desktopOnly)
     },
