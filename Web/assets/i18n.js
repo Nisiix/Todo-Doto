@@ -3,7 +3,7 @@
 window.PGM_I18N = {
   en: {
     'nav.label': 'Sections',
-    'nav.why': 'Why',
+    'nav.why': 'Intro',
     'nav.how': 'How it works',
     'nav.features': 'Features',
     'nav.download': 'Download',
