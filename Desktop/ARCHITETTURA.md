@@ -1,6 +1,6 @@
 # Architettura del codice
 
-Come è organizzato Project Goal Manager, quali sono i pezzi riutilizzabili, come si estende e come si tiene sotto test. Le specifiche funzionali sono in [PROGETTO.md](./PROGETTO.md); avvio e build in [README.md](./README.md).
+Come è organizzato Todo Doto, quali sono i pezzi riutilizzabili, come si estende e come si tiene sotto test. Le specifiche funzionali sono in [PROGETTO.md](./PROGETTO.md); avvio e build in [README.md](./README.md).
 
 ---
 

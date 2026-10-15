@@ -2,7 +2,7 @@
  * Copie di sicurezza dei dati del workspace: formato del file, nome, quali
  * tenere. Funzioni pure (più impacchettamento con gzip quando disponibile).
  *
- * Una copia contiene i dati di Project Goal Manager (workspace, utenti,
+ * Una copia contiene i dati di Todo Doto (workspace, utenti,
  * cartelle ed etichette, Drive, cronologia, progetti con task, allegati e
  * stack). Non contiene MAI i file dei progetti né le password ricordate.
  */

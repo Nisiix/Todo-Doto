@@ -14,10 +14,10 @@ test.beforeEach(({ page }) => {
 })
 test.afterEach(() => expect(pageErrors).toEqual([]))
 
-/** Cartella dei progetti e cartella Dati Project Goal Manager, con i pulsanti Sfoglia del dialog. */
+/** Cartella dei progetti e cartella Dati Todo Doto, con i pulsanti Sfoglia del dialog. */
 async function pickWorkspaceFolders(page: Page) {
   await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
-  await page.getByRole('button', { name: 'Scegli la cartella Dati Project Goal Manager' }).click()
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
 }
 
 async function createLocalWorkspace(page: Page, name = 'Roadmap Sviluppo') {
@@ -52,7 +52,7 @@ async function fakeChecks(page: Page, results: Record<string, { code: number | n
 const newItemButton = (page: Page) => page.getByRole('button', { name: 'Nuovo task' })
 const sidebar = (page: Page) => page.locator('aside').first()
 /** Voce del sottomenu del progetto aperto nella barra laterale (Todo, Stack, Allegati). */
-const openSection = (page: Page, name: 'Todo' | 'Stack' | 'Allegati') => sidebar(page).getByRole('link', { name: new RegExp(`^${name}( \\d+)?$`) }).click()
+const openSection = (page: Page, name: 'Todo' | 'Gantt' | 'Stack' | 'Allegati') => sidebar(page).getByRole('link', { name: new RegExp(`^${name}( \\d+)?$`) }).click()
 const openFilters = (page: Page) => page.getByRole('button', { name: /^Filtri/ }).click()
 const rows = (page: Page) => page.locator('[role=button][tabindex="0"]')
 const dialog = (page: Page) => page.getByRole('dialog')
@@ -636,8 +636,8 @@ test('barra laterale: sottomenu del progetto; nessun cestino né modifica del no
   await createLocalWorkspace(page)
   await createProject(page, 'Uno')
   const submenu = sidebar(page).getByRole('list', { name: 'Sezioni di Uno' })
-  await expect(submenu.getByRole('link')).toHaveText([/^Todo/, /^Stack/, /^Allegati/])
-  for (const s of ['Todo', 'Stack', 'Allegati'] as const) {
+  await expect(submenu.getByRole('link')).toHaveText([/^Todo/, /^Gantt/, /^Stack/, /^Allegati/])
+  for (const s of ['Todo', 'Gantt', 'Stack', 'Allegati'] as const) {
     await openSection(page, s)
     // Il pulsante per cestinare il progetto non è più nell'intestazione delle sezioni
     await expect(page.getByRole('main').getByRole('button', { name: /nel cestino/i })).toHaveCount(0)
@@ -731,13 +731,13 @@ test('workspace da una cartella di progetti: propone di crearli e chiede un’al
   // Il workspace va salvato in un'altra cartella, non dentro un progetto
   const create = page.getByRole('button', { name: 'Crea workspace' }).last()
   await create.click()
-  await expect(page.getByText('Indica la cartella Dati Project Goal Manager, diversa da quella dei progetti.')).toBeVisible()
+  await expect(page.getByText('Indica la cartella Dati Todo Doto, diversa da quella dei progetti.')).toBeVisible()
   await page.fill('#ws-data', '/progetti')
   await create.click()
-  await expect(page.getByText('La cartella Dati Project Goal Manager deve essere diversa dalla cartella dei progetti.')).toBeVisible()
+  await expect(page.getByText('La cartella Dati Todo Doto deve essere diversa dalla cartella dei progetti.')).toBeVisible()
   await page.fill('#ws-data', '/progetti/alfa/roadmap')
   await create.click()
-  await expect(page.getByText('La cartella Dati Project Goal Manager non può stare dentro il progetto «alfa».')).toBeVisible()
+  await expect(page.getByText('La cartella Dati Todo Doto non può stare dentro il progetto «alfa».')).toBeVisible()
   await page.fill('#ws-data', '/dati/roadmap')
   await create.click()
 
@@ -761,9 +761,9 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
   await expect(page.getByText('Nessun progetto trovato: la cartella verrà usata per i progetti che creerai.')).toBeVisible()
   // La cartella Dati è obbligatoria anche senza progetti; c'è un suggerimento accanto
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
-  await expect(page.getByText('Indica la cartella Dati Project Goal Manager, diversa da quella dei progetti.')).toBeVisible()
+  await expect(page.getByText('Indica la cartella Dati Todo Doto, diversa da quella dei progetti.')).toBeVisible()
   await page.getByRole('button', { name: /^Usa / }).click()
-  await expect(page.locator('#ws-data')).toHaveValue('/sviluppo/Project Goal Manager')
+  await expect(page.locator('#ws-data')).toHaveValue('/sviluppo/Todo Doto')
   await page.fill('#ws-data', '/pgm/sviluppo')
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
   await expect(page.getByRole('heading', { name: 'Sviluppo' })).toBeVisible()
@@ -791,14 +791,14 @@ test('cartella dei progetti e cartella Dati: recenti, impostazioni, nuovi proget
   await page.getByRole('menuitem', { name: 'Chiudi workspace' }).click()
   await expect(page.locator('[data-recent-path]')).toHaveText('/sviluppo')
 
-  // Elimina i dati di Project Goal Manager (workspace locale): i progetti restano
+  // Elimina i dati di Todo Doto (workspace locale): i progetti restano
   await page.evaluate(async () => {
     const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
     await fs.writeTextAtomic('/sviluppo/Portale/README.md', '# Portale')
   })
   await page.locator('li', { hasText: 'Sviluppo' }).hover()
   await page.getByRole('button', { name: 'Azioni workspace' }).click()
-  await page.getByRole('menuitem', { name: 'Elimina i dati di Project Goal Manager' }).click()
+  await page.getByRole('menuitem', { name: 'Elimina i dati di Todo Doto' }).click()
   await expect(dialog(page)).toContainText('/pgm/sviluppo')
   await expect(dialog(page)).toContainText('non vengono toccati')
   await dialog(page).getByRole('button', { name: 'Elimina i dati' }).click()
@@ -1151,4 +1151,61 @@ test('commit git → task: codice TODO-n con frase da copiare, chiusura automati
   await rows(page).first().getByText('Export XBRL').click()
   await expect(page.locator('[data-closed-by-commit]')).toContainText('Completato dal commit a1b2c3d di Anna')
   await expect(page.locator('[data-closed-by-commit]')).toContainText('Export XBRL con validazione')
+})
+
+test('Gantt: solo task Confermati con scadenza, per etichetta o priorità; scadenza solo se Confermato', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Pianificazione')
+  // Etichette
+  await page.getByRole('button', { name: /Roadmap Sviluppo/ }).first().click()
+  await page.getByRole('menuitem', { name: 'Etichette' }).click()
+  const labels = page.getByRole('dialog').filter({ hasText: 'Badge da assegnare' })
+  for (const l of ['Bug', 'UX']) {
+    await labels.getByPlaceholder('Nuova etichetta').fill(l)
+    await labels.getByRole('button', { name: 'Aggiungi', exact: true }).click()
+  }
+  await labels.getByRole('button', { name: 'Chiudi', exact: true }).last().click()
+
+  const addTask = async (title: string, opts: { status?: string; due?: string; label?: string; priority?: string }) => {
+    await newItemButton(page).click()
+    await page.fill('#i-title', title)
+    // Scadenza bloccata finché lo stato non è Confermato
+    await expect(page.locator('#i-due')).toBeDisabled()
+    await expect(page.locator('[data-due-locked]')).toBeVisible()
+    if (opts.priority) await page.locator('#i-priority').selectOption(opts.priority)
+    if (opts.status) await page.locator('#i-status').selectOption(opts.status)
+    if (opts.due) {
+      await expect(page.locator('#i-due')).toBeEnabled()
+      await page.fill('#i-due', opts.due)
+    }
+    if (opts.label) await page.locator('#i-label').selectOption({ label: opts.label })
+    await dialog(page).getByRole('button', { name: 'Crea', exact: true }).click()
+    await expect(dialog(page)).toHaveCount(0)
+  }
+  const d = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+  await addTask('Login', { status: 'confermato', due: d(5), label: 'Bug', priority: 'immediata' })
+  await addTask('Tema scuro', { status: 'confermato', due: d(9), label: 'UX', priority: 'bassa' })
+  await addTask('Report', { status: 'confermato', due: d(3) })
+  await addTask('Da valutare', { label: 'Bug' }) // non confermato: fuori dal Gantt
+
+  // Tornando a "Da valutare" la scadenza si toglie
+  await newItemButton(page).click()
+  await page.locator('#i-status').selectOption('confermato')
+  await page.fill('#i-due', d(4))
+  await page.locator('#i-status').selectOption('da_definire')
+  await expect(page.locator('#i-due')).toHaveValue('')
+  await expect(page.locator('#i-due')).toBeDisabled()
+  await page.keyboard.press('Escape')
+
+  await openSection(page, 'Gantt')
+  await expect(page.locator('[data-gantt-count]')).toHaveText('3 task')
+  await expect(page.locator('[data-gantt-group]')).toHaveText([/^Bug/, /^UX/, /^Senza etichetta/])
+  await expect(page.locator('[data-gantt-row="Da valutare"]')).toHaveCount(0)
+  await expect(page.locator('[data-gantt-today]')).toBeVisible()
+  // Per priorità
+  await page.getByRole('radio', { name: 'Priorità' }).click()
+  await expect(page.locator('[data-gantt-group]')).toHaveText([/^Immediata/, /^Media/, /^Bassa/])
+  // Un clic apre il task nella lista, con il dettaglio
+  await page.locator('[data-gantt-bar="Login"]').click()
+  await expect(page.locator('#d-status')).toHaveValue('confermato')
 })

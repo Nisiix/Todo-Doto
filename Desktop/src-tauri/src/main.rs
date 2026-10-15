@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    project_goal_manager_lib::run()
+    todo_doto_lib::run()
 }

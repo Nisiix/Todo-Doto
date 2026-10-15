@@ -21,6 +21,7 @@ const base: Item = {
   questions: [],
   seq: 0,
   closedByCommit: null,
+  confirmedAt: null,
 }
 const item = (over: Partial<Item>): Item => ({ ...base, ...over })
 

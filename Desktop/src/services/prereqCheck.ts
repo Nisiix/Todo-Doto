@@ -63,6 +63,8 @@ export interface CheckPlan {
   fallback?: string
   /** Spiegazione da mostrare quando manca. */
   missingNote?: string
+  /** Converte la versione letta in quella da confrontare (es. Visual Studio "10.0" → "2010"). */
+  normalize?: (v: string) => string
 }
 
 export interface CheckResult {
@@ -115,9 +117,10 @@ export function planCheck(p: Pick<Prerequisite, 'name' | 'check'>, os: OsName): 
     probe: false,
     fallback: os === 'windows' ? known?.fallback : undefined,
     missingNote: known?.missingNote?.[locale === 'en' ? 'en' : 'it'],
+    normalize: known?.normalizeVersion,
   }
-  if (own) return { ...base, command: own, trusted: own === known?.check || isSafeCheck(own) }
-  if (known?.check) return { ...base, command: known.check, trusted: true }
+  if (own) return { ...base, command: own, trusted: own === known?.check || isSafeCheck(own), version: own === known?.check ? known?.versionPattern : undefined }
+  if (known?.check) return { ...base, command: known.check, trusted: true, version: known.versionPattern }
   if (known?.probe && os === 'windows') return { ...base, command: known.probe.command, trusted: true, probe: true, version: known.probe.version }
   return { ...base, command: '', trusted: true }
 }
@@ -233,7 +236,8 @@ export function interpretCheck(run: CheckOutput, plan: CheckPlan, required: stri
   // 9009: "comando non riconosciuto" del prompt dei comandi; 127: lo stesso per sh
   if (code === 9009 || code === 127) return { ...base, status: 'missing' }
   if (plan.probe && (code !== 0 || !run.stdout.trim())) return { ...base, status: 'missing' }
-  const version = parseVersion(run.stdout, plan.version) || parseVersion(run.stderr, plan.version)
+  const raw = parseVersion(run.stdout, plan.version) || parseVersion(run.stderr, plan.version)
+  const version = raw && plan.normalize ? plan.normalize(raw) : raw
   if (code !== 0 && NOT_FOUND.test(output) && !version) return { ...base, status: 'missing' }
   // Solo runtime .NET, senza SDK: "dotnet --version" risponde così anche con codice 0 in alcune versioni
   if (/no \.net sdks were found/i.test(output)) return { ...base, status: 'missing' }

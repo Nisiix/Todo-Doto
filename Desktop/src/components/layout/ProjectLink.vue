@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Layers, ListChecks, Paperclip, Star, Trash2 } from 'lucide-vue-next'
+import { GanttChartSquare, Layers, ListChecks, Paperclip, Star, Trash2 } from 'lucide-vue-next'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import VisibilityDot from '@/components/ui/VisibilityDot.vue'
 import { sectionParam, type ProjectSection } from '@/services/sections'
+import { ganttItems } from '@/services/gantt'
 import type { Project } from '@/types'
 import { defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -16,6 +17,7 @@ const m = defineMessages({
     trash: (n: string) => `Sposta «${n}» nel cestino del workspace (la cartella sul disco non viene toccata)`,
     sections: (n: string) => `Sezioni di ${n}`,
     todo: 'Todo',
+    gantt: 'Gantt',
     stack: 'Stack',
     attachments: 'Allegati',
   },
@@ -24,6 +26,7 @@ const m = defineMessages({
     trash: (n: string) => `Move “${n}” to the workspace trash (the folder on disk is not touched)`,
     sections: (n: string) => `Sections of ${n}`,
     todo: 'To-do',
+    gantt: 'Gantt',
     stack: 'Stack',
     attachments: 'Attachments',
   },
@@ -40,6 +43,8 @@ const ui = useUiStore()
 const route = useRoute()
 
 const openCount = computed(() => props.project.items.filter((i) => i.bucket === 'todo').length)
+/** Task nel Gantt: Confermati, con scadenza, da fare. */
+const ganttCount = computed(() => ganttItems(props.project.items).length)
 const urgent = computed(() => props.project.items.some((i) => i.bucket === 'todo' && i.priority === 'immediata'))
 const isOpen = computed(() => route.name === 'project' && route.params.id === props.project.id)
 const canTrash = computed(() => ws.isAdmin && !props.project.trashedAt)
@@ -47,6 +52,7 @@ const indent = (extra = 0) => ({ paddingLeft: `${22 + props.depth * 12 + extra}p
 
 const subItems = computed<{ id: ProjectSection; label: string; icon: unknown; count: number }[]>(() => [
   { id: 'todo', label: m.todo, icon: ListChecks, count: openCount.value },
+  { id: 'gantt', label: m.gantt, icon: GanttChartSquare, count: ganttCount.value },
   { id: 'stack', label: m.stack, icon: Layers, count: props.project.stack.steps.length + props.project.aiTools.length },
   { id: 'attachments', label: m.attachments, icon: Paperclip, count: props.project.attachments.length },
 ])

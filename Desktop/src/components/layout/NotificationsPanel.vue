@@ -21,7 +21,7 @@ const m = defineMessages({
     remove: 'Elimina notifica',
     empty: 'Nessuna notifica. Qui compaiono le novità sui progetti di cui fai parte.',
     hint: 'Una volta viste non sono più nuove. Scegli cosa ricevere in Impostazioni → Notifiche.',
-    app: 'Project Goal Manager',
+    app: 'Todo Doto',
   },
   en: {
     title: 'Notifications',
@@ -30,7 +30,7 @@ const m = defineMessages({
     remove: 'Delete notification',
     empty: 'No notifications. Updates on the projects you belong to appear here.',
     hint: 'Once seen they are no longer new. Choose what to receive in Settings → Notifications.',
-    app: 'Project Goal Manager',
+    app: 'Todo Doto',
   },
 })
 

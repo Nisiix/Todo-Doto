@@ -139,7 +139,7 @@ export class WorkspaceStorage {
   }
 
   /**
-   * Elimina i dati di Project Goal Manager di un workspace: solo i file che
+   * Elimina i dati di Todo Doto di un workspace: solo i file che
    * l'app stessa crea (workspace.json, users.json, tree.json, audit.json,
    * drive.json, projects/*.json, lock e file temporanei), poi le cartelle se
    * restano vuote. Qualsiasi altro file nella cartella resta dov'è.

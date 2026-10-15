@@ -9,7 +9,7 @@ import { useUiStore } from './ui'
 import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
-import { firstLine } from '@/services/items'
+import { applyStatusRules, firstLine } from '@/services/items'
 import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
 import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
@@ -262,7 +262,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     ui.selectedItemId = null
   }
 
-  /** `path`: cartella Dati Project Goal Manager; `projectsPath`: cartella dei progetti (deve essere diversa). */
+  /** `path`: cartella Dati Todo Doto; `projectsPath`: cartella dei progetti (deve essere diversa). */
   async function create(opts: { path: string; projectsPath?: string; name: string; mode: WorkspaceMode; password?: string; rememberPassword?: boolean }): Promise<OpenResult> {
     try {
       const s = await openStorage(opts.path)
@@ -653,6 +653,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       priority: data.priority ?? 'media',
       status: data.status ?? 'da_valutare',
       dueDate: data.dueDate ?? null,
+      confirmedAt: null,
       labelId: data.labelId ?? null,
       assigneeId: data.assigneeId ?? null,
       bucket: 'todo',
@@ -665,6 +666,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       seq: 0,
       closedByCommit: null,
     }
+    // Scadenza solo se Confermato; data di conferma per il Gantt
+    applyStatusRules(item, item.createdAt)
     // Numero progressivo del progetto (codice TODO-<n>), assegnato sotto lock sul file aggiornato
     const r = await mutateProject(projectId, (p) => {
       normalizeSeq(p)
@@ -686,7 +689,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
 
   const updateItem = (projectId: string, itemId: string, data: Partial<Item>) =>
-    mutateItem(projectId, itemId, (it) => void Object.assign(it, data))
+    mutateItem(projectId, itemId, (it) => {
+      Object.assign(it, data)
+      // Stato o scadenza cambiati: scadenza solo se Confermato (le altre modifiche non toccano i dati esistenti)
+      if ('status' in data || 'dueDate' in data) applyStatusRules(it, nowIso())
+    })
 
   async function moveItem(projectId: string, itemId: string, bucket: Bucket) {
     if (bucket === 'trash') {

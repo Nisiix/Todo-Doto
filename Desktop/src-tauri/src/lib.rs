@@ -108,10 +108,10 @@ fn parse_callback(request_line: &str) -> OAuthCallback {
 fn oauth_page(locale: &str, cancelled: bool) -> (&'static str, &'static str) {
     let en = locale.eq_ignore_ascii_case("en");
     match (en, cancelled) {
-        (true, true) => ("en", "<h2>Access cancelled</h2><p>You can close this window and go back to Project Goal Manager.</p>"),
-        (true, false) => ("en", "<h2>Account connected</h2><p>You can close this window and go back to Project Goal Manager.</p>"),
-        (false, true) => ("it", "<h2>Accesso annullato</h2><p>Puoi chiudere questa finestra e tornare a Project Goal Manager.</p>"),
-        (false, false) => ("it", "<h2>Account collegato</h2><p>Puoi chiudere questa finestra e tornare a Project Goal Manager.</p>"),
+        (true, true) => ("en", "<h2>Access cancelled</h2><p>You can close this window and go back to Todo Doto.</p>"),
+        (true, false) => ("en", "<h2>Account connected</h2><p>You can close this window and go back to Todo Doto.</p>"),
+        (false, true) => ("it", "<h2>Accesso annullato</h2><p>Puoi chiudere questa finestra e tornare a Todo Doto.</p>"),
+        (false, false) => ("it", "<h2>Account collegato</h2><p>Puoi chiudere questa finestra e tornare a Todo Doto.</p>"),
     }
 }
 
@@ -136,7 +136,7 @@ async fn oauth_wait(locale: Option<String>) -> Result<OAuthCallback, String> {
 
         let (lang, body) = oauth_page(&locale, cb.error.is_some());
         let html = format!(
-            "<!doctype html><html lang=\"{lang}\"><meta charset=\"utf-8\"><title>Project Goal Manager</title>\
+            "<!doctype html><html lang=\"{lang}\"><meta charset=\"utf-8\"><title>Todo Doto</title>\
              <body style=\"font-family:system-ui;padding:40px;color:#1c1f26\">{body}</body></html>"
         );
         let response = format!(
@@ -377,7 +377,7 @@ pub fn run() {
             git::git_log
         ])
         .run(tauri::generate_context!())
-        .expect("errore durante l'avvio di Project Goal Manager");
+        .expect("errore durante l'avvio di Todo Doto");
 }
 
 #[cfg(test)]

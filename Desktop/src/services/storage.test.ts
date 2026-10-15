@@ -58,6 +58,7 @@ const ITEM: Item = {
   questions: [],
   seq: 0,
   closedByCommit: null,
+  confirmedAt: null,
 }
 
 async function freshWorkspace(root = '/ws') {
@@ -243,7 +244,7 @@ describe('WorkspaceStorage: concorrenza e lock', () => {
 })
 
 describe('WorkspaceStorage: eliminazione dei dati', () => {
-  it('cancella solo i file di Project Goal Manager e lascia il resto', async () => {
+  it('cancella solo i file di Todo Doto e lascia il resto', async () => {
     const s = await freshWorkspace('/dati')
     await s.writeProject(project('p1'))
     await s.appendAudit([])

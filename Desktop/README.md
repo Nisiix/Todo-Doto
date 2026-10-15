@@ -1,4 +1,4 @@
-# Project Goal Manager
+# Todo Doto
 
 App desktop (Tauri 2 + Vue 3), in italiano e in inglese, per gestire la roadmap di uno o più progetti: elementi con titolo, descrizione, priorità, stato, scadenza, etichetta e assegnatario; completati e cestino; filtri; commenti e domande con @menzioni; allegati con anteprima interna; cartelle e sottocartelle, preferiti e recenti; ruoli (admin, Cleaner, membro), notifiche configurabili e cronologia delle operazioni; sincronizzazione in sola lettura di una cartella di Google Drive; per ogni progetto stack tecnologico con configurazione guidata, riusabile come modello per i progetti nuovi (con creazione della cartella del progetto e dei file iniziali), e strumenti AI. I dati vivono in una cartella, locale o di rete condivisa (anche su percorso mappato tipo `Z:\Roadmap`), senza alcun server.
 
@@ -41,7 +41,7 @@ npm run test:all      # typecheck + unit + e2e
 
 ### Build automatica su GitHub
 
-Il workflow `.github/workflows/build-windows.yml` (nella radice del repository) compila l'installer su un runner Windows a ogni push su `main` (o manualmente da Actions → "Build Windows" → Run workflow) dopo aver eseguito typecheck e test. La build gira due volte, una per lingua: gli artefatti `project-goal-manager-windows-it` e `-en` contengono `.msi`, setup `.exe` ed eseguibile portabile con la lingua nel nome (`Project-Goal-Manager_<versione>_x64_<lingua>.msi`, `…-setup.exe`, `…-portable.exe`). Con un tag `v*` (es. `git tag v0.1.0 && git push --tags`) viene creata anche una Release con tutti i file: la sezione download del sito li trova da sola.
+Il workflow `.github/workflows/build-windows.yml` (nella radice del repository) compila l'installer su un runner Windows a ogni push su `main` (o manualmente da Actions → "Build Windows" → Run workflow) dopo aver eseguito typecheck e test. La build gira due volte, una per lingua: gli artefatti `todo-doto-windows-it` e `-en` contengono `.msi`, setup `.exe` ed eseguibile portabile con la lingua nel nome (`Todo-Doto_<versione>_x64_<lingua>.msi`, `…-setup.exe`, `…-portable.exe`). Con un tag `v*` (es. `git tag v0.1.0 && git push --tags`) viene creata anche una Release con tutti i file: la sezione download del sito li trova da sola.
 
 Per pubblicare il progetto:
 

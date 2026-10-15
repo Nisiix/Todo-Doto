@@ -2,7 +2,7 @@
 // (stesse chiavi degli attributi data-i18n) e i messaggi generati da site.js.
 window.PGM_I18N = {
   en: {
-    'meta.title': 'Project Goal Manager — your projects’ roadmap, in a folder',
+    'meta.title': 'Todo Doto — your projects’ roadmap, in a folder',
     'meta.description':
       'Windows desktop app that manages the roadmap of one or more projects: to-dos with priorities, due dates and assignees, questions and comments, attachments, tech stack with guided setup, sharing on the local network with no server.',
     'nav.label': 'Sections',
@@ -115,7 +115,7 @@ window.PGM_I18N = {
     'f9.l3': 'Activity log filterable by project, operation and user',
     'alt.audit': 'Activity log grouped by project',
 
-    'dl.title': 'Download Project Goal Manager',
+    'dl.title': 'Download Todo Doto',
     'dl.lead': 'A Windows installer or the portable executable, which runs without installing anything, in the language you chose for this site. The app asks for no registration and sends data to no one.',
     'dl.r1': 'Windows 10 or 11, 64-bit',
     'dl.r2': 'Microsoft Edge WebView2 (already part of Windows; the installer adds it if missing)',

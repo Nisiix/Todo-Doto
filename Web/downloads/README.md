@@ -8,14 +8,14 @@ Quando il server web sarà pronto, copiare qui gli installer e gli eseguibili po
   "date": "2026-10-14",
   "files": {
     "it": {
-      "msi": { "name": "Project-Goal-Manager_0.2.1_x64_it.msi", "size": "4 MB", "sha256": "…" },
-      "exe": { "name": "Project-Goal-Manager_0.2.1_x64_it-setup.exe", "size": "3 MB", "sha256": "…" },
-      "portable": { "name": "Project-Goal-Manager_0.2.1_x64_it-portable.exe", "size": "7 MB", "sha256": "…" }
+      "msi": { "name": "Todo-Doto_0.2.1_x64_it.msi", "size": "4 MB", "sha256": "…" },
+      "exe": { "name": "Todo-Doto_0.2.1_x64_it-setup.exe", "size": "3 MB", "sha256": "…" },
+      "portable": { "name": "Todo-Doto_0.2.1_x64_it-portable.exe", "size": "7 MB", "sha256": "…" }
     },
     "en": {
-      "msi": { "name": "Project-Goal-Manager_0.2.1_x64_en.msi", "size": "4 MB", "sha256": "…" },
-      "exe": { "name": "Project-Goal-Manager_0.2.1_x64_en-setup.exe", "size": "3 MB", "sha256": "…" },
-      "portable": { "name": "Project-Goal-Manager_0.2.1_x64_en-portable.exe", "size": "7 MB", "sha256": "…" }
+      "msi": { "name": "Todo-Doto_0.2.1_x64_en.msi", "size": "4 MB", "sha256": "…" },
+      "exe": { "name": "Todo-Doto_0.2.1_x64_en-setup.exe", "size": "3 MB", "sha256": "…" },
+      "portable": { "name": "Todo-Doto_0.2.1_x64_en-portable.exe", "size": "7 MB", "sha256": "…" }
     }
   }
 }

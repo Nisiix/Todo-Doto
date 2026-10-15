@@ -130,7 +130,10 @@ export const ItemSchema = z.object({
   notes: z.string().default(''),
   priority: z.enum(PRIORITIES).default('media'),
   status: z.enum(STATUSES).default('da_valutare'),
-  dueDate: z.string().nullable().default(null), // YYYY-MM-DD
+  /** Scadenza (YYYY-MM-DD): si indica solo per i task con stato Confermato (vedi applyStatusRules). */
+  dueDate: z.string().nullable().default(null),
+  /** Quando il task è diventato Confermato: inizio della sua barra nel Gantt. */
+  confirmedAt: iso.nullable().default(null),
   labelId: z.string().nullable().default(null),
   assigneeId: z.string().nullable().default(null), // a chi è assegnato (facoltativo)
   bucket: z.enum(BUCKETS).default('todo'),
@@ -435,7 +438,7 @@ export type DriveFile = z.infer<typeof DriveFileSchema>
 export const RecentWorkspaceSchema = z.object({
   id: z.string(),
   name: z.string(),
-  path: z.string(), // cartella Dati Project Goal Manager (si apre da qui)
+  path: z.string(), // cartella Dati Todo Doto (si apre da qui)
   projectsPath: z.string().default(''), // cartella dei progetti (quella mostrata all'utente)
   mode: z.enum(['local', 'network']),
   lastOpened: iso,

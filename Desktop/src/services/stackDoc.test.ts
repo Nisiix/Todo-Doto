@@ -25,7 +25,7 @@ describe('prerequisiti: catalogo', () => {
 
   it('deduce i prerequisiti da linguaggi, framework e repository, senza duplicati', () => {
     const s = suggestPrerequisites({ languages: ['TypeScript', 'Rust'], frameworks: ['Tauri'], repoUrl: 'https://github.com/acme/app', prerequisites: [{ id: 'p', name: 'node', version: '', url: '', check: '' }] })
-    expect(s.map((p) => p.name)).toEqual(['Git', 'Rust', 'Visual Studio Build Tools'])
+    expect(s.map((p) => p.name)).toEqual(['Git', 'Rust', 'Visual Studio Build Tools', 'WebView2 Runtime'])
     expect(suggestPrerequisites({ languages: ['C#'], frameworks: ['WPF'], repoUrl: '', prerequisites: [] }).map((p) => p.name)).toEqual(['.NET SDK', 'Visual Studio'])
   })
 })

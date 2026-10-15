@@ -3,7 +3,7 @@
  * Nessuna dipendenza da Vue o dallo store: facile da testare e riusare.
  */
 import dayjs from 'dayjs'
-import { PRIORITY_RANK, type Attachment, type Bucket, type Item, type ItemFilter, type Project } from '@/types'
+import { PRIORITY_RANK, type Attachment, type Bucket, type Item, type ItemFilter, type Project, type Status } from '@/types'
 import { compareText, DATE } from '@/i18n'
 
 export const todayKey = (now = dayjs()) => now.format('YYYY-MM-DD')
@@ -31,6 +31,23 @@ export function sortForBucket(items: Item[], bucket: Bucket): Item[] {
 export type DueState = 'none' | 'overdue' | 'soon' | 'later'
 
 /** Stato di una scadenza rispetto a oggi: scaduta, entro `soonDays` giorni, oltre. */
+/** La scadenza si può indicare solo quando lo stato è Confermato. */
+export const canHaveDueDate = (status: Status) => status === 'confermato'
+
+/**
+ * Regole legate allo stato, applicate a ogni salvataggio che tocca stato o
+ * scadenza: diventando Confermato si registra quando (inizio della barra nel
+ * Gantt); lasciando Confermato si tolgono scadenza e data di conferma.
+ */
+export function applyStatusRules(it: Pick<Item, 'status' | 'dueDate' | 'confirmedAt'>, now: string) {
+  if (canHaveDueDate(it.status)) {
+    it.confirmedAt ??= now
+  } else {
+    it.dueDate = null
+    it.confirmedAt = null
+  }
+}
+
 export function dueState(dueDate: string | null | undefined, soonDays = 3, now = dayjs()): DueState {
   if (!dueDate) return 'none'
   if (dueDate < todayKey(now)) return 'overdue'

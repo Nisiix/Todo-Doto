@@ -48,7 +48,7 @@ const LANGS = {
     data: {
       ws: 'Roadmap di test',
       projectsPath: 'D:/Progetti',
-      dataPath: 'D:/Project Goal Manager',
+      dataPath: 'D:/Todo Doto',
       user: 'Mario Rossi',
       labels: [['Bug', '#D64545'], ['Cliente', '#9B7BD6'], ['Interno', '#6B7280']],
       folder: 'Clienti',
@@ -115,7 +115,7 @@ const LANGS = {
     data: {
       ws: 'Test roadmap',
       projectsPath: 'D:/Projects',
-      dataPath: 'D:/Project Goal Manager',
+      dataPath: 'D:/Todo Doto',
       user: 'John Smith',
       labels: [['Bug', '#D64545'], ['Customer', '#9B7BD6'], ['Internal', '#6B7280']],
       folder: 'Customers',
@@ -225,7 +225,7 @@ async function capture(lang) {
     await page.goto(url)
     await page.getByRole('button', { name: T.createWs }).first().click()
     await page.fill('#ws-name', D.ws)
-    // Cartella dei progetti e cartella Dati Project Goal Manager (percorsi di esempio)
+    // Cartella dei progetti e cartella Dati Todo Doto (percorsi di esempio)
     await page.fill('#ws-path', D.projectsPath)
     await page.fill('#ws-data', D.dataPath)
     await page.getByRole('button', { name: T.createWs }).last().click()

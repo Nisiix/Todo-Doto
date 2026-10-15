@@ -8,7 +8,8 @@
 import { getFs } from './fs'
 import { newId } from './ids'
 import { compareText, defineMessages } from '@/i18n'
-import { KNOWN_LANGUAGES, KNOWN_PREREQUISITES, suggestPrerequisites } from './prerequisites'
+import { KNOWN_LANGUAGES, KNOWN_PREREQUISITES, lookupPrerequisite, suggestPrerequisites } from './prerequisites'
+import { dotnetRequirements, parseMsbuildProject, parseSolution, versionHints, type MsbuildProject, type PreciseRequirement } from './manifests'
 import { editorStep, isEditorStep, isRunStep, mergeImportedStack, parseStackMarkdown, platformsFor } from './stackDoc'
 import { EMPTY_STACK, type SetupStep, type Stack } from '@/types'
 
@@ -27,7 +28,7 @@ const MARKER_FILES = [
   'package.json', 'cargo.toml', 'pyproject.toml', 'requirements.txt', 'setup.py', 'go.mod', 'pom.xml', 'build.gradle', 'build.gradle.kts',
   'composer.json', 'pubspec.yaml', 'gemfile', 'readme.md', 'deno.json',
 ]
-const MARKER_EXT = /\.(sln|csproj|vbproj|fsproj)$/i
+const MARKER_EXT = /\.(sln|csproj|vbproj|fsproj|vcxproj|vbp|dproj|lpi|pjx|pbw)$/i
 const MARKER_DIRS = ['.git', 'src-tauri']
 /** Cartelle da non considerare mai progetti. */
 const SKIP = /^(\.|node_modules$|\$recycle\.bin$|system volume information$)/i
@@ -83,7 +84,7 @@ async function markersOf(path: string): Promise<{ markers: string[]; isWorkspace
 
 /**
  * Progetti contenuti in una cartella: le sottocartelle (primo livello) che ne
- * hanno l'aspetto, esclusi i workspace di Project Goal Manager. Se nessuna
+ * hanno l'aspetto, esclusi i workspace di Todo Doto. Se nessuna
  * sottocartella è un progetto ma lo è la cartella stessa, restituisce quella.
  */
 export async function scanProjects(root: string): Promise<DetectedProject[]> {
@@ -117,7 +118,7 @@ const SINGLE_FILES = new Set([
   'package.swift', 'mix.exs', 'rebar.config', 'stack.yaml', 'project.clj', 'deps.edn', 'rakefile', 'pipfile', 'environment.yml', 'manage.py',
   'dockerfile', 'docker-compose.yml', 'docker-compose.yaml', 'compose.yaml', 'index.html', 'global.json', 'directory.build.props', 'nuget.config',
 ])
-const SINGLE_EXT = /\.(sln|slnx|csproj|vbproj|fsproj|vcxproj|cabal|gemspec|nimble)$/i
+const SINGLE_EXT = /\.(sln|slnx|csproj|vbproj|fsproj|vcxproj|cabal|gemspec|nimble|vbp|dproj|dpr|dpk|lpi|pjx|pbw|pbt|pbproj|accdb|accde|mdb|pro)$/i
 const SINGLE_DIRS = new Set(['.git', '.svn', '.hg', 'src-tauri', '.vscode', '.idea'])
 const SINGLE_DIR_EXT = /\.(xcodeproj|xcworkspace)$/i
 /** File sorgente di qualunque linguaggio: bastano a riconoscere un progetto. */
@@ -155,7 +156,7 @@ export type FolderKind =
   | 'project'
   /** Contiene più progetti nelle sottocartelle: è una cartella di progetti, non di un progetto. */
   | 'projects'
-  /** È la cartella Dati di un workspace di Project Goal Manager. */
+  /** È la cartella Dati di un workspace di Todo Doto. */
   | 'workspace'
   /** Contiene file, ma non un progetto riconoscibile. */
   | 'other'
@@ -185,12 +186,16 @@ const M = defineMessages({
     clone: 'Clona il repository',
     restore: 'Ripristina i pacchetti NuGet',
     pipInstall: 'Installa i pacchetti Python',
+    delphiVersion: (v: string) => `Progetto Delphi creato con RAD Studio (ProjectVersion ${v}): aprilo con la stessa versione di RAD Studio o una successiva.`,
+    cppWorkload: 'con «Sviluppo di applicazioni desktop con C++»',
   },
   en: {
     install: 'Install the dependencies',
     clone: 'Clone the repository',
     restore: 'Restore the NuGet packages',
     pipInstall: 'Install the Python packages',
+    delphiVersion: (v: string) => `Delphi project created with RAD Studio (ProjectVersion ${v}): open it with the same RAD Studio version or a later one.`,
+    cppWorkload: 'with “Desktop development with C++”',
   },
 })
 
@@ -235,7 +240,7 @@ export function repoFromGitConfig(config: string): string {
  * passi base (installazione, avvio), prerequisiti necessari e quanto si legge
  * nel README / ARCHITETTURA.md (che resta memorizzato come documento).
  */
-export async function detectStack(path: string): Promise<{ description: string; stack: Stack }> {
+export async function detectStack(path: string): Promise<DetectedStack> {
   const fs = await getFs()
   const at = async (rel: string) => (rel ? fs.join(path, ...rel.split('/')) : path)
   const source: ProjectSource = {
@@ -251,6 +256,37 @@ export async function detectStack(path: string): Promise<{ description: string; 
 const DEEP_SKIP = /^(\.|node_modules$|bin$|obj$|dist$|build$|out$|target$|packages$|vendor$|venv$|env$|__pycache__$|coverage$|debug$|release$|\$recycle\.bin$)/i
 /** Cartelle che di solito contengono più parti di un progetto: vi si guarda un livello più in giù. */
 const CONTAINER_DIRS = /^(src|source|sources|apps?|services|projects|modules|packages|code)$/i
+
+/** Stack ricavato dai file; `excluded`: prerequisiti che i file dicono NON servire (es. .NET SDK per .NET Framework). */
+export interface DetectedStack {
+  description: string
+  stack: Stack
+  excluded: string[]
+}
+
+/**
+ * Corregge i prerequisiti esistenti con quelli appena rilevati dai file: la
+ * versione dichiarata dai file prevale; i prerequisiti che i file escludono si
+ * tolgono. Restituisce lo stack corretto e quante correzioni ha fatto.
+ */
+export function correctPrerequisites(current: Stack, detected: DetectedStack): { stack: Stack; corrected: number } {
+  const canon = (n: string) => lookupPrerequisite(n)?.name ?? n
+  const byName = new Map(detected.stack.prerequisites.map((p) => [canon(p.name), p]))
+  let corrected = 0
+  const prerequisites = current.prerequisites
+    .filter((p) => {
+      const drop = detected.excluded.includes(canon(p.name))
+      if (drop) corrected++
+      return !drop
+    })
+    .map((p) => {
+      const d = byName.get(canon(p.name))
+      if (!d || !d.version || d.version === p.version) return p
+      corrected++
+      return { ...p, version: d.version }
+    })
+  return { stack: { ...current, prerequisites }, corrected }
+}
 
 /** Dove si leggono i file di un progetto: una cartella locale o un repository remoto (es. GitHub). */
 export interface ProjectSource {
@@ -270,7 +306,7 @@ export interface ProjectSource {
 export async function stackFromSource(
   src: ProjectSource,
   info: { sourcePath?: string; repoUrl?: string; languages?: string[]; clone?: boolean } = {},
-): Promise<{ description: string; stack: Stack }> {
+): Promise<DetectedStack> {
   const entries = await src.list()
   const byName = new Map(entries.map((e) => [e.name.toLowerCase(), e]))
   const read = async (name: string) => {
@@ -296,6 +332,11 @@ export async function stackFromSource(
    * relativa alla radice, '' = radice). true se vi ha trovato un progetto.
    */
   let firstProj: string | undefined
+  /** Prerequisiti precisi letti dai file di progetto (con la versione dichiarata). */
+  const precise: PreciseRequirement[] = []
+  /** Prerequisiti del catalogo da non proporre (es. .NET SDK per un progetto .NET Framework). */
+  const excluded = new Set<string>()
+  const notes: string[] = []
   async function scanDir(dir: string, items: { name: string; isDir: boolean }[]): Promise<boolean> {
     const names = new Map(items.map((e) => [e.name.toLowerCase(), e]))
     const rel = (name: string) => (dir ? `${dir}/${name}` : name)
@@ -334,25 +375,141 @@ export async function stackFromSource(
       found = true
       lang('Rust')
     }
-    // .NET
-    const projFile = items.find((e) => !e.isDir && /\.(csproj|vbproj|fsproj)$/i.test(e.name))
-    const slnFile = items.find((e) => !e.isDir && /\.slnx?$/i.test(e.name))
-    if (projFile || slnFile) {
+    // Visual Studio (.NET e C++): si legge cosa dichiarano soluzione e progetti, non si deduce
+    const projFiles = items.filter((e) => !e.isDir && /\.(csproj|vbproj|fsproj|vcxproj)$/i.test(e.name))
+    const slnFile = items.find((e) => !e.isDir && /\.sln$/i.test(e.name))
+    if (projFiles.length || slnFile) {
       found = true
-      firstProj ??= rel((slnFile ?? projFile)!.name)
-      const ext = (projFile?.name ?? '').toLowerCase()
-      lang(ext.endsWith('.vbproj') ? 'VB.NET' : ext.endsWith('.fsproj') ? 'F#' : 'C#')
-      const proj = projFile ? ((await readHere(projFile.name)) ?? '') : ''
-      if (/<UseWPF>\s*true/i.test(proj)) fw('WPF')
-      if (/<UseWindowsForms>\s*true/i.test(proj)) fw('WinForms')
-      if (/Microsoft\.NET\.Sdk\.Web/i.test(proj)) fw('ASP.NET Core')
-      if (/<TargetFrameworkVersion>\s*v[1-4]/i.test(proj)) fw('.NET Framework')
-      else fw('.NET')
-      if (/<Project\s+Sdk=/i.test(proj) && !s.steps.some((x) => x.command === 'dotnet restore')) stepHere(M.restore, 'dotnet restore')
+      firstProj ??= rel((slnFile ?? projFiles[0])!.name)
+      const sln = slnFile ? parseSolution((await readHere(slnFile.name)) ?? '') : null
+      // Progetti della soluzione (anche nelle sottocartelle), altrimenti quelli della cartella
+      const paths = sln?.projects.length ? sln.projects.map((x) => x.path).filter((x) => /\.(csproj|vbproj|fsproj|vcxproj)$/i.test(x)) : projFiles.map((e) => e.name)
+      const parsed: MsbuildProject[] = []
+      for (const path of paths.slice(0, 40)) {
+        const text = await src.read(rel(path)).catch(() => null)
+        if (text) parsed.push(parseMsbuildProject(text, path))
+      }
+      // Progetto non leggibile: almeno il linguaggio dall'estensione (mai un "C#" a caso)
+      if (!parsed.length) {
+        for (const path of paths) {
+          const ext = path.toLowerCase()
+          lang(ext.endsWith('.vbproj') ? 'VB.NET' : ext.endsWith('.fsproj') ? 'F#' : ext.endsWith('.vcxproj') ? 'C++' : 'C#')
+        }
+      }
+      const globalJson = await readHere('global.json')
+      const sdk = globalJson ? (/"version"\s*:\s*"([\d.]+)"/.exec(globalJson)?.[1] ?? null) : null
+      const findings = dotnetRequirements(sln, parsed, sdk)
+      for (const l of findings.languages) lang(l)
+      for (const f of findings.frameworks) fw(f)
+      for (const p of findings.prerequisites) if (!precise.some((x) => x.name === p.name)) precise.push(p)
+      for (const n of findings.exclude) excluded.add(n)
+      notes.push(...findings.notes)
+      if (parsed.some((x) => x.sdkStyle) && !s.steps.some((x) => x.command === 'dotnet restore')) stepHere(M.restore, 'dotnet restore')
     }
+    // Visual Basic 6 (.vbp)
+    const vbp = items.find((e) => !e.isDir && /\.vbp$/i.test(e.name))
+    if (vbp) {
+      found = true
+      firstProj ??= rel(vbp.name)
+      lang('Visual Basic 6')
+      if (!precise.some((x) => x.name === 'Visual Basic 6.0')) precise.push({ name: 'Visual Basic 6.0', version: '' })
+      excluded.add('.NET SDK')
+    }
+    // --- Altri progetti desktop: si legge cosa dichiarano i file ---
+    const addPrecise = (name: string, version: string) => void (!precise.some((x) => x.name === name) && precise.push({ name, version }))
+    const file = (re: RegExp) => items.find((e) => !e.isDir && re.test(e.name))
+    // Delphi (RAD Studio): VCL o FireMonkey, versione del progetto
+    const dproj = file(/\.dproj$/i) ?? file(/\.(dpr|dpk)$/i)
+    if (dproj) {
+      found = true
+      firstProj ??= rel(dproj.name)
+      lang('Delphi')
+      fw('Delphi')
+      const t = /\.dproj$/i.test(dproj.name) ? ((await readHere(dproj.name)) ?? '') : ''
+      const ui = /<FrameworkType>\s*(VCL|FMX)\s*</i.exec(t)?.[1]?.toUpperCase()
+      if (ui) fw(ui === 'FMX' ? 'FireMonkey' : 'VCL')
+      const pv = /<ProjectVersion>\s*([\d.]+)\s*</i.exec(t)?.[1]
+      if (pv) notes.push(M.delphiVersion(pv))
+    }
+    // Lazarus / Free Pascal
+    const lpi = file(/\.lpi$/i)
+    if (lpi) {
+      found = true
+      firstProj ??= rel(lpi.name)
+      lang('Object Pascal')
+      fw('Lazarus')
+    }
+    // C/C++ con CMake (ed eventualmente Qt): versioni minime dichiarate
+    const cmake = await readHere('CMakeLists.txt')
+    if (cmake !== null) {
+      found = true
+      lang(/LANGUAGES\s+C\b(?!\+)/i.test(cmake) && !/\bCXX\b/i.test(cmake) ? 'C' : 'C++')
+      fw('CMake')
+      const min = /cmake_minimum_required\s*\(\s*VERSION\s+([\d.]+)/i.exec(cmake)?.[1]
+      if (min) addPrecise('CMake', `${min}+`)
+      const qt = /find_package\s*\(\s*Qt(\d)/i.exec(cmake)?.[1]
+      if (qt) {
+        fw('Qt')
+        addPrecise('Qt', `${qt}+`)
+      }
+    }
+    // Qt con qmake (.pro)
+    const pro = file(/\.pro$/i)
+    if (pro) {
+      const t = (await readHere(pro.name)) ?? ''
+      if (/^\s*QT\s*\+?=/m.test(t) || /^\s*TEMPLATE\s*=/m.test(t)) {
+        found = true
+        firstProj ??= rel(pro.name)
+        lang('C++')
+        fw('Qt')
+      }
+    }
+    // Microsoft Access, Visual FoxPro, PowerBuilder
+    const access = file(/\.(accdb|accde|mdb|mde)$/i)
+    if (access) {
+      found = true
+      firstProj ??= rel(access.name)
+      lang('VBA')
+      fw('Microsoft Access')
+    }
+    const fox = file(/\.pjx$/i)
+    if (fox) {
+      found = true
+      firstProj ??= rel(fox.name)
+      lang('Visual FoxPro')
+      fw('Visual FoxPro')
+    }
+    const pb = file(/\.(pbw|pbt|pbproj|pbsln)$/i)
+    if (pb) {
+      found = true
+      firstProj ??= rel(pb.name)
+      lang('PowerScript')
+      fw('PowerBuilder')
+    }
+    // Flutter per desktop Windows: serve Visual Studio con il C++
+    if (names.has('pubspec.yaml') && names.get('windows')?.isDir) {
+      fw('Flutter desktop')
+      addPrecise('Visual Studio', `2022+ ${M.cppWorkload}`)
+    }
+    // Go desktop: Fyne (serve un compilatore C) o Wails
+    const gomodText = names.has('go.mod') ? ((await readHere('go.mod')) ?? '') : ''
+    if (/fyne\.io\/fyne/.test(gomodText)) fw('Fyne')
+    if (/github\.com\/wailsapp\/wails/.test(gomodText)) fw('Wails')
+
     // Python
     const pyproject = await readHere('pyproject.toml')
     const requirements = await readHere('requirements.txt')
+    // Python senza file di progetto: bastano i sorgenti; Tkinter si vede dagli import
+    const pyFiles = items.filter((e) => !e.isDir && /\.pyw?$/i.test(e.name)).slice(0, 5)
+    if (pyFiles.length && pyproject === null && requirements === null && !names.has('setup.py')) {
+      found = true
+      lang('Python')
+    }
+    for (const f of pyFiles) {
+      const t = (await readHere(f.name)) ?? ''
+      if (/^\s*(import tkinter|from tkinter)/m.test(t)) fw('Tkinter')
+      if (/^\s*(import|from) (PyQt[56]|PySide[26]?)/m.test(t)) fw(/PySide/.test(t) ? 'PySide' : 'PyQt')
+    }
     if (pyproject !== null || requirements !== null || names.has('setup.py')) {
       found = true
       lang('Python')
@@ -360,6 +517,10 @@ export async function stackFromSource(
       if (/\bdjango\b/.test(text)) fw('Django')
       if (/\bflask\b/.test(text)) fw('Flask')
       if (/\bfastapi\b/.test(text)) fw('FastAPI')
+      if (/\bpyqt[56]\b/.test(text)) fw('PyQt')
+      if (/\bpyside[26]?\b/.test(text)) fw('PySide')
+      if (/\bwxpython\b/.test(text)) fw('wxPython')
+      if (/\bkivy\b/.test(text)) fw('Kivy')
       if (requirements !== null) stepHere(M.pipInstall, 'pip install -r requirements.txt')
     }
     // Altri ecosistemi
@@ -372,7 +533,11 @@ export async function stackFromSource(
       found = true
       lang('Java')
       if (/spring-boot/i.test(pom)) fw('Spring Boot')
+      if (/org\.openjfx/i.test(pom)) fw('JavaFX')
     }
+    const gradle = (await readHere('build.gradle.kts')) ?? (await readHere('build.gradle')) ?? ''
+    if (/org\.openjfx|javafx/i.test(gradle)) fw('JavaFX')
+    if (/compose\.desktop|org\.jetbrains\.compose/i.test(gradle)) fw('Compose Desktop')
     if (names.has('build.gradle.kts')) {
       found = true
       lang('Kotlin')
@@ -445,9 +610,19 @@ export async function stackFromSource(
   const cut = merged.steps.findIndex(isEditorStep)
   if (cut >= 0) merged.steps = merged.steps.slice(0, cut + 1)
   else merged.steps.push({ id: newId('stp'), ...editorStep(firstProj) })
-  for (const k of suggestPrerequisites(merged)) {
-    const known = KNOWN_PREREQUISITES.find((x) => x.name === k.name)!
-    merged.prerequisites.push({ id: newId('pre'), name: known.name, version: known.version, url: known.url, check: known.check })
+  // Prerequisiti: prima quelli precisi (dichiarati dai file), poi quelli deducibili non esclusi;
+  // le versioni dichiarate (engines, requires-python, go.mod…) prevalgono su quelle del catalogo
+  const hints = await versionHints(read)
+  const has = (name: string) => merged.prerequisites.some((x) => (lookupPrerequisite(x.name)?.name ?? x.name) === name)
+  for (const p of precise) {
+    if (has(p.name)) continue
+    const known = lookupPrerequisite(p.name)
+    merged.prerequisites.push({ id: newId('pre'), name: known?.name ?? p.name, version: p.version, url: known?.url ?? '', check: known?.check ?? '' })
   }
-  return { description, stack: merged }
+  for (const k of suggestPrerequisites(merged, [...excluded])) {
+    const known = KNOWN_PREREQUISITES.find((x) => x.name === k.name)!
+    merged.prerequisites.push({ id: newId('pre'), name: known.name, version: hints[known.name] ?? known.version, url: known.url, check: known.check })
+  }
+  if (notes.length) merged.notes = [merged.notes, ...notes].filter(Boolean).join('\n\n')
+  return { description, stack: merged, excluded: [...excluded] }
 }

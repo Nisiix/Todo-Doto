@@ -66,7 +66,7 @@ export class GitHubClient {
         Accept: accept,
         Authorization: `Bearer ${this.token}`,
         'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'Project-Goal-Manager',
+        'User-Agent': 'Todo-Doto',
       },
     })
     if (res.ok) return res

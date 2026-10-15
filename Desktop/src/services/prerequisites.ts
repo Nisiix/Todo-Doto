@@ -24,6 +24,8 @@ export interface KnownPrerequisite {
    * (es. Visual Studio): solo Windows; uscita diversa da 0 o output vuoto = non installato.
    */
   probe?: { command: string; version?: RegExp }
+  /** Come leggere la versione nell'output del comando di verifica (se non è il primo numero). */
+  versionPattern?: RegExp
   /**
    * Seconda verifica, solo Windows, se il comando non si trova: il percorso
    * d'installazione standard (programma installato ma non nel PATH) o un
@@ -32,6 +34,15 @@ export interface KnownPrerequisite {
   fallback?: string
   /** Spiegazione aggiunta quando manca (es. cosa NON basta al suo posto). */
   missingNote?: { it: string; en: string }
+  /** Converte la versione letta in quella da confrontare (es. Visual Studio "10.0" → "2010"). */
+  normalizeVersion?: (v: string) => string
+}
+
+/** Versione interna di Visual Studio → anno ("10.0" → "2010"; "2022" resta). */
+const VS_YEARS: Record<number, number> = { 9: 2008, 10: 2010, 11: 2012, 12: 2013, 14: 2015, 15: 2017, 16: 2019, 17: 2022, 18: 2026 }
+const vsYear = (v: string) => {
+  const major = Number.parseInt(v, 10)
+  return major >= 2000 ? String(major) : VS_YEARS[major] ? String(VS_YEARS[major]) : v
 }
 
 export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
@@ -78,7 +89,98 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     neededBy: ['WPF', 'WinForms', 'Windows Forms', '.NET Framework', '.NET 4.0', 'VB.NET'],
     os: ['windows'],
     probe: { command: '"%ProgramFiles(x86)%\\Microsoft Visual Studio\\Installer\\vswhere.exe" -latest -property catalog_productLineVersion' },
+    // vswhere vede solo Visual Studio 2017 e successivi: per le versioni precedenti ed Express (2010…) il registro
+    fallback: 'reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\VisualStudio\\SxS\\VS7" 2>nul || reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\VBExpress" 2>nul || reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\VCSExpress" 2>nul || reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\WDExpress" 2>nul',
+    normalizeVersion: vsYear,
   },
+  {
+    name: '.NET Framework',
+    aliases: ['net framework', 'dotnet framework', '.net framework 4', 'framework .net'],
+    version: '4.8',
+    url: 'https://dotnet.microsoft.com/download/dotnet-framework',
+    check: '',
+    neededBy: [],
+    os: ['windows'],
+    probe: { command: 'reg query "HKLM\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full" /v Version' },
+  },
+  {
+    name: 'Visual Basic 6.0',
+    aliases: ['vb6', 'visual basic 6', 'vb 6.0'],
+    version: '',
+    url: '',
+    check: '',
+    neededBy: ['Visual Basic 6'],
+    os: ['windows'],
+    probe: { command: 'dir /b "%ProgramFiles(x86)%\\Microsoft Visual Studio\\VB98\\VB6.EXE"' },
+  },
+  {
+    name: 'CMake',
+    aliases: ['cmake'],
+    version: '',
+    url: 'https://cmake.org/download/',
+    check: 'cmake --version',
+    neededBy: ['CMake'],
+  },
+  {
+    name: 'Qt',
+    aliases: ['qt5', 'qt6', 'qt creator', 'qt framework'],
+    version: '',
+    url: 'https://www.qt.io/download-qt-installer',
+    check: 'qmake -v',
+    // "QMake version 3.1 / Using Qt version 6.5.0": conta la versione di Qt
+    versionPattern: /Using Qt version ([\d.]+)/i,
+    neededBy: ['Qt'],
+  },
+  {
+    name: 'WebView2 Runtime',
+    aliases: ['webview2', 'edge webview2'],
+    version: '',
+    url: 'https://developer.microsoft.com/microsoft-edge/webview2/',
+    check: '',
+    neededBy: ['Tauri', 'Wails'],
+    os: ['windows'],
+    probe: { command: 'reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" /v pv' },
+  },
+  { name: 'Wails CLI', aliases: ['wails'], version: '', url: 'https://wails.io/docs/gettingstarted/installation', check: 'wails version', neededBy: ['Wails'] },
+  {
+    name: 'GCC (MinGW-w64)',
+    aliases: ['gcc', 'mingw', 'mingw-w64', 'tdm-gcc'],
+    version: '',
+    url: 'https://www.msys2.org/',
+    check: 'gcc --version',
+    neededBy: ['Fyne'],
+  },
+  {
+    name: 'Delphi (RAD Studio)',
+    aliases: ['delphi', 'rad studio', 'embarcadero delphi'],
+    version: '',
+    url: 'https://www.embarcadero.com/products/delphi',
+    check: '',
+    neededBy: ['Delphi'],
+    os: ['windows'],
+    probe: { command: 'reg query "HKCU\\SOFTWARE\\Embarcadero\\BDS"' },
+  },
+  {
+    name: 'Lazarus',
+    aliases: ['free pascal', 'fpc', 'lazarus ide'],
+    version: '',
+    url: 'https://www.lazarus-ide.org/',
+    check: '',
+    neededBy: ['Lazarus'],
+    probe: { command: 'dir /b "C:\\lazarus\\lazarus.exe"' },
+  },
+  {
+    name: 'Microsoft Access',
+    aliases: ['access', 'ms access', 'msaccess'],
+    version: '',
+    url: 'https://www.microsoft.com/microsoft-365/access',
+    check: '',
+    neededBy: ['Microsoft Access'],
+    os: ['windows'],
+    probe: { command: 'reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\MSACCESS.EXE" /ve' },
+  },
+  { name: 'Visual FoxPro 9', aliases: ['foxpro', 'visual foxpro', 'vfp'], version: '9', url: '', check: '', neededBy: ['Visual FoxPro'], os: ['windows'] },
+  { name: 'PowerBuilder', aliases: ['appeon powerbuilder'], version: '', url: 'https://www.appeon.com/products/powerbuilder', check: '', neededBy: ['PowerBuilder'], os: ['windows'] },
   { name: 'Python', aliases: ['python3', 'py'], version: '3.11+', url: 'https://www.python.org/downloads/', check: 'python --version', neededBy: ['Python', 'Django', 'Flask', 'FastAPI'], fallback: 'py --version' },
   { name: 'Java JDK', aliases: ['java', 'jdk', 'openjdk', 'temurin'], version: '17+', url: 'https://adoptium.net', check: 'java -version', neededBy: ['Java', 'Kotlin', 'Spring', 'Spring Boot', 'Android'] },
   { name: 'Go', aliases: ['golang'], version: '', url: 'https://go.dev/dl/', check: 'go version', neededBy: ['Go'] },
@@ -142,19 +244,19 @@ export function autofillPrerequisite(p: Pick<Prerequisite, 'name' | 'version' | 
  * Prerequisiti deducibili dallo stack (linguaggi, framework, repository git)
  * che non sono ancora nell'elenco, nell'ordine del catalogo.
  */
-export function suggestPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks' | 'repoUrl' | 'prerequisites'>): KnownPrerequisite[] {
+export function suggestPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks' | 'repoUrl' | 'prerequisites'>, exclude: string[] = []): KnownPrerequisite[] {
   const tech = new Set([...stack.languages, ...stack.frameworks].map(key))
   const present = new Set(stack.prerequisites.map((p) => lookupPrerequisite(p.name)?.name ?? p.name).map(key))
   const usesGit = /git|\.git$|github|gitlab|bitbucket|azure\s*devops/i.test(stack.repoUrl)
   return KNOWN_PREREQUISITES.filter((k) => {
-    if (present.has(key(k.name))) return false
+    if (present.has(key(k.name)) || exclude.includes(k.name)) return false
     if (k.name === 'Git') return usesGit
     return k.neededBy.some((t) => tech.has(key(t)))
   })
 }
 
 /** Nomi noti di linguaggi e framework, per riconoscerli in un documento. */
-export const KNOWN_LANGUAGES = ['TypeScript', 'JavaScript', 'C#', 'F#', 'VB.NET', 'Rust', 'Python', 'Java', 'Kotlin', 'Swift', 'Dart', 'Go', 'PHP', 'Ruby', 'C++', 'SQL', 'HTML', 'CSS']
+export const KNOWN_LANGUAGES = ['TypeScript', 'JavaScript', 'C#', 'F#', 'VB.NET', 'Visual Basic 6', 'Rust', 'Python', 'Java', 'Kotlin', 'Swift', 'Dart', 'Go', 'PHP', 'Ruby', 'C++', 'SQL', 'HTML', 'CSS']
 export const KNOWN_FRAMEWORKS = [
   'Vue 3', 'Vue', 'React', 'Angular', 'Svelte', 'Next.js', 'Nuxt', 'Astro', 'Vite', 'Tailwind CSS', 'Pinia', 'Node.js', 'Express', 'NestJS',
   'Tauri', 'Electron', 'Ionic', 'Capacitor', 'React Native', 'Expo', 'Flutter', '.NET', 'ASP.NET Core', 'Blazor', 'WPF', 'WinForms', '.NET MAUI',

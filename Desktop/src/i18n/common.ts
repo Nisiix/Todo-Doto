@@ -103,7 +103,7 @@ export const common = defineMessages({
     },
     projectFiles: {
       /** Ripetuto ovunque un progetto viene cestinato o eliminato: l'app non tocca mai i file del progetto. */
-      untouched: 'La cartella del progetto e i suoi file sul disco non vengono toccati: il progetto viene tolto solo dal workspace di Project Goal Manager.',
+      untouched: 'La cartella del progetto e i suoi file sul disco non vengono toccati: il progetto viene tolto solo dal workspace di Todo Doto.',
       untouchedShort: 'La cartella del progetto sul disco non viene toccata.',
       trashedProject: 'Progetto spostato nel cestino del workspace. La sua cartella sul disco non viene toccata.',
     },
@@ -243,7 +243,7 @@ export const common = defineMessages({
       closedToast: (code: string, hash: string, author: string) => `${code} completed by commit ${hash}${author ? ` by ${author}` : ''}`,
     },
     projectFiles: {
-      untouched: 'The project folder and its files on disk are not touched: the project is only removed from the Project Goal Manager workspace.',
+      untouched: 'The project folder and its files on disk are not touched: the project is only removed from the Todo Doto workspace.',
       untouchedShort: 'The project folder on disk is not touched.',
       trashedProject: 'Project moved to the workspace trash. Its folder on disk is not touched.',
     },

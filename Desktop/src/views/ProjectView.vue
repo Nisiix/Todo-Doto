@@ -14,6 +14,7 @@ import AttachmentsBoard from '@/components/board/AttachmentsBoard.vue'
 import DetailPanel from '@/components/layout/DetailPanel.vue'
 import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
 import ProjectStack from '@/components/project/ProjectStack.vue'
+import GanttChart from '@/components/board/GanttChart.vue'
 import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
@@ -306,7 +307,8 @@ const tabs: { id: Bucket; label: string }[] = [
 
       <!-- Contenuto -->
       <div class="flex-1 overflow-y-auto px-8 pb-10 pt-4">
-        <template v-if="section === 'stack'">
+        <GanttChart v-if="section === 'gantt'" :project="project" />
+        <template v-else-if="section === 'stack'">
           <ProjectStack :project="project" :read-only="trashed" />
           <ProjectAiTools class="mt-12 border-t border-line pt-8" :project="project" :read-only="trashed" />
         </template>

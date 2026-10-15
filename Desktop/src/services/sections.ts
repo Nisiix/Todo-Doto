@@ -1,9 +1,9 @@
 /**
  * Sezioni di un progetto, aperte dal sottomenu del progetto nella barra
- * laterale: Todo, Stack (con gli strumenti AI), Allegati. Il parametro di
+ * laterale: Todo, Gantt, Stack (con gli strumenti AI), Allegati. Il parametro di
  * rotta è `p/:id/:section?` (vuoto = Todo).
  */
-export const PROJECT_SECTIONS = ['todo', 'stack', 'attachments'] as const
+export const PROJECT_SECTIONS = ['todo', 'gantt', 'stack', 'attachments'] as const
 export type ProjectSection = (typeof PROJECT_SECTIONS)[number]
 
 /** Sezione dal parametro di rotta; `ai` (versioni precedenti) è ora dentro Stack. */

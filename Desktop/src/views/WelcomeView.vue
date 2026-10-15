@@ -34,17 +34,17 @@ const m = defineMessages({
     darkTheme: 'Tema scuro',
     recent: 'Workspace recenti',
     removeRecent: 'Rimuovi dai recenti',
-    deleteData: 'Elimina i dati di Project Goal Manager',
+    deleteData: 'Elimina i dati di Todo Doto',
     deleteTitle: (n: string) => `Eliminare i dati del workspace «${n}»?`,
     deleteMessage: (data: string, projects: string) =>
-      `Vengono cancellati i dati di Project Goal Manager in ${data}: elenco dei progetti, task, commenti, stack, cronologia e le copie di sicurezza nella cartella Dati (quelle in un’altra cartella restano). ` +
+      `Vengono cancellati i dati di Todo Doto in ${data}: elenco dei progetti, task, commenti, stack, cronologia e le copie di sicurezza nella cartella Dati (quelle in un’altra cartella restano). ` +
       (projects ? `La cartella dei progetti (${projects}) e i loro file non vengono toccati. ` : 'I file dei progetti non vengono toccati. ') +
       'Non si può annullare.',
     deleteConfirm: 'Elimina i dati',
     deleted: (n: string) => `Dati del workspace «${n}» eliminati`,
     deleteFailed: (err: string) => `Non riesco a eliminare i dati: ${err}`,
     projectsFolder: 'Cartella dei progetti',
-    dataFolder: (p: string) => `Dati Project Goal Manager: ${p}`,
+    dataFolder: (p: string) => `Dati Todo Doto: ${p}`,
     actions: 'Azioni workspace',
     empty: 'Nessun workspace ancora. Creane uno nuovo oppure apri la cartella di un workspace condiviso dai colleghi.',
   },
@@ -59,17 +59,17 @@ const m = defineMessages({
     darkTheme: 'Dark theme',
     recent: 'Recent workspaces',
     removeRecent: 'Remove from recent',
-    deleteData: 'Delete the Project Goal Manager data',
+    deleteData: 'Delete the Todo Doto data',
     deleteTitle: (n: string) => `Delete the data of the workspace “${n}”?`,
     deleteMessage: (data: string, projects: string) =>
-      `The Project Goal Manager data in ${data} is deleted: project list, tasks, comments, stack, activity log and the backups in the data folder (those in another folder stay). ` +
+      `The Todo Doto data in ${data} is deleted: project list, tasks, comments, stack, activity log and the backups in the data folder (those in another folder stay). ` +
       (projects ? `The projects folder (${projects}) and its files are not touched. ` : 'The project files are not touched. ') +
       'This cannot be undone.',
     deleteConfirm: 'Delete data',
     deleted: (n: string) => `Data of the workspace “${n}” deleted`,
     deleteFailed: (err: string) => `Cannot delete the data: ${err}`,
     projectsFolder: 'Projects folder',
-    dataFolder: (p: string) => `Project Goal Manager data: ${p}`,
+    dataFolder: (p: string) => `Todo Doto data: ${p}`,
     actions: 'Workspace actions',
     empty: 'No workspaces yet. Create a new one or open the folder of a workspace shared by your colleagues.',
   },
@@ -127,7 +127,7 @@ async function openOrPropose(p: string) {
   }
   await openPath(p)
 }
-/** Elimina i dati di Project Goal Manager di un workspace locale (non i progetti). */
+/** Elimina i dati di Todo Doto di un workspace locale (non i progetti). */
 async function deleteData(r: RecentWorkspace) {
   const ok = await confirm({ title: m.deleteTitle(r.name), message: m.deleteMessage(r.path, r.projectsPath), confirmLabel: m.deleteConfirm, danger: true })
   if (!ok) return
@@ -158,7 +158,7 @@ function newWorkspace() {
     <section class="relative flex flex-col justify-between border-r border-line bg-surface px-12 py-10">
       <div class="flex items-center gap-3">
         <BrandMark :size="30" />
-        <span class="text-[15px] font-bold tracking-tight">Project Goal Manager</span>
+        <span class="text-[15px] font-bold tracking-tight">Todo Doto</span>
       </div>
       <div>
         <h1 class="max-w-md text-[40px] font-extrabold leading-[1.05] tracking-[-0.02em]">

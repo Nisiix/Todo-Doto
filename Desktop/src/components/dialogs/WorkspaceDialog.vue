@@ -23,10 +23,10 @@ const m = defineMessages({
       'La cartella in cui si trovano i tuoi progetti (es. D:\\Sviluppo o Z:\\Progetti), oppure quella in cui vuoi crearli. Se contiene già dei progetti, l’app ti propone di aggiungerli al workspace.',
     projectsPlaceholder: 'D:\\Sviluppo oppure Z:\\Progetti',
     pickProjects: 'Scegli la cartella dei progetti',
-    dataFolder: 'Cartella Dati Project Goal Manager',
+    dataFolder: 'Cartella Dati Todo Doto',
     dataHint:
       'Qui l’app salva i propri dati: elenco dei progetti, task, commenti, cronologia. Deve essere diversa dalla cartella dei progetti, così i dati non si mescolano con i file dei progetti. Per condividere il workspace con i colleghi sceglila in una cartella di rete.',
-    pickData: 'Scegli la cartella Dati Project Goal Manager',
+    pickData: 'Scegli la cartella Dati Todo Doto',
     useSuggested: (p: string) => `Usa ${p}`,
     scanning: 'Cerco progetti nella cartella…',
     found: (n: number) => `Questa cartella contiene ${n} ${plural(n, 'progetto', 'progetti')}`,
@@ -47,9 +47,9 @@ const m = defineMessages({
     create: 'Crea workspace',
     errName: 'Dai un nome al workspace.',
     errProjects: 'Indica la cartella dei progetti (dove si trovano o dove vuoi crearli).',
-    errData: 'Indica la cartella Dati Project Goal Manager, diversa da quella dei progetti.',
-    errSame: 'La cartella Dati Project Goal Manager deve essere diversa dalla cartella dei progetti.',
-    errInside: (n: string) => `La cartella Dati Project Goal Manager non può stare dentro il progetto «${n}».`,
+    errData: 'Indica la cartella Dati Todo Doto, diversa da quella dei progetti.',
+    errSame: 'La cartella Dati Todo Doto deve essere diversa dalla cartella dei progetti.',
+    errInside: (n: string) => `La cartella Dati Todo Doto non può stare dentro il progetto «${n}».`,
     notAWorkspace: (n: number) => `La cartella scelta non è un workspace ma contiene ${n} ${plural(n, 'progetto', 'progetti')}: crea un workspace per gestirli.`,
     importing: (done: number, total: number) => `Creo i progetti… ${done} di ${total}`,
     imported: (n: number) => `${n} ${plural(n, 'progetto creato', 'progetti creati')} dalla cartella`,
@@ -63,10 +63,10 @@ const m = defineMessages({
       'The folder where your projects are (e.g. D:\\Dev or Z:\\Projects), or the one where you want to create them. If it already contains projects, the app offers to add them to the workspace.',
     projectsPlaceholder: 'D:\\Dev or Z:\\Projects',
     pickProjects: 'Choose the projects folder',
-    dataFolder: 'Project Goal Manager data folder',
+    dataFolder: 'Todo Doto data folder',
     dataHint:
       'This is where the app stores its own data: project list, tasks, comments, activity log. It must be different from the projects folder, so the data does not mix with the project files. To share the workspace with colleagues, choose a network folder.',
-    pickData: 'Choose the Project Goal Manager data folder',
+    pickData: 'Choose the Todo Doto data folder',
     useSuggested: (p: string) => `Use ${p}`,
     scanning: 'Looking for projects in the folder…',
     found: (n: number) => `This folder contains ${n} ${plural(n, 'project', 'projects')}`,
@@ -87,9 +87,9 @@ const m = defineMessages({
     create: 'Create workspace',
     errName: 'Give the workspace a name.',
     errProjects: 'Enter the projects folder (where they are or where you want to create them).',
-    errData: 'Enter the Project Goal Manager data folder, different from the projects folder.',
-    errSame: 'The Project Goal Manager data folder must be different from the projects folder.',
-    errInside: (n: string) => `The Project Goal Manager data folder cannot be inside the project “${n}”.`,
+    errData: 'Enter the Todo Doto data folder, different from the projects folder.',
+    errSame: 'The Todo Doto data folder must be different from the projects folder.',
+    errInside: (n: string) => `The Todo Doto data folder cannot be inside the project “${n}”.`,
     notAWorkspace: (n: number) => `The selected folder is not a workspace but contains ${n} ${plural(n, 'project', 'projects')}: create a workspace to manage them.`,
     importing: (done: number, total: number) => `Creating the projects… ${done} of ${total}`,
     imported: (n: number) => `${n} ${plural(n, 'project', 'projects')} created from the folder`,
@@ -98,7 +98,7 @@ const m = defineMessages({
 
 /**
  * Creazione di un workspace con due cartelle distinte: quella dei progetti
- * (dove si trovano o verranno creati) e la cartella Dati Project Goal Manager
+ * (dove si trovano o verranno creati) e la cartella Dati Todo Doto
  * (i file dell'app). Se la cartella dei progetti contiene già dei progetti,
  * propone di crearli nel workspace.
  * `presetFolder`: cartella dei progetti già scelta (es. con "Apri cartella").
@@ -111,7 +111,7 @@ const ui = useUiStore()
 
 const name = ref('')
 const path = ref('') // cartella dei progetti
-const dataPath = ref('') // cartella Dati Project Goal Manager
+const dataPath = ref('') // cartella Dati Todo Doto
 const mode = ref<WorkspaceMode>('local')
 const password = ref('')
 const password2 = ref('')
@@ -152,7 +152,7 @@ async function scan(folder: string) {
     // Suggerimento per i dati: accanto alla cartella dei progetti, con un nome riconoscibile
     const parent = clean.replace(/[\\/][^\\/]*$/, '')
     const base = clean.split(/[\\/]/).pop() || 'Progetti'
-    const sugg = parent && parent !== clean ? await fs.join(parent, `${base} - Project Goal Manager`) : await fs.join(clean, 'Project Goal Manager')
+    const sugg = parent && parent !== clean ? await fs.join(parent, `${base} - Todo Doto`) : await fs.join(clean, 'Todo Doto')
     if (seq !== scanSeq) return
     found.value = list
     selected.value = new Set(list.map((p) => p.path))
@@ -294,7 +294,7 @@ async function submit() {
         </ul>
       </div>
 
-      <!-- Cartella Dati Project Goal Manager -->
+      <!-- Cartella Dati Todo Doto -->
       <div>
         <label class="label flex items-center gap-1.5" for="ws-data"><Database :size="14" class="text-accent" /> {{ m.dataFolder }}</label>
         <div class="flex gap-2">

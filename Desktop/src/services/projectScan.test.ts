@@ -19,7 +19,7 @@ async function seed() {
   // Gestionale .NET WPF con documento di architettura
   await w('/progetti/Gestionale/Gestionale.csproj', '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><UseWPF>true</UseWPF></PropertyGroup></Project>')
   await w('/progetti/Gestionale/ARCHITETTURA.md', '# Gestionale\n\n## Prerequisiti\n\n- SQL Server\n')
-  // Non progetti: cartella vuota, node_modules, cartella nascosta, un workspace di Project Goal Manager
+  // Non progetti: cartella vuota, node_modules, cartella nascosta, un workspace di Todo Doto
   await w('/progetti/vuota/note.txt', 'appunti')
   await w('/progetti/node_modules/x/package.json', '{}')
   await w('/progetti/.cache/package.json', '{}')
@@ -63,7 +63,7 @@ describe('progetti esistenti in una cartella', () => {
     expect(tauri.frameworks).toEqual(['Tauri', 'React']) // nell'ordine delle dipendenze
     expect(tauri.platforms).toEqual(['desktop'])
     expect(tauri.steps.map((s) => s.command)).toEqual(['pnpm install', ''])
-    expect(tauri.prerequisites.map((p) => p.name)).toEqual(['Node.js', 'Rust', 'Visual Studio Build Tools'])
+    expect(tauri.prerequisites.map((p) => p.name)).toEqual(['Node.js', 'Rust', 'Visual Studio Build Tools', 'WebView2 Runtime'])
 
     const net = (await detectStack('/progetti/Gestionale')).stack
     expect(net.languages).toEqual(['C#', 'SQL']) // SQL citato nel documento di architettura (SQL Server)

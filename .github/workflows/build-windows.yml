@@ -1,11 +1,11 @@
-# Compila gli installer Windows di Project Goal Manager su un runner GitHub,
+# Compila gli installer Windows di Todo Doto su un runner GitHub,
 # uno per lingua (italiano e inglese: la lingua dell'app è decisa in fase di build).
 # Si avvia a ogni push su main, manualmente (Actions → Run workflow) e sui tag v*.
-# Risultato: artefatti "project-goal-manager-windows-<lingua>" con .msi, setup .exe
+# Risultato: artefatti "todo-doto-windows-<lingua>" con .msi, setup .exe
 # ed eseguibile portabile, con la lingua nel nome del file:
-#   Project-Goal-Manager_<versione>_x64_<lingua>.msi
-#   Project-Goal-Manager_<versione>_x64_<lingua>-setup.exe
-#   Project-Goal-Manager_<versione>_x64_<lingua>-portable.exe
+#   Todo-Doto_<versione>_x64_<lingua>.msi
+#   Todo-Doto_<versione>_x64_<lingua>-setup.exe
+#   Todo-Doto_<versione>_x64_<lingua>-portable.exe
 # La sezione download del sito cerca questi nomi nell'ultima Release.
 name: Build Windows
 
@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $base = "Project-Goal-Manager_${version}_x64_${{ matrix.lang }}"
+          $base = "Todo-Doto_${version}_x64_${{ matrix.lang }}"
           New-Item -ItemType Directory -Force release | Out-Null
           Get-ChildItem src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1 | Copy-Item -Destination "release/$base.msi"
           Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe | Select-Object -First 1 | Copy-Item -Destination "release/$base-setup.exe"
@@ -78,7 +78,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: project-goal-manager-windows-${{ matrix.lang }}
+          name: todo-doto-windows-${{ matrix.lang }}
           if-no-files-found: error
           path: Desktop/release/*
 
@@ -97,7 +97,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: project-goal-manager-windows-*
+          pattern: todo-doto-windows-*
           path: release
           merge-multiple: true
 

@@ -15,7 +15,7 @@ import { usePrereqChecks } from '@/composables/usePrereqChecks'
 import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
 import { parseGitHubRepo } from '@/services/github'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
-import { detectStack } from '@/services/projectScan'
+import { correctPrerequisites, detectStack } from '@/services/projectScan'
 import { useGitHubStore } from '@/stores/github'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -121,6 +121,7 @@ const m = defineMessages({
     detectHint: 'Rilegge la cartella del progetto (anche di rete) e aggiunge linguaggi, framework, prerequisiti e passi ricavati dai suoi file, senza cancellare nulla',
     detecting: 'Leggo i file del progetto…',
     detected: (parts: string) => `Dai file del progetto: ${parts}`,
+    corrected: (n: number) => `${n} ${plural(n, 'prerequisito corretto', 'prerequisiti corretti')}`,
     detectedNothing: 'Nessun dato nuovo dai file del progetto: lo stack era già completo, o la cartella non contiene file di progetto riconoscibili.',
     detectFailed: (err: string) => `Non riesco a leggere la cartella del progetto: ${err}`,
     detectEmpty: 'Linguaggi, framework e prerequisiti non sono ancora indicati: puoi ricavarli dai file della cartella del progetto.',
@@ -284,6 +285,7 @@ const m = defineMessages({
     detectHint: 'Reads the project folder again (network ones too) and adds the languages, frameworks, prerequisites and steps found in its files, without deleting anything',
     detecting: 'Reading the project files…',
     detected: (parts: string) => `From the project files: ${parts}`,
+    corrected: (n: number) => `${n} ${plural(n, 'prerequisite', 'prerequisites')} corrected`,
     detectedNothing: 'Nothing new from the project files: the stack was already complete, or the folder has no recognizable project files.',
     detectFailed: (err: string) => `Cannot read the project folder: ${err}`,
     detectEmpty: 'Languages, frameworks and prerequisites are not set yet: you can derive them from the files in the project folder.',
@@ -496,8 +498,10 @@ async function detectFromFolder() {
     const problem = await checkFolder(await getFs(), dir)
     if (problem) return ui.toast(m.detectFailed(problem), 'error', undefined, 8000)
     const det = await detectStack(dir)
-    const { stack: merged, added } = mergeStack(stack.value, det.stack)
-    const parts = m.mdParts(added)
+    // Prima si correggono i prerequisiti esistenti (versioni dichiarate, quelli che non servono), poi si aggiunge il nuovo
+    const { stack: fixed, corrected } = correctPrerequisites(stack.value, det)
+    const { stack: merged, added } = mergeStack(fixed, det.stack)
+    const parts = [m.mdParts(added), corrected ? m.corrected(corrected) : ''].filter(Boolean).join(', ')
     if (!parts) return ui.toast(m.detectedNothing, 'info', undefined, 6000)
     await ws.updateStack(props.project.id, { ...merged, sourcePath: stack.value.sourcePath })
     if (!props.project.description.trim() && det.description) await ws.updateProject(props.project.id, { description: det.description })

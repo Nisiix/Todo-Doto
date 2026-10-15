@@ -278,11 +278,13 @@ const EDITOR = defineMessages({
     title: 'Apri il progetto nell’editor',
     notes: 'Fine della configurazione: apri la cartella del progetto nel tuo editor (es. Visual Studio Code con «code .»).',
     solution: (file: string) => `Apri ${file} in Visual Studio`,
+    vb6: (file: string) => `Apri ${file} in Visual Basic 6.0`,
   },
   en: {
     title: 'Open the project in the editor',
     notes: 'End of the setup: open the project folder in your editor (e.g. Visual Studio Code with “code .”).',
     solution: (file: string) => `Open ${file} in Visual Studio`,
+    vb6: (file: string) => `Open ${file} in Visual Basic 6.0`,
   },
 })
 
@@ -312,7 +314,7 @@ export function setupOnly<T extends StepLike>(steps: T[], editor: () => T): T[] 
 }
 /** Passo finale "apri nell'editor" (con la soluzione Visual Studio, se nota). */
 export const editorStep = (solution?: string): StepLike => ({
-  title: solution ? EDITOR.solution(solution) : EDITOR.title,
+  title: solution ? (/\.vbp$/i.test(solution) ? EDITOR.vb6(solution) : EDITOR.solution(solution)) : EDITOR.title,
   kind: 'manual',
   command: '',
   cwd: '',
@@ -324,7 +326,8 @@ export const editorStep = (solution?: string): StepLike => ({
 export function platformsFor(frameworks: string[]): Platform[] {
   const t = new Set(frameworks.map(fold))
   const out: Platform[] = []
-  if (['tauri', 'electron', 'wpf', 'winforms', '.net maui'].some((x) => t.has(x))) out.push('desktop')
+  const desktop = ['tauri', 'electron', 'wpf', 'winforms', '.net maui', 'qt', 'pyqt', 'pyside', 'wxpython', 'kivy', 'tkinter', 'javafx', 'swing', 'fyne', 'wails', 'delphi', 'lazarus', 'visual basic 6', 'microsoft access', 'visual foxpro', 'powerbuilder', 'flutter desktop']
+  if (desktop.some((x) => t.has(x))) out.push('desktop')
   if (['vue 3', 'vue', 'react', 'angular', 'svelte', 'next.js', 'nuxt', 'astro'].some((x) => t.has(x)) && !out.includes('desktop')) out.push('web')
   if (['ionic', 'capacitor', 'react native', 'expo', 'flutter'].some((x) => t.has(x))) out.push('mobile')
   if (['express', 'nestjs', 'django', 'flask', 'fastapi', 'spring boot', 'asp.net core', 'laravel', 'symfony'].some((x) => t.has(x))) out.push('backend')

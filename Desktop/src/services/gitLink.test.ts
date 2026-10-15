@@ -20,6 +20,7 @@ const item = (over: Partial<Item>): Item => ({
   questions: [],
   seq: 0,
   closedByCommit: null,
+  confirmedAt: null,
   ...over,
 })
 const commit = (hash: string, message: string): GitCommit => ({ hash, author: 'Mario', date: '2026-10-15T10:00:00+02:00', message })
