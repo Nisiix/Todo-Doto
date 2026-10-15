@@ -10,6 +10,7 @@ import { useNotificationsStore } from './notifications'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { firstLine } from '@/services/items'
+import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
 import { mergeStack } from '@/services/stackDoc'
@@ -24,6 +25,7 @@ import type {
   Label,
   Project,
   Question,
+  ReadinessFile,
   Role,
   TreeFile,
   User,
@@ -37,6 +39,8 @@ export type OpenResult = { ok: true } | { ok: false; needsPassword: true } | { o
 export type WsStatus = 'closed' | 'opening' | 'locked' | 'open' | 'unreachable'
 
 const POLL_MS = 4000
+const BACKUP_FIRST_MS = 5000
+const BACKUP_CHECK_MS = 60 * 60_000
 
 export const useWorkspaceStore = defineStore('workspace', () => {
   const session = useSessionStore()
@@ -51,6 +55,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const tree = ref<TreeFile>({ folders: [], labels: [] })
   const drive = ref<DriveFile>({ schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] })
   const audit = ref<AuditEntry[]>([])
+  /** Copie di sicurezza presenti (la più recente per prima) ed eventuale errore dell'ultima automatica. */
+  const backups = ref<BackupInfo[]>([])
+  const backupError = ref<string | null>(null)
+  const backupBusy = ref(false)
+  /** Esito delle verifiche dei prerequisiti sui PC degli utenti (solo workspace di rete). */
+  const readiness = ref<Record<string, ReadinessFile>>({})
   const projects = ref<Record<string, Project>>({})
   const lastError = ref<string | null>(null)
   /** La password del workspace di rete è ricordata (cifrata) su questo PC per questo utente. */
@@ -58,6 +68,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   let signature: Signature = {}
   let pollTimer: number | null = null
+  let backupTimer: number | null = null
   let unwatch: (() => void) | null = null
   let refreshing: Promise<void> | null = null
   let refreshQueued = false
@@ -99,6 +110,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function canSee(p: Project) {
     const me = currentUser.value?.id
     return isAdmin.value || projectVisibility(p) === 'public' || (me !== undefined && p.members.includes(me))
+  }
+  /** Un utente qualsiasi (non solo quello corrente) vede il progetto? */
+  function canUserSee(u: Pick<User, 'id' | 'role'>, p: Project) {
+    return meta.value?.mode === 'local' || u.role === 'admin' || projectVisibility(p) === 'public' || p.members.includes(u.id)
   }
   const accessibleProjects = computed(() => Object.values(projects.value).filter(canSee))
   /** Progetti attivi (non nel cestino), in ordine alfabetico. */
@@ -192,6 +207,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     tree.value = await s.readTree()
     drive.value = await s.readDrive()
     audit.value = (await s.readAudit()).entries
+    readiness.value = meta.value?.mode === 'network' ? await s.readAllReadiness().catch(() => ({})) : {}
+    backups.value = await s.listBackups(await s.backupDir(meta.value!)).catch(() => [])
+    backupError.value = null
     const ids = await s.listProjectIds()
     const loaded = await Promise.all(ids.map((id) => s.readProject(id).catch(() => null)))
     projects.value = Object.fromEntries(loaded.filter((p): p is Project => !!p).map((p) => [p.id, p]))
@@ -233,6 +251,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     tree.value = { folders: [], labels: [] }
     drive.value = { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] }
     audit.value = []
+    readiness.value = {}
+    backups.value = []
+    backupError.value = null
     notifications.clearSession()
     projects.value = {}
     signature = {}
@@ -264,6 +285,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         createdAt: nowIso(),
         auth: opts.mode === 'network' && opts.password ? await hashPassword(opts.password) : null,
         projectsPath: opts.projectsPath?.trim() ?? '',
+        backup: { enabled: true, dir: '' },
       }
       await s.create(m, { users: [admin] })
       if (m.auth && opts.password && opts.rememberPassword !== false) await rememberPassword(m.id, opts.password, session.localSecret)
@@ -277,12 +299,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function startWatching() {
     stopWatching()
     pollTimer = window.setInterval(() => void refresh(), POLL_MS)
+    // Copia automatica: poco dopo l'apertura, poi un controllo ogni ora (si fa solo se dovuta)
+    backupTimer = window.setTimeout(function tick() {
+      void maybeAutoBackup()
+      backupTimer = window.setTimeout(tick, BACKUP_CHECK_MS)
+    }, BACKUP_FIRST_MS)
     void storage.value?.watch(() => void refresh()).then((u) => (unwatch = u))
     window.addEventListener('focus', onFocus)
   }
   function stopWatching() {
     if (pollTimer) clearInterval(pollTimer)
     pollTimer = null
+    if (backupTimer) clearTimeout(backupTimer)
+    backupTimer = null
     unwatch?.()
     unwatch = null
     window.removeEventListener('focus', onFocus)
@@ -352,6 +381,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           const v = await s.readDrive()
           if (stale()) continue
           drive.value = v
+        } else if (key.startsWith('readiness/')) {
+          const id = key.slice('readiness/'.length)
+          const v = next[key] ? await s.readReadiness(id).catch(() => null) : null
+          if (stale()) continue
+          const copy = { ...readiness.value }
+          if (v) copy[id] = v
+          else delete copy[id]
+          readiness.value = copy
         } else if (key === 'audit.json') {
           const v = (await s.readAudit()).entries
           if (stale()) continue
@@ -450,6 +487,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       markLocalWrite(`projects/${id}`) // forza il ricalcolo alla prossima firma senza segnalare "remoto"
       return fresh
     })
+  }
+
+  /** Pubblica l'esito delle verifiche di questo PC (solo il file dell'utente corrente). */
+  async function writeMyReadiness(f: ReadinessFile) {
+    const s = storage.value
+    if (!s || !isNetwork.value || f.userId !== currentUser.value?.id) return
+    try {
+      await s.writeReadiness(f)
+      readiness.value = { ...readiness.value, [f.userId]: f }
+      markLocalWrite(`readiness/${f.userId}`)
+    } catch (e) {
+      lastError.value = describe(e) // non bloccante: si riprova alla prossima verifica
+    }
   }
 
   /** Sostituisce il file Drive del workspace (struttura sincronizzata). */
@@ -926,6 +976,116 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   /** Cambia la cartella dei progetti del workspace (admin). */
+  // --- copie di sicurezza ------------------------------------------------------------
+
+  async function refreshBackups() {
+    const s = storage.value
+    if (!s || !meta.value) return
+    try {
+      backups.value = await s.listBackups(await s.backupDir(meta.value))
+    } catch {
+      backups.value = []
+    }
+  }
+
+  async function bundle(reason: BackupReason): Promise<BackupBundle> {
+    const content = await storage.value!.snapshot()
+    return {
+      format: 'pgm-backup',
+      version: 1,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.value?.displayName ?? session.identity.username,
+      host: session.identity.hostname,
+      reason,
+      ...content,
+    }
+  }
+
+  /** Copia automatica: la fa il primo PC che trova l'ultima più vecchia di un giorno. */
+  async function maybeAutoBackup() {
+    const s = storage.value
+    if (!s || !meta.value?.backup.enabled || status.value !== 'open' || backupBusy.value) return
+    backupBusy.value = true
+    try {
+      await s.createBackup(await s.backupDir(meta.value), await bundle('auto'), true)
+      backupError.value = null
+    } catch (e) {
+      backupError.value = describe(e)
+    } finally {
+      backupBusy.value = false
+      await refreshBackups()
+    }
+  }
+
+  /** "Crea copia ora" (amministratori). Restituisce il nome del file. */
+  async function createBackupNow(reason: Extract<BackupReason, 'manual' | 'prerestore'> = 'manual') {
+    const s = storage.value
+    if (!s || !meta.value || !isAdmin.value) return null
+    const name = await s.createBackup(await s.backupDir(meta.value), await bundle(reason), false)
+    await refreshBackups()
+    return name
+  }
+
+  async function setBackupSettings(b: { enabled: boolean; dir: string }) {
+    const s = storage.value
+    if (!s || !meta.value || !isAdmin.value) return
+    await guard(async () => {
+      meta.value = await s.mutateMeta((x) => void (x.backup = { enabled: b.enabled, dir: b.dir.trim() }))
+      markLocalWrite('workspace.json')
+    })
+    await refreshBackups()
+  }
+
+  async function readBackup(name: string) {
+    const s = storage.value!
+    return s.readBackup(await s.backupDir(meta.value!), name)
+  }
+
+  /**
+   * Ripristina da una copia: tutto il workspace, o un solo progetto. Prima si
+   * crea una copia dello stato attuale ("prima del ripristino"), così anche il
+   * ripristino si può annullare. I progetti ripristinati prendono una versione
+   * più alta di quella attuale, così tutti i PC li adottano.
+   */
+  async function restoreBackup(name: string, projectId?: string) {
+    const s = storage.value
+    if (!s || !meta.value || !isAdmin.value) return false
+    const b = await readBackup(name)
+    await createBackupNow('prerestore')
+    const me = currentUser.value?.id ?? 'unknown'
+    const bump = (p: Project): Project => ({ ...p, version: Math.max(p.version, projects.value[p.id]?.version ?? 0) + 1, updatedAt: nowIso(), updatedBy: me })
+    if (projectId) {
+      const p = b.projects.find((x) => x.id === projectId)
+      if (!p) return false
+      await s.restoreProject(bump(p))
+      await reloadFromDisk()
+      await record('project_restored', p)
+    } else {
+      await s.restoreAll({ ...b, projects: b.projects.map(bump) }, { auth: meta.value.auth, backup: meta.value.backup })
+      await reloadFromDisk()
+    }
+    return true
+  }
+
+  /** Rilegge tutto dal disco (dopo un ripristino lo stato in memoria non vale più). */
+  async function reloadFromDisk() {
+    const s = storage.value
+    if (!s) return
+    writeGen++
+    meta.value = await s.readMeta()
+    users.value = (await s.readUsers()).users
+    await ensureCurrentUser()
+    tree.value = await s.readTree()
+    drive.value = await s.readDrive()
+    audit.value = (await s.readAudit()).entries
+    readiness.value = meta.value.mode === 'network' ? await s.readAllReadiness().catch(() => ({})) : {}
+    const ids = await s.listProjectIds()
+    const loaded = await Promise.all(ids.map((id) => s.readProject(id).catch(() => null)))
+    projects.value = Object.fromEntries(loaded.filter((p): p is Project => !!p).map((p) => [p.id, p]))
+    signature = await s.signature()
+    ui.selectedItemId = null
+  }
+
   async function setProjectsPath(path: string) {
     const s = storage.value
     if (!s || !meta.value || !isAdmin.value) return
@@ -990,6 +1150,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     projects,
     lastError,
     passwordRemembered,
+    readiness,
+    canUserSee,
+    backups,
+    backupError,
+    backupBusy,
+    refreshBackups,
+    maybeAutoBackup,
+    createBackupNow,
+    setBackupSettings,
+    readBackup,
+    restoreBackup,
+    writeMyReadiness,
     currentUser,
     isAdmin,
     isNetwork,

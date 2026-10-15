@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { FolderOpen, KeyRound, Lock } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, FolderOpen, KeyRound, Lock } from 'lucide-vue-next'
+import dayjs from 'dayjs'
+import RestoreDialog from './RestoreDialog.vue'
 import { getFs } from '@/services/fs'
 import { samePath } from '@/services/projectScan'
 import { checkFolder } from '@/services/fsErrors'
@@ -37,6 +39,19 @@ const m = defineMessages({
     reopenLast: 'All’avvio riapri l’ultimo workspace',
     notifications: 'Notifiche',
     notificationsHint: 'Novità sui progetti di cui fai parte, fatte da altri utenti. Scegli cosa ricevere.',
+    backupSection: 'Copie di sicurezza',
+    backupEnabled: 'Crea una copia dei dati ogni giorno (in automatico)',
+    backupHint: 'Copia i dati di Project Goal Manager (progetti, task, cartelle, etichette, utenti, cronologia), non i file dei progetti. Si tengono 7 copie giornaliere e 4 settimanali. La fa il primo PC che apre il workspace.',
+    backupDir: 'Cartella delle copie',
+    backupDirDefault: 'Cartella Dati › backups',
+    backupDirHint: 'Meglio un altro disco o un altro server: la copia nella cartella Dati protegge dagli errori, non dai guasti del disco.',
+    pickBackupDir: 'Scegli la cartella delle copie',
+    backupLast: (when: string, n: number) => `Ultima copia: ${when} · ${n} ${n === 1 ? 'copia' : 'copie'} conservate`,
+    backupNone: 'Nessuna copia ancora.',
+    backupFailed: (e: string) => `Ultima copia automatica non riuscita: ${e}`,
+    backupNow: 'Crea copia ora',
+    backupDone: 'Copia creata',
+    restore: 'Ripristina…',
     pwSection: 'Password del workspace',
     pwRemembered: 'Ricordata su questo PC, cifrata per il tuo utente Windows: l’accesso avviene senza chiederla.',
     pwNotRemembered: 'Non ricordata su questo PC: ti viene chiesta a ogni apertura del workspace. Per farla ricordare, spunta l’opzione al prossimo accesso.',
@@ -68,6 +83,19 @@ const m = defineMessages({
     reopenLast: 'Reopen the last workspace on startup',
     notifications: 'Notifications',
     notificationsHint: 'Updates on the projects you belong to, made by other users. Choose what to receive.',
+    backupSection: 'Backups',
+    backupEnabled: 'Back up the data every day (automatically)',
+    backupHint: 'Backs up the Project Goal Manager data (projects, tasks, folders, labels, users, history), not the project files. 7 daily and 4 weekly backups are kept. The first PC that opens the workspace makes it.',
+    backupDir: 'Backup folder',
+    backupDirDefault: 'Data folder › backups',
+    backupDirHint: 'Another disk or server is better: a backup in the data folder protects against mistakes, not against disk failures.',
+    pickBackupDir: 'Choose the backup folder',
+    backupLast: (when: string, n: number) => `Last backup: ${when} · ${n} ${n === 1 ? 'backup' : 'backups'} kept`,
+    backupNone: 'No backups yet.',
+    backupFailed: (e: string) => `Last automatic backup failed: ${e}`,
+    backupNow: 'Back up now',
+    backupDone: 'Backup created',
+    restore: 'Restore…',
     pwSection: 'Workspace password',
     pwRemembered: 'Remembered on this PC, encrypted for your Windows user: you get in without being asked.',
     pwNotRemembered: 'Not remembered on this PC: you are asked for it every time you open the workspace. To have it remembered, tick the option on your next access.',
@@ -101,6 +129,25 @@ const pw1 = ref('')
 const pw2 = ref('')
 const pwMsg = ref('')
 const reopenLast = ref(true)
+const backupEnabled = ref(true)
+const backupDir = ref('')
+const backupMsg = ref('')
+const showRestore = ref(false)
+async function pickBackupDir() {
+  const p = await (await getFs()).pickFolder(m.pickBackupDir)
+  if (!p) return
+  backupDir.value = p
+  backupMsg.value = (await checkFolder(await getFs(), p, { write: true })) ?? ''
+}
+async function backupNow() {
+  try {
+    await ws.createBackupNow()
+    ui.toast(m.backupDone, 'success', undefined, 2500)
+  } catch (e) {
+    backupMsg.value = e instanceof Error ? e.message : String(e)
+  }
+}
+const lastBackup = computed(() => ws.backups[0] ?? null)
 
 watch(open, (o) => {
   if (!o) return
@@ -111,6 +158,10 @@ watch(open, (o) => {
   displayName.value = ws.currentUser?.displayName ?? ''
   pw1.value = pw2.value = pwMsg.value = ''
   reopenLast.value = session.config.reopenLast
+  backupEnabled.value = ws.meta?.backup.enabled ?? true
+  backupDir.value = ws.meta?.backup.dir ?? ''
+  backupMsg.value = ''
+  void ws.refreshBackups()
 })
 
 async function save() {
@@ -120,6 +171,13 @@ async function save() {
     const problem = await checkFolder(await getFs(), projectsPath.value)
     if (problem) return (folderMsg.value = problem)
     await ws.setProjectsPath(projectsPath.value)
+  }
+  if (ws.isAdmin && (backupEnabled.value !== ws.meta?.backup.enabled || backupDir.value.trim() !== ws.meta?.backup.dir)) {
+    if (backupDir.value.trim()) {
+      const problem = await checkFolder(await getFs(), backupDir.value, { write: true })
+      if (problem) return (backupMsg.value = problem)
+    }
+    await ws.setBackupSettings({ enabled: backupEnabled.value, dir: backupDir.value })
   }
   if (displayName.value.trim() && displayName.value.trim() !== ws.currentUser?.displayName) await ws.renameSelf(displayName.value)
   if (reopenLast.value !== session.config.reopenLast) {
@@ -199,6 +257,28 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
+      <section v-if="ws.isAdmin" aria-labelledby="s-backup-title" data-backup-settings>
+        <span id="s-backup-title" class="label">{{ m.backupSection }}</span>
+        <label class="flex items-center gap-2 text-[13.5px]">
+          <input v-model="backupEnabled" type="checkbox" class="accent-accent" />
+          {{ m.backupEnabled }}
+        </label>
+        <p class="mt-1 text-[12px] text-ink-3">{{ m.backupHint }}</p>
+        <label class="label mt-3" for="s-backup-dir">{{ m.backupDir }}</label>
+        <div class="flex gap-2">
+          <input id="s-backup-dir" v-model="backupDir" class="field font-mono text-[12.5px]" :placeholder="m.backupDirDefault" />
+          <BaseButton :aria-label="m.pickBackupDir" @click="pickBackupDir"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
+        </div>
+        <p class="mt-1 text-[12px]" :class="backupMsg ? 'text-danger' : 'text-ink-3'">{{ backupMsg || m.backupDirHint }}</p>
+        <div class="mt-3 flex flex-wrap items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
+          <p class="min-w-0 flex-1 text-[12.5px]" :class="ws.backupError ? 'text-danger' : 'text-ink-2'" data-backup-status>
+            {{ ws.backupError ? m.backupFailed(ws.backupError) : lastBackup ? m.backupLast(dayjs(lastBackup.at).fromNow(), ws.backups.length) : m.backupNone }}
+          </p>
+          <BaseButton size="sm" variant="ghost" @click="backupNow"><Archive :size="13" /> {{ m.backupNow }}</BaseButton>
+          <BaseButton size="sm" variant="ghost" :disabled="!ws.backups.length" @click="showRestore = true"><ArchiveRestore :size="13" /> {{ m.restore }}</BaseButton>
+        </div>
+      </section>
+
       <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-pw-title">
         <span id="s-pw-title" class="label">{{ m.pwSection }}</span>
         <div class="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2">
@@ -223,4 +303,5 @@ const themes: { value: Theme; label: string }[] = [
       <BaseButton variant="primary" @click="save">{{ common.actions.save }}</BaseButton>
     </template>
   </BaseDialog>
+  <RestoreDialog v-model:open="showRestore" />
 </template>

@@ -8,6 +8,8 @@ import { NOTIFICATION_TYPES, type AuditEntry, type Notification, type Notificati
 import { common } from '@/i18n/common'
 
 const MAX = 300
+/** Chiavi ricordate (per non ricreare notizie già ricevute, anche se eliminate). */
+const MAX_KEYS = 2000
 
 /**
  * Notifiche interne, per macchina, conservate in localStorage per workspace+utente.
@@ -25,6 +27,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const open = ref(false)
   let storageKey = ''
   let seenKey = ''
+  let keysKey = ''
+  /** Chiavi delle notizie già trasformate in notifica (lette, non lette o eliminate). */
+  let keys = new Set<string>()
   /** Ultimo istante in cui questo utente ha visto il workspace aggiornato (ISO). */
   let lastSeen = ''
 
@@ -35,13 +40,17 @@ export const useNotificationsStore = defineStore('notifications', () => {
   function load(workspaceId: string, userId: string) {
     storageKey = `pgm:notif:${workspaceId}:${userId}`
     seenKey = `pgm:notif-seen:${workspaceId}:${userId}`
+    keysKey = `pgm:notif-keys:${workspaceId}:${userId}`
     try {
       items.value = JSON.parse(localStorage.getItem(storageKey) ?? '[]') as Notification[]
       lastSeen = localStorage.getItem(seenKey) ?? ''
+      keys = new Set(JSON.parse(localStorage.getItem(keysKey) ?? '[]') as string[])
     } catch {
       items.value = []
       lastSeen = ''
+      keys = new Set()
     }
+    for (const n of items.value) keys.add(n.key ?? n.id)
   }
   /** Da chiamare a ogni aggiornamento riuscito: tutto ciò che è prima di "ora" è stato visto. */
   function touchSeen(at = new Date().toISOString()) {
@@ -57,6 +66,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     if (!storageKey) return
     try {
       localStorage.setItem(storageKey, JSON.stringify(items.value.slice(0, MAX)))
+      localStorage.setItem(keysKey, JSON.stringify([...keys].slice(-MAX_KEYS)))
     } catch {
       /* spazio esaurito o storage non disponibile: le notifiche restano in memoria */
     }
@@ -65,7 +75,40 @@ export const useNotificationsStore = defineStore('notifications', () => {
     items.value = []
     storageKey = ''
     seenKey = ''
+    keysKey = ''
+    keys = new Set()
     lastSeen = ''
+  }
+
+  /**
+   * Aggiunge notifiche nuove scartando quelle la cui chiave è già nota: una
+   * notizia già ricevuta non torna mai "nuova", anche se nel frattempo la
+   * notifica è stata letta o eliminata.
+   */
+  function add(list: Notification[]) {
+    const fresh = list.filter((n) => {
+      const k = n.key ?? n.id
+      if (keys.has(k)) return false
+      keys.add(k)
+      return true
+    })
+    if (fresh.length) {
+      items.value = [...fresh, ...items.value].slice(0, MAX)
+      persist()
+    }
+    return fresh.length
+  }
+
+  /** Notifica dell'app (non di un collega), con chiave di deduplica. */
+  function notifySystem(n: Omit<Notification, 'id' | 'at' | 'read' | 'byId'> & { key: string }) {
+    if (!isEnabled(n.type)) return 0
+    return add([{ ...n, id: nanoid(10), at: new Date().toISOString(), byId: '', read: false }])
+  }
+  /** Dimentica le chiavi che iniziano con `prefix`: la notizia potrà essere notificata di nuovo. */
+  function forgetKeys(prefix: string) {
+    let changed = false
+    for (const k of keys) if (k.startsWith(prefix)) changed = keys.delete(k) || changed
+    if (changed) persist()
   }
 
   /** Mappa azione della cronologia → tipo di notifica e testo. */
@@ -96,14 +139,11 @@ export const useNotificationsStore = defineStore('notifications', () => {
       if (!map || !isEnabled(map.type)) continue
       const id = `aud:${e.id}`
       if (known.has(id)) continue
-      fresh.push({ id, at: e.at, type: map.type, projectId: e.projectId, projectName: e.projectName, itemId: e.itemId, itemTitle: e.itemTitle ?? '', byId: e.userId, text: map.text, read: false })
+      fresh.push({ id, key: id, at: e.at, type: map.type, projectId: e.projectId, projectName: e.projectName, itemId: e.itemId, itemTitle: e.itemTitle ?? '', byId: e.userId, text: map.text, read: false })
     }
-    if (fresh.length) {
-      items.value = [...fresh.sort((a, b) => b.at.localeCompare(a.at)), ...items.value].slice(0, MAX)
-      persist()
-    }
+    const n = add(fresh.sort((a, b) => b.at.localeCompare(a.at)))
     touchSeen()
-    return fresh.length
+    return n
   }
 
   /** Trasforma le modifiche di un progetto in notifiche, rispettando le preferenze. */
@@ -120,6 +160,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
       if (!isEnabled(type) && !(mentioned && type !== 'assigned' && isEnabled('mention'))) continue
       fresh.push({
         id: nanoid(10),
+        // Stessa versione del progetto, stesso tipo, stesso elemento e testo: è la stessa notizia
+        key: `chg:${project.id}:${project.version}:${type}:${c.itemId}:${c.byId}:${c.text.length}`,
         at: new Date().toISOString(),
         type,
         projectId: project.id,
@@ -131,11 +173,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         read: false,
       })
     }
-    if (fresh.length) {
-      items.value = [...fresh.reverse(), ...items.value].slice(0, MAX)
-      persist()
-    }
-    return fresh.length
+    return add(fresh.reverse())
   }
 
   function markAllRead() {
@@ -149,6 +187,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
       persist()
     }
   }
+  /** Elimina una notifica (la notizia resta "nota": non ricompare). */
+  function remove(id: string) {
+    items.value = items.value.filter((n) => n.id !== id)
+    persist()
+  }
+  /** Elimina tutte le notifiche (le notizie restano "note": non ricompaiono). */
   function clear() {
     items.value = []
     persist()
@@ -161,5 +205,5 @@ export const useNotificationsStore = defineStore('notifications', () => {
     await saveConfig(session.config)
   }
 
-  return { items, unread, open, isEnabled, load, touchSeen, clearSession, ingest, ingestAudit, markAllRead, markRead, clear, setEnabled }
+  return { items, unread, open, isEnabled, load, touchSeen, clearSession, ingest, ingestAudit, notifySystem, forgetKeys, markAllRead, markRead, remove, clear, setEnabled }
 })

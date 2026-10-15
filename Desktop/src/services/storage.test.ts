@@ -12,6 +12,7 @@ const meta: WorkspaceMeta = {
   createdAt: '2026-01-01T00:00:00.000Z',
   auth: null,
   projectsPath: '',
+  backup: { enabled: true, dir: '' },
 }
 const users: UsersFile = {
   users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt }],
@@ -267,6 +268,20 @@ describe('WorkspaceStorage: eliminazione dei dati', () => {
     expect(await fs.exists('/dati2/projects/sotto/file.txt')).toBe(true)
   })
 
+  it('cancella anche gli esiti della configurazione e le copie nella cartella predefinita, solo quelli dell’app', async () => {
+    const s = await freshWorkspace('/dati4')
+    const fs = await getFs()
+    await s.writeReadiness({ userId: 'usr_1', host: 'PC', os: 'windows', updatedAt: '2026-10-15T00:00:00.000Z', projects: {} })
+    await fs.writeTextAtomic('/dati4/readiness/appunti.json', '{"mio":true}')
+    await fs.writeBinary('/dati4/backups/pgm-20261015-080000-auto.pgmbackup', new Uint8Array([1, 2, 3]))
+    await fs.writeTextAtomic('/dati4/backups/leggimi.txt', 'mio')
+    await WorkspaceStorage.deleteData('/dati4')
+    expect(await fs.exists('/dati4/readiness/usr_1.json')).toBe(false)
+    expect(await fs.exists('/dati4/backups/pgm-20261015-080000-auto.pgmbackup')).toBe(false)
+    expect(await fs.readText('/dati4/readiness/appunti.json')).toBe('{"mio":true}')
+    expect(await fs.readText('/dati4/backups/leggimi.txt')).toBe('mio')
+  })
+
   it('su una cartella che non è un workspace non fa nulla', async () => {
     const fs = await getFs()
     await fs.writeTextAtomic('/altro/users.json', '{}')
@@ -286,7 +301,7 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
     let fileStats = 0
     fs.stat = async (p: string) => {
       const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
-      if (n === '/rapido' || n === '/rapido/projects') return { mtimeMs: dirTime, size: 0 }
+      if (n === '/rapido' || n === '/rapido/projects' || n === '/rapido/readiness') return { mtimeMs: dirTime, size: 0 }
       fileStats++
       return original(p)
     }
@@ -294,7 +309,7 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
       const first = await s.signature()
       expect(fileStats).toBeGreaterThan(0)
       fileStats = 0
-      // Nessun cambiamento: due sole richieste (le cartelle), stessa firma
+      // Nessun cambiamento: solo le richieste per le cartelle, stessa firma
       expect(await s.signature()).toEqual(first)
       expect(fileStats).toBe(0)
       // Una scrittura cambia la data della cartella: si ricalcola tutto e si vede la modifica

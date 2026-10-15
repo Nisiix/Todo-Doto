@@ -37,7 +37,7 @@ const m = defineMessages({
     deleteData: 'Elimina i dati di Project Goal Manager',
     deleteTitle: (n: string) => `Eliminare i dati del workspace «${n}»?`,
     deleteMessage: (data: string, projects: string) =>
-      `Vengono cancellati i dati di Project Goal Manager in ${data}: elenco dei progetti, task, commenti, stack, cronologia. ` +
+      `Vengono cancellati i dati di Project Goal Manager in ${data}: elenco dei progetti, task, commenti, stack, cronologia e le copie di sicurezza nella cartella Dati (quelle in un’altra cartella restano). ` +
       (projects ? `La cartella dei progetti (${projects}) e i loro file non vengono toccati. ` : 'I file dei progetti non vengono toccati. ') +
       'Non si può annullare.',
     deleteConfirm: 'Elimina i dati',
@@ -62,7 +62,7 @@ const m = defineMessages({
     deleteData: 'Delete the Project Goal Manager data',
     deleteTitle: (n: string) => `Delete the data of the workspace “${n}”?`,
     deleteMessage: (data: string, projects: string) =>
-      `The Project Goal Manager data in ${data} is deleted: project list, tasks, comments, stack, activity log. ` +
+      `The Project Goal Manager data in ${data} is deleted: project list, tasks, comments, stack, activity log and the backups in the data folder (those in another folder stay). ` +
       (projects ? `The projects folder (${projects}) and its files are not touched. ` : 'The project files are not touched. ') +
       'This cannot be undone.',
     deleteConfirm: 'Delete data',

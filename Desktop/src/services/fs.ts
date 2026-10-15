@@ -34,6 +34,8 @@ export interface FileStat {
 export interface FsApi {
   readText(path: string): Promise<string>
   readBinary(path: string): Promise<Uint8Array>
+  /** Scrive un file binario nuovo (temporaneo + rename): usato per le copie di sicurezza. */
+  writeBinary(path: string, data: Uint8Array): Promise<void>
   writeTextAtomic(path: string, text: string): Promise<void>
   /**
    * Crea il file solo se non esiste già, in un'unica operazione atomica (anche
@@ -104,6 +106,16 @@ async function tauriFs(): Promise<FsApi> {
   const api: FsApi = {
     readText: (p) => fs.readTextFile(p),
     readBinary: (p) => fs.readFile(p),
+    async writeBinary(p, data) {
+      const tmp = `${p}.${Math.random().toString(36).slice(2, 8)}.tmp`
+      await fs.writeFile(tmp, data)
+      try {
+        await fs.rename(tmp, p)
+      } catch (e) {
+        await fs.remove(tmp).catch(() => {})
+        throw e
+      }
+    },
     async writeTextAtomic(p, text) {
       // File temporaneo + rename: chi legge vede il file vecchio o quello nuovo, mai uno a metà.
       const tmp = `${p}.${Math.random().toString(36).slice(2, 8)}.tmp`
@@ -212,7 +224,7 @@ async function tauriFs(): Promise<FsApi> {
     allowed.add(root.toLowerCase())
     await invoke('allow_paths', { paths: [root] }).catch(() => {})
   }
-  const PATH_METHODS = ['readText', 'readBinary', 'writeTextAtomic', 'createExclusive', 'exists', 'mkdir', 'listDir', 'readDir', 'remove', 'stat', 'watchDir'] as const
+  const PATH_METHODS = ['readText', 'readBinary', 'writeBinary', 'writeTextAtomic', 'createExclusive', 'exists', 'mkdir', 'listDir', 'readDir', 'remove', 'stat', 'watchDir'] as const
   for (const name of PATH_METHODS) {
     const original = api[name] as (p: string, ...rest: unknown[]) => Promise<unknown>
     ;(api as unknown as Record<string, unknown>)[name] = async (p: string, ...rest: unknown[]) => {
@@ -228,7 +240,7 @@ async function tauriFs(): Promise<FsApi> {
 // ---------------------------------------------------------------------------
 
 function memoryFs(): FsApi {
-  const files = new Map<string, { text: string; mtimeMs: number }>()
+  const files = new Map<string, { text: string; mtimeMs: number; bytes?: Uint8Array }>()
   const listeners = new Map<string, Set<() => void>>()
   const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '')
   const notify = (p: string) => {
@@ -238,12 +250,16 @@ function memoryFs(): FsApi {
     async readText(p) {
       const f = files.get(norm(p))
       if (!f) throw new Error(common.fileNotFound(p))
-      return f.text
+      return f.bytes ? new TextDecoder().decode(f.bytes) : f.text
     },
     async readBinary(p) {
       const f = files.get(norm(p))
       if (!f) throw new Error(common.fileNotFound(p))
-      return new TextEncoder().encode(f.text)
+      return f.bytes ? new Uint8Array(f.bytes) : new TextEncoder().encode(f.text)
+    },
+    async writeBinary(p, data) {
+      files.set(norm(p), { text: '', bytes: new Uint8Array(data), mtimeMs: Date.now() })
+      notify(norm(p))
     },
     async writeTextAtomic(p, text) {
       files.set(norm(p), { text, mtimeMs: Date.now() })
@@ -293,7 +309,7 @@ function memoryFs(): FsApi {
     },
     async stat(p) {
       const f = files.get(norm(p))
-      return f ? { mtimeMs: f.mtimeMs, size: f.text.length } : null
+      return f ? { mtimeMs: f.mtimeMs, size: f.bytes?.length ?? f.text.length } : null
     },
     async watchDir(p, cb) {
       const n = norm(p)

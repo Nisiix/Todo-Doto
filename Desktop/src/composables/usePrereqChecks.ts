@@ -1,7 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { useEventListener } from '@vueuse/core'
 import { getFs, isTauri, type CheckOutput } from '@/services/fs'
-import { currentOs, fallbackResult, interpretCheck, planCheck, precheck, withMissingNote, type CheckResult } from '@/services/prereqCheck'
+import { currentOs, fallbackResult, interpretCheck, planCheck, precheck, withMissingNote, type CheckResult, type OsName } from '@/services/prereqCheck'
 import type { Prerequisite } from '@/types'
 
 /** Esiti dei comandi già eseguiti, condivisi fra i progetti (stesso comando ⇒ stesso esito). */
@@ -23,6 +23,30 @@ function runCached(command: string, force: boolean): Promise<CheckOutput> {
 }
 
 /**
+ * Verifica di un prerequisito su questo PC: piano, controllo preliminare,
+ * comando (con la cache condivisa), seconda verifica se non trovato. È la
+ * stessa usata dallo Stack e dalla verifica in background di tutti i progetti.
+ * I comandi personalizzati partono solo se confermati in questa sessione.
+ */
+export async function checkPrerequisite(p: Prerequisite, os: OsName, force = false): Promise<CheckResult> {
+  const plan = planCheck(p, os)
+  const pre = precheck(plan, os, { desktop: isTauri || hasFakeChecks(), confirmed: confirmedCommands.value.has(plan.command) })
+  if (pre) return pre
+  try {
+    let result = interpretCheck(await runCached(plan.command, force), plan, p.version)
+    // Non trovato: seconda verifica (percorso d'installazione standard o comando alternativo)
+    if (result.status === 'missing' && plan.fallback) {
+      // Se la seconda verifica non parte nemmeno, resta il primo esito
+      const fbRun = await runCached(plan.fallback, force).catch(() => null)
+      if (fbRun) result = fallbackResult(result, interpretCheck(fbRun, { ...plan, command: plan.fallback }, p.version), plan)
+    }
+    return withMissingNote(result, plan)
+  } catch (e) {
+    return { status: 'failed', version: '', command: plan.command, output: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/**
  * Verifica automatica dei prerequisiti di uno stack sul PC di chi lo apre:
  * esegue i controlli all'apertura, quando cambiano i prerequisiti e quando si
  * torna sulla finestra (es. dopo aver installato qualcosa).
@@ -41,19 +65,7 @@ export function usePrereqChecks(prereqs: Ref<Prerequisite[]>) {
       return
     }
     checking.value = new Set(checking.value).add(p.id)
-    let result: CheckResult
-    try {
-      result = interpretCheck(await runCached(plan.command, force), plan, p.version)
-      // Non trovato: seconda verifica (percorso d'installazione standard o comando alternativo)
-      if (result.status === 'missing' && plan.fallback) {
-        // Se la seconda verifica non parte nemmeno, resta il primo esito
-        const fbRun = await runCached(plan.fallback, force).catch(() => null)
-        if (fbRun) result = fallbackResult(result, interpretCheck(fbRun, { ...plan, command: plan.fallback }, p.version), plan)
-      }
-      result = withMissingNote(result, plan)
-    } catch (e) {
-      result = { status: 'failed', version: '', command: plan.command, output: e instanceof Error ? e.message : String(e) }
-    }
+    const result = await checkPrerequisite(p, os, force)
     if (gen !== generation) return
     results.value = { ...results.value, [p.id]: result }
     const next = new Set(checking.value)

@@ -981,3 +981,109 @@ test('stack: «Rileva dai file del progetto» ricava lo stack anche dalle sottoc
   await page.locator('[data-detect-stack]').click()
   await expect(page.getByText(/Nessun dato nuovo dai file del progetto/)).toBeVisible()
 })
+
+test('configurazione del PC: banner rosso con «Visualizza», notifica locale e gestione delle notifiche', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', 'Team')
+  await pickWorkspaceFolders(page)
+  await page.getByText('Condiviso in rete').click()
+  await page.fill('#ws-pw', 'segreto1')
+  await page.fill('#ws-pw2', 'segreto1')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Team' })).toBeVisible()
+  await createProject(page, 'Portale')
+
+  // Stack con Node.js come prerequisito; su questo PC manca
+  await fakeChecks(page, { 'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" } })
+  await openSection(page, 'Stack')
+  await expect(page.locator('[data-readiness-banner]')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Salva' }).click()
+  await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'missing')
+
+  // Banner rosso con «Visualizza»: elenca solo chi ha la configurazione incompleta
+  const banner = page.locator('[data-readiness-banner]')
+  await expect(banner).toContainText('1 utente ha una configurazione incompleta per questo progetto')
+  await banner.getByRole('button', { name: 'Visualizza' }).click()
+  await expect(dialog(page).locator('[data-readiness-list] > li')).toHaveCount(1)
+  await expect(dialog(page)).toContainText('anteprima')
+  await expect(dialog(page)).toContainText('Node.js — non installato')
+  await dialog(page).getByRole('button', { name: 'Chiudi', exact: true }).last().click()
+
+  // Notifica locale: nuova finché non la si vede, poi non più
+  const bell = page.getByRole('button', { name: 'Notifiche' })
+  await expect(bell.locator('[data-unread]')).toHaveText('1')
+  await bell.click()
+  const panel = page.getByRole('dialog', { name: 'Notifiche' })
+  const note = panel.locator('[data-notification="setup_incomplete"]')
+  await expect(note).toContainText('Configurazione incompleta su questo PC: Node.js non installato')
+  await expect(note).toHaveAttribute('data-unread', 'true')
+  await page.keyboard.press('Escape')
+  await expect(bell.locator('[data-unread]')).toHaveCount(0) // vista = letta
+  // Riverificando con la stessa mancanza non ricompare come nuova
+  await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
+  await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'missing')
+  await expect(bell.locator('[data-unread]')).toHaveCount(0)
+  // Elimina la singola notifica
+  await bell.click()
+  await note.hover()
+  await note.getByRole('button', { name: 'Elimina notifica' }).click()
+  await expect(panel).toContainText('Nessuna notifica')
+  await page.keyboard.press('Escape')
+
+  // Node installato: il banner sparisce; manca di nuovo: nuova notifica, poi «Segna tutte come lette» ed «Elimina tutte»
+  await fakeChecks(page, { 'node -v': { code: 0, stdout: 'v20.11.0' } })
+  await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
+  await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'ok')
+  await expect(banner).toHaveCount(0)
+  await fakeChecks(page, { 'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" } })
+  await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
+  await expect(bell.locator('[data-unread]')).toHaveText('1')
+  await bell.click()
+  await panel.getByRole('button', { name: 'Segna tutte come lette' }).click()
+  await expect(bell.locator('[data-unread]')).toHaveCount(0)
+  await panel.getByRole('button', { name: 'Elimina tutte' }).click()
+  await expect(panel).toContainText('Nessuna notifica')
+  await page.keyboard.press('Escape')
+})
+
+test('copie di sicurezza: crea ora, stato nel menu, ripristino di tutto', async ({ page }) => {
+  await createLocalWorkspace(page, 'Copie')
+  await createProject(page, 'Alfa')
+  await addItem(page, 'Prima della copia')
+
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  const settings = page.locator('[data-backup-settings]')
+  await expect(settings).toContainText('non i file dei progetti')
+  await settings.getByRole('button', { name: 'Crea copia ora' }).click()
+  await expect(settings.locator('[data-backup-status]')).toContainText('Ultima copia:')
+  await page.keyboard.press('Escape')
+
+  // Stato nel menu del workspace (amministratore)
+  await page.getByRole('button', { name: /^Copie/ }).first().click()
+  await expect(page.getByRole('menuitem', { name: /Ultima copia dei dati/ })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  // Dopo la copia: un altro task; il ripristino lo toglie e crea prima una copia dello stato attuale
+  await addItem(page, 'Dopo la copia')
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await settings.getByRole('button', { name: 'Ripristina…' }).click()
+  const restore = page.getByRole('dialog', { name: 'Ripristina da una copia' })
+  await restore.locator('[data-backup-list] button').first().click()
+  await expect(restore.locator('[data-backup-summary]')).toHaveText('1 progetto, 1 task')
+  await restore.getByRole('button', { name: 'Ripristina tutto' }).click()
+  await expect(page.getByRole('alertdialog').or(page.getByRole('dialog', { name: 'Ripristinare tutto il workspace?' }))).toContainText('non viene toccata')
+  await page.getByRole('button', { name: 'Ripristina tutto' }).last().click()
+  await expect(page.getByText('Ripristino completato')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('Prima della copia', { exact: true })).toBeVisible()
+  await expect(page.getByText('Dopo la copia', { exact: true })).toHaveCount(0)
+
+  // La copia "prima del ripristino" c'è
+  await page.getByTitle('Impostazioni', { exact: true }).click()
+  await settings.getByRole('button', { name: 'Ripristina…' }).click()
+  await expect(restore.locator('[data-backup-list]')).toContainText('prima di un ripristino')
+})

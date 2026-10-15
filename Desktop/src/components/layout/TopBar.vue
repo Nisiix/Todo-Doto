@@ -2,7 +2,8 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
-import { BarChart3, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
+import { AlertTriangle, Archive, BarChart3, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
+import dayjs from 'dayjs'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -25,6 +26,10 @@ const m = defineMessages({
     audit: 'Cronologia operazioni',
     shortcuts: 'Scorciatoie da tastiera',
     closeWs: 'Chiudi workspace',
+    backupLast: (when: string) => `Ultima copia dei dati: ${when}`,
+    backupNone: 'Nessuna copia dei dati ancora',
+    backupOld: (days: number) => `Nessuna copia dei dati da ${days} giorni`,
+    backupFailed: 'Copia dei dati non riuscita: vedi Impostazioni',
     unreachable: 'Cartella non raggiungibile, riprovo…',
     wsMembers: 'Membri del workspace',
     lightTheme: 'Tema chiaro (Ctrl+Shift+L)',
@@ -38,6 +43,10 @@ const m = defineMessages({
     audit: 'Activity log',
     shortcuts: 'Keyboard shortcuts',
     closeWs: 'Close workspace',
+    backupLast: (when: string) => `Last data backup: ${when}`,
+    backupNone: 'No data backup yet',
+    backupOld: (days: number) => `No data backup for ${days} days`,
+    backupFailed: 'Data backup failed: see Settings',
     unreachable: 'Folder unreachable, retrying…',
     wsMembers: 'Workspace members',
     lightTheme: 'Light theme (Ctrl+Shift+L)',
@@ -52,6 +61,16 @@ const showSettings = ref(false)
 const showLabels = ref(false)
 const showShortcuts = ref(false)
 
+/** Stato delle copie per l'admin: una riga nel menu, che diventa un avviso se qualcosa non va. */
+const backupLine = computed(() => {
+  if (!ws.isAdmin || !ws.meta?.backup.enabled) return null
+  const last = ws.backups.find((b) => b.reason === 'auto') ?? ws.backups[0]
+  const days = last ? Math.floor((Date.now() - last.at.getTime()) / 86_400_000) : 0
+  if (ws.backupError) return { label: m.backupFailed, icon: AlertTriangle, danger: true }
+  if (last && days >= 3) return { label: m.backupOld(days), icon: AlertTriangle, danger: true }
+  return { label: last ? m.backupLast(dayjs(last.at).fromNow()) : m.backupNone, icon: Archive, danger: false }
+})
+
 const menu = computed(() => [
   { label: m.settings, icon: Settings, onSelect: () => (showSettings.value = true) },
   { label: m.labels, icon: Tag, onSelect: () => (showLabels.value = true) },
@@ -63,6 +82,7 @@ const menu = computed(() => [
       ]
     : []),
   { sep: true, label: '' },
+  ...(backupLine.value ? [{ ...backupLine.value, onSelect: () => (showSettings.value = true) }] : []),
   { label: m.shortcuts, icon: Keyboard, onSelect: () => (showShortcuts.value = true) },
   { sep: true, label: '' },
   {

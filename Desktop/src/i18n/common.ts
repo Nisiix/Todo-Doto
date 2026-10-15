@@ -38,6 +38,7 @@ export const common = defineMessages({
       comment: 'Nuovo commento',
       mention: 'Qualcuno mi tagga con @',
       assigned: 'Un elemento viene assegnato a me',
+      setup_incomplete: 'Al mio PC manca qualcosa per lavorare a un progetto',
     },
     /** Testi delle notifiche: seguono il nome di chi ha fatto l'azione. */
     activity: {
@@ -176,6 +177,7 @@ export const common = defineMessages({
       comment: 'New comment',
       mention: 'Someone tags me with @',
       assigned: 'An item is assigned to me',
+      setup_incomplete: 'My PC is missing something to work on a project',
     },
     activity: {
       created: 'added an item',

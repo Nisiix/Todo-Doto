@@ -122,6 +122,18 @@ L'identità di un utente è `username@hostname` (letti dal sistema operativo). C
 ```
 Azioni registrate: `item_created | item_completed | item_reopened | item_trashed | item_restored | item_deleted | trash_emptied | project_created | project_trashed | project_restored | project_deleted`. Domande, risposte, commenti e descrizioni **non** vengono registrati.
 
+### readiness/<idUtente>.json — configurazione del PC (solo workspace di rete)
+```jsonc
+{ "userId": "usr_…", "host": "PC-UFFICIO", "os": "windows", "updatedAt": "…",
+  "projects": { "prj_…": { "checkedAt": "…", "hash": "impronta dei prerequisiti",
+                           "missing": [ { "name": "Node.js", "status": "missing", "found": "", "required": "20+" } ],
+                           "ok": 2, "uncertain": 0 } } }
+```
+Ogni PC scrive solo il file del proprio utente (niente conflitti). Si condividono esito e versione trovata, mai l'output dei comandi.
+
+### backups/*.pgmbackup — copie di sicurezza
+JSON compresso (gzip) con workspace, utenti, cartelle ed etichette, Drive, cronologia e tutti i progetti. Nome `pgm-AAAAMMGG-hhmmss-<auto|manual|prerestore>.pgmbackup`; cartella predefinita `backups` nella cartella Dati, oppure quella scelta dall'admin. Mai i file dei progetti né le password ricordate.
+
 ### drive.json — struttura replicata di Google Drive (solo metadati)
 ```jsonc
 { "rootFolderId": "…", "rootName": "Documenti progetto", "syncedAt": "…", "syncedBy": "usr_…",
@@ -307,6 +319,13 @@ L'eseguibile si distribuisce copiandolo o tramite installer; i dati restano nell
 
 - **Ruoli**: `admin` (tutto, unico a poter eliminare definitivamente elementi e progetti e a svuotare i cestini), `cleaner` (come un membro, ma può spostare nel cestino qualsiasi elemento), `member` (crea, modifica, ripristina; può cestinare solo gli elementi assegnati a lui o creati da lui se non assegnati). In un workspace di rete un elemento può essere assegnato a qualunque membro. In un workspace locale si è sempre amministratori.
 - **Notifiche**: generate dal confronto fra la versione precedente e quella nuova di un progetto quando un altro utente lo modifica (nuovo elemento, cambio stato, completato/riaperto, cestinato/ripristinato, descrizione, domanda, risposta, commento, menzione). Ogni utente sceglie quali tipi ricevere; le proprie azioni non generano notifiche. All'apertura del workspace, le operazioni sugli elementi compiute da altri mentre si era offline vengono recuperate dalla cronologia e proposte come notifiche (una sola volta).
+- **Gestione delle notifiche**: alla chiusura del pannello le notifiche viste diventano lette e non tornano mai "nuove"; "Segna tutte come lette", la X su ogni notifica ed "Elimina tutte". Ogni notizia ha una chiave: una notizia già ricevuta (letta, non letta o eliminata) non viene ricreata.
+- **Configurazione del PC** (Stack): all'apertura del workspace, e tornando sulla finestra dopo 30 minuti, l'app verifica in background i prerequisiti di tutti i progetti visibili, eseguendo solo i comandi sicuri (richieste di versione; quelli personalizzati restano da confermare nello Stack).
+  - Se al PC manca qualcosa per un progetto arriva una **notifica locale** "Configurazione incompleta su questo PC: …", una sola volta per la stessa mancanza; se la mancanza viene risolta e poi si ripresenta, si avvisa di nuovo. Il tipo si può disattivare in Impostazioni → Notifiche.
+  - Nei workspace di rete l'esito viene condiviso e nello Stack compare un **banner rosso** quando almeno un utente che vede il progetto ha una configurazione incompleta, con **"Visualizza"** per l'elenco dei soli utenti a cui manca qualcosa (cosa manca, PC, quando è stato verificato). Gli esiti di prerequisiti cambiati dopo la verifica, o più vecchi di 30 giorni, non contano.
+- **Copie di sicurezza** (Impostazioni, amministratori): copia automatica ogni giorno, attiva di default, fatta dal primo PC che apre il workspace (un lock evita i doppioni). Si tengono 7 copie giornaliere + 4 settimanali, più le ultime 10 manuali e 5 "prima di un ripristino". Si possono creare copie manuali ("Crea copia ora") e scegliere la cartella (meglio un altro disco o server).
+  - **Ripristina…**: di tutto il workspace, oppure di un solo progetto (es. dopo un'eliminazione definitiva). Prima del ripristino viene sempre creata una copia dello stato attuale, quindi anche il ripristino si può annullare. Password e impostazioni delle copie non tornano indietro.
+  - Il menu del workspace mostra all'admin "Ultima copia dei dati: …", che diventa un avviso se l'ultima ha più di 3 giorni o è fallita. La rotazione elimina solo file con il nome delle copie dell'app.
 - **Cronologia**: pagina riservata agli amministratori, divisa per progetto, con filtri per progetto, operazione e utente.
 - **Google Drive**: l'utente crea un ID client OAuth "App desktop" nella Google Cloud Console; l'app apre il browser di sistema per il consenso (scope `drive.readonly`, PKCE) e riceve il codice su `http://127.0.0.1:<porta>` grazie a un piccolo ricevitore in Rust. La struttura della cartella scelta viene salvata nel workspace (visibile a tutti), mentre token e account restano cifrati sulla macchina: per aprire un documento ciascuno usa il proprio accesso. I documenti Google (Docs, Sheets, Slides) vengono esportati in PDF per l'anteprima.
 
@@ -333,6 +352,14 @@ Nella barra laterale il progetto aperto mostra sotto di sé un sottomenu con tre
 - **Strumenti AI** (nella pagina Stack): connettori, plugin e skill del progetto; per le skill si allega il file (es. `SKILL.md`, fino a 512 KB) o si incolla il contenuto, che resta nel file del progetto e si può vedere, copiare o salvare.
 
 Dati nel file del progetto: `stack` (con `files` per i file iniziali e `doc` per il documento di architettura) e `aiTools` (vedi schemi in `types/index.ts`); gli elementi hanno `assigneeId`.
+
+## 9d. Pianificato: commit git → task completato
+
+Non ancora implementato. Obiettivo: far capire in modo semplice come collegare un commit a un task e chiudere il task in automatico dal commit; nient'altro.
+- **Solo se la cartella del progetto contiene `.git`** (cartella o file): altrimenti non compare nulla.
+- **Codice del task**: ogni task ha un numero progressivo per progetto e un codice da copiare con la sigla del progetto, es. `BEW-12` (non `#12`, che su GitHub chiuderebbe anche la issue 12), mostrato nel dettaglio accanto al titolo con "Copia" e un suggerimento: *scrivi `chiude BEW-12` nel messaggio del commit per completare questo task*. Una riga sotto spiega le parole riconosciute (`chiude`, `closes`, `fixes`, `risolve`).
+- **Chiusura automatica**: l'app legge in sola lettura i commit della cartella del progetto (git log, all'apertura del progetto e al ritorno sulla finestra) e, quando trova `chiude BEW-12`, completa il task e lo annota ("Completato dal commit a1b2c3 di Mario"). Ogni commit viene usato una volta sola; un task riaperto a mano non viene richiuso dallo stesso commit.
+- Niente elenchi di commit, badge o impostazioni in più. Un interruttore solo per l'admin nello Stack ("Chiudi i task dai commit"), attivo di default quando c'è `.git`.
 
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 

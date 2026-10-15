@@ -55,6 +55,12 @@ export const WorkspaceMetaSchema = z.object({
     .default(null),
   /** Cartella in cui si trovano (o verranno creati) i progetti; i dati del workspace stanno altrove. */
   projectsPath: z.string().default(''),
+  /**
+   * Copie di sicurezza automatiche dei dati (non dei file dei progetti): una al
+   * giorno, fatta dal primo PC che apre il workspace. `dir` vuota = cartella
+   * `backups` dentro la cartella Dati.
+   */
+  backup: z.object({ enabled: z.boolean().default(true), dir: z.string().default('') }).default({ enabled: true, dir: '' }),
 })
 export type WorkspaceMeta = z.infer<typeof WorkspaceMetaSchema>
 
@@ -320,6 +326,7 @@ export const NOTIFICATION_TYPES = [
   'comment',
   'mention',
   'assigned',
+  'setup_incomplete',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 export const NOTIFICATION_LABEL: Record<NotificationType, string> = common.notification
@@ -332,10 +339,50 @@ export interface Notification {
   projectName: string
   itemId: string | null
   itemTitle: string
+  /** Chi ha fatto l'azione; vuoto per le notifiche dell'app (es. configurazione del PC). */
   byId: string
   text: string
   read: boolean
+  /**
+   * Chiave di deduplica: la stessa notizia non viene creata due volte, nemmeno
+   * dopo che la notifica è stata letta o eliminata.
+   */
+  key?: string
 }
+
+// ---------------------------------------------------------------------------
+// Configurazione dei PC: esito delle verifiche dei prerequisiti, per utente
+// (readiness/<idUtente>.json nella cartella Dati: ognuno scrive solo il suo)
+// ---------------------------------------------------------------------------
+
+export const ReadinessMissingSchema = z.object({
+  name: z.string(),
+  /** missing = non installato; outdated = versione più vecchia di quella richiesta. */
+  status: z.enum(['missing', 'outdated']),
+  found: z.string().default(''),
+  required: z.string().default(''),
+})
+export type ReadinessMissing = z.infer<typeof ReadinessMissingSchema>
+
+export const ReadinessEntrySchema = z.object({
+  checkedAt: iso,
+  /** Impronta dei prerequisiti verificati: se lo stack cambia, l'esito va rifatto. */
+  hash: z.string(),
+  missing: z.array(ReadinessMissingSchema).default([]),
+  ok: z.number().default(0),
+  /** Prerequisiti di cui non si è potuto stabilire nulla (verifica manuale, comando da confermare…). */
+  uncertain: z.number().default(0),
+})
+export type ReadinessEntry = z.infer<typeof ReadinessEntrySchema>
+
+export const ReadinessFileSchema = z.object({
+  userId: z.string(),
+  host: z.string().default(''),
+  os: z.string().default(''),
+  updatedAt: iso,
+  projects: z.record(z.string(), ReadinessEntrySchema).default({}),
+})
+export type ReadinessFile = z.infer<typeof ReadinessFileSchema>
 
 // ---------------------------------------------------------------------------
 // Google Drive: struttura replicata della cartella scelta (solo metadati)

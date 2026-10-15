@@ -7,6 +7,8 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import ChipsInput from '@/components/ui/ChipsInput.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
+import ReadinessBanner from './ReadinessBanner.vue'
+import { useReadinessStore } from '@/stores/readiness'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePrereqChecks } from '@/composables/usePrereqChecks'
 import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
@@ -555,6 +557,14 @@ const totalSteps = computed(() => stack.value.prerequisites.length + stack.value
 
 // --- verifica automatica dei prerequisiti sul PC -------------------------------------
 const checks = usePrereqChecks(computed(() => view.value.prerequisites))
+// A verifica finita, l'esito di questo PC viene condiviso (e notificato se manca qualcosa)
+const readiness = useReadinessStore()
+watch(
+  () => checks.busy.value,
+  (busy) => {
+    if (!busy && !props.readOnly) void readiness.report(props.project, checks.results.value)
+  },
+)
 const statusOf = (id: string): CheckStatus | undefined => (checks.checking.value.has(id) ? undefined : checks.results.value[id]?.status)
 /** Prerequisito fatto: verificato in automatico, oppure confermato a mano se la verifica non dice che manca. */
 const prereqDone = (id: string) => isSatisfied(statusOf(id)) || (done.value.has(id) && !needsAction(statusOf(id)))
@@ -701,6 +711,8 @@ async function ghSync() {
 
 <template>
   <div class="max-w-4xl space-y-8">
+    <!-- Utenti con la configurazione incompleta (workspace di rete) -->
+    <ReadinessBanner v-if="!readOnly" :project="project" />
     <!-- Intestazione sezione -->
     <div>
       <h2 class="text-[17px] font-bold tracking-tight">{{ m.title }}</h2>
