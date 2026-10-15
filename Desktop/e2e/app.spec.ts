@@ -1246,24 +1246,52 @@ test('stack: senza una cartella del progetto valida si cerca la cartella e «Con
   await createLocalWorkspace(page)
   await createProject(page, 'Progetto Rete')
   await openSection(page, 'Stack')
-  // Lo stack indica una cartella che su questo PC non esiste
-  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
-  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
-  await page.keyboard.press('Enter')
-  await page.fill('#st-src', '/rete/messina/Progetto Rete')
-  await page.getByRole('button', { name: 'Salva', exact: true }).click()
-  await expect(page.locator('[data-folder-check]')).toHaveAttribute('data-problem', 'missing')
-  await expect(page.locator('[data-folder-problem]')).toContainText('non si trova su questo PC')
-  await expect(page.getByText('Prerequisito: Node.js')).toHaveCount(0) // la configurazione non compare
-  await expect(page.locator('[data-project-folder]')).toHaveCount(0) // né la cartella (che qui non c'è)
-  await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toHaveCount(0) // né la lettura dei file
-
   const put = (files: string[]) =>
     page.evaluate(async (fl) => {
       const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
       for (const f of fl) await fs.writeTextAtomic(f, '{}')
     }, files)
   const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await put(['/rete/messina/Progetto Rete/package.json', '/rete/messina/Altro/package.json'])
+
+  // In modifica la cartella del progetto si controlla: se non è valida lo stack non si salva
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+  await page.keyboard.press('Enter')
+  const save = page.getByRole('button', { name: 'Salva', exact: true })
+  const srcError = page.locator('[data-field-error="sourcePath"]')
+  await page.fill('#st-src', '/rete/messina/Inesistente')
+  await expect(srcError).toContainText('non si trova su questo PC')
+  await expect(page.locator('[data-invalid-count]')).toHaveText('Un campo da correggere')
+  await expect(save).toBeDisabled()
+  await page.keyboard.press('Control+s') // nemmeno da tastiera
+  await expect(page.getByText('Correggi i campi segnati in rosso prima di salvare')).toBeVisible()
+  await page.fill('#st-src', '/rete/messina/Altro')
+  await expect(srcError).toContainText('non ha il nome del progetto')
+  await page.fill('#st-src', '/rete/messina/Progetto Rete')
+  await expect(srcError).toHaveCount(0)
+  await expect(save).toBeEnabled()
+  await save.click()
+  await expect(page.getByText('Stack salvato')).toBeVisible()
+
+  // Poi, su questo PC, la cartella non c'è più (es. unità di rete scollegata)
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ remove(p: string): Promise<void> }> }).__pgmFs()
+    await fs.remove('/rete/messina/Progetto Rete/package.json')
+  })
+  await openSection(page, 'Allegati')
+  await openSection(page, 'Stack')
+  await expect(page.locator('[data-folder-check]')).toHaveAttribute('data-problem', 'missing')
+  await expect(page.locator('[data-folder-problem]')).toContainText('non si trova su questo PC')
+  await expect(page.getByText('Prerequisito: Node.js')).toHaveCount(0) // la configurazione non compare
+  await expect(page.locator('[data-project-folder]')).toHaveCount(0) // né la cartella (che qui non c'è)
+  await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toHaveCount(0) // né la lettura dei file
+  // Lo stack si può ancora modificare: la cartella è già quella del progetto (valida su un altro PC)
+  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+  await expect(page.locator('[data-field-note="sourcePath"]')).toContainText('Si può salvare perché è già quella del progetto')
+  await expect(save).toBeEnabled()
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click()
+
   await put(['/altrove/Altro nome/package.json', '/altrove/Progetto Rete/package.json', '/altrove/Documenti/note.txt'])
 
   // Nome diverso da quello del progetto: rifiutata
@@ -1284,6 +1312,36 @@ test('stack: senza una cartella del progetto valida si cerca la cartella e «Con
   await expect(page.getByRole('button', { name: 'Rileva dai file del progetto' })).toBeVisible()
   await expect(page.locator('[data-local-path]')).toHaveText('su questo PC')
   await expect(page.locator('code', { hasText: '/altrove/Progetto Rete' })).toBeVisible()
+})
+
+test('stack: indirizzi, percorsi e nomi di variabile non validi impediscono il salvataggio', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Campi')
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  const save = page.getByRole('button', { name: 'Salva', exact: true })
+  const errors = page.locator('[data-field-error]')
+  await page.fill('#st-repo', 'il mio repository')
+  await page.getByRole('button', { name: 'Prerequisito', exact: true }).click()
+  await page.getByPlaceholder('Nome, es. Node.js').fill('Strumento')
+  await page.getByPlaceholder('Dove scaricarlo (URL)').fill('pagina del fornitore')
+  await page.getByRole('button', { name: 'Variabile', exact: true }).click()
+  await page.getByPlaceholder('NOME_VARIABILE').fill('1 PORTA')
+  await page.getByRole('button', { name: 'File', exact: true }).click()
+  await page.getByPlaceholder('Percorso, es. package.json o src/main.ts').fill('../fuori.txt')
+  await expect(errors).toHaveCount(4)
+  await expect(page.locator('[data-invalid-count]')).toHaveText('4 campi da correggere')
+  await expect(save).toBeDisabled()
+  await expect(page.locator('#st-repo')).toHaveAttribute('aria-invalid', 'true')
+
+  // Corretti uno a uno: alla fine si salva
+  await page.fill('#st-repo', 'https://github.com/esempio/campi.git')
+  await page.getByPlaceholder('Dove scaricarlo (URL)').first().fill('esempio.com/download') // poi si aggiunge Git, dal repository
+  await page.getByPlaceholder('NOME_VARIABILE').fill('PORTA')
+  await page.getByPlaceholder('Percorso, es. package.json o src/main.ts').fill('src/{{slug}}.ts')
+  await expect(errors).toHaveCount(0)
+  await save.click()
+  await expect(page.getByText('Stack salvato')).toBeVisible()
 })
 
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {

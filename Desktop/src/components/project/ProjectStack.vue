@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { AlertTriangle, ArrowDown, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
@@ -16,7 +16,8 @@ import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus 
 import { parseGitHubRepo } from '@/services/github'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
 import { correctPrerequisites, detectStack } from '@/services/projectScan'
-import { folderName, getLocalProjectPath, setLocalProjectPath, validateProjectFolder, type FolderCheck } from '@/services/projectFolder'
+import { folderName, getLocalProjectPath, sameName, setLocalProjectPath, validateProjectFolder, type FolderCheck } from '@/services/projectFolder'
+import { validateStackFields } from '@/services/stackValidation'
 import { useGitHubStore } from '@/stores/github'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -26,7 +27,7 @@ import { autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, suggestP
 import { mergeImportedStack, mergeStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
-import { copyStack, hasStack, resolveStack, slugify, varsFor } from '@/services/scaffold'
+import { applyTokens, copyStack, hasStack, resolveStack, slugify, varsFor } from '@/services/scaffold'
 import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Prerequisite, type Project, type Stack } from '@/types'
 import { DATE, defineMessages, plural } from '@/i18n'
 import dayjs from 'dayjs'
@@ -125,6 +126,11 @@ const m = defineMessages({
     markTodo: 'Segna come da fare',
     unsaved: 'Modifiche non salvate',
     noChanges: 'Nessuna modifica',
+    invalidFields: (n: number) => (n === 1 ? 'Un campo da correggere' : `${n} campi da correggere`),
+    fixBeforeSave: 'Correggi i campi segnati in rosso prima di salvare',
+    checkingFolder: 'Controllo la cartella…',
+    folderCloneOk: 'La cartella non c’è ancora: la crea la configurazione (git clone).',
+    folderSavedInvalid: (why: string) => `Su questo PC questa cartella non è valida. ${why} Si può salvare perché è già quella del progetto.`,
     saveHint: 'Salva (Ctrl+S)',
     prereqsAuto: 'Scrivendo il nome di uno strumento noto (Node.js, Git, Rust, .NET SDK, Python…) versione, link e comando di verifica si compilano da soli; quelli richiesti da linguaggi e framework vengono aggiunti automaticamente.',
     suggested: 'Suggeriti da linguaggi e framework:',
@@ -303,6 +309,11 @@ const m = defineMessages({
     markTodo: 'Mark as to do',
     unsaved: 'Unsaved changes',
     noChanges: 'No changes',
+    invalidFields: (n: number) => (n === 1 ? 'One field to fix' : `${n} fields to fix`),
+    fixBeforeSave: 'Fix the fields marked in red before saving',
+    checkingFolder: 'Checking the folder…',
+    folderCloneOk: 'The folder does not exist yet: the setup creates it (git clone).',
+    folderSavedInvalid: (why: string) => `On this PC this folder is not valid. ${why} It can be saved because it is already the project folder.`,
     saveHint: 'Save (Ctrl+S)',
     prereqsAuto: 'Typing the name of a known tool (Node.js, Git, Rust, .NET SDK, Python…) fills in version, link and check command; the ones required by languages and frameworks are added automatically.',
     suggested: 'Suggested by languages and frameworks:',
@@ -434,9 +445,13 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 })
 async function save() {
   const d = draft.value
-  // Un progetto per cartella: non si può indicare la cartella di un altro progetto
-  const other = d.sourcePath.trim() !== stack.value.sourcePath ? ws.projectAtPath(d.sourcePath, props.project.id) : null
-  if (other) return ui.toast(common.ws.duplicateFolder(other.name, !!other.trashedAt), 'error', undefined, 6000)
+  // Campi non validi (cartella del progetto compresa): non si salva, si mostra il primo
+  if (!(await validateDraft())) {
+    ui.toast(m.fixBeforeSave, 'error', undefined, 5000)
+    await nextTick()
+    document.querySelector('[data-field-error]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    return
+  }
   d.prerequisites = d.prerequisites.filter((p) => p.name.trim())
   d.steps = d.steps.filter((s) => s.title.trim())
   d.envVars = d.envVars.filter((v) => v.key.trim())
@@ -590,7 +605,8 @@ async function checkProjectFolder() {
 watch(() => [folderPath.value, props.project.name], checkProjectFolder, { immediate: true })
 useEventListener(window, 'focus', () => void (folder.value && !folder.value.ok && checkProjectFolder()))
 /** Progetto da clonare: la cartella non c'è ancora e la crea proprio la configurazione (primo passo git clone). */
-const willClone = computed(() => view.value.steps.some((x) => x.kind === 'command' && /^\s*git clone\s/m.test(x.command)))
+const clones = (s: Stack) => s.steps.some((x) => x.kind === 'command' && /^\s*git clone\s/m.test(x.command))
+const willClone = computed(() => clones(view.value))
 const folderOk = computed(() => !!folder.value?.ok || ((folder.value?.problem === 'missing' || folder.value?.problem === 'empty') && willClone.value))
 const folderProblemText = computed(() => problemText(folder.value))
 function problemText(f: FolderCheck | null): string {
@@ -648,12 +664,72 @@ async function projectDir(): Promise<string> {
 }
 
 async function pickSource() {
-  const fs = await getFs()
-  const p = await fs.pickFolder(m.sourcePath)
-  if (!p) return
-  draft.value.sourcePath = p
-  const problem = await checkFolder(fs, p)
-  if (problem) ui.toast(problem, 'warning', undefined, 8000)
+  const p = await (await getFs()).pickFolder(m.sourcePath)
+  if (p) draft.value.sourcePath = p // la controlla subito il watch qui sotto
+}
+
+// --- controlli dei campi in modifica: con errori lo stack non si salva ----------------
+/** Errori di indirizzi, percorsi e nomi di variabile della bozza (chiave del campo → messaggio). */
+const fieldErrors = computed(() => (editing.value ? validateStackFields(draft.value, varsFor(props.project.name)) : {}))
+const err = (key: string) => fieldErrors.value[key] ?? ''
+/** Esito del controllo della cartella del progetto indicata nella bozza: errore (blocca) o nota. */
+const source = ref<{ error: string; note: string } | null>(null)
+const checkingSource = ref(false)
+let sourceSeq = 0
+let sourceTimer: ReturnType<typeof setTimeout> | undefined
+/** Controlla la cartella della bozza; restituisce l'errore ('' se si può salvare). */
+async function checkSource(): Promise<string> {
+  clearTimeout(sourceTimer)
+  const n = ++sourceSeq
+  const set = (error: string, note = '') => {
+    if (n === sourceSeq) {
+      source.value = { error, note }
+      checkingSource.value = false
+    }
+    return error
+  }
+  const raw = draft.value.sourcePath.trim()
+  if (!raw) return set('')
+  const saved = raw === stack.value.sourcePath.trim()
+  // Un progetto per cartella: non si può indicare la cartella di un altro progetto
+  const other = saved ? null : ws.projectAtPath(raw, props.project.id)
+  if (other) return set(common.ws.duplicateFolder(other.name, !!other.trashedAt))
+  checkingSource.value = true
+  const path = applyTokens(raw, varsFor(props.project.name))
+  let r: FolderCheck
+  try {
+    r = await validateProjectFolder(path, props.project.name)
+  } catch (e) {
+    r = { ok: false, path, problem: 'unreachable', detail: explainFsError(e, path) }
+  }
+  if (r.ok) return set('')
+  // Progetto da clonare: la cartella non c'è ancora, ma deve già avere il nome del progetto
+  if (r.problem === 'missing' && clones(draft.value) && sameName(path, props.project.name)) return set('', m.folderCloneOk)
+  // Già quella del progetto (magari valida su un altro PC): non si blocca, si avvisa
+  if (saved) return set('', folder.value?.ok ? '' : m.folderSavedInvalid(problemText(r)))
+  return set(problemText(r))
+}
+watch(
+  () => [editing.value, draft.value.sourcePath, clones(draft.value)] as const,
+  ([on]) => {
+    clearTimeout(sourceTimer)
+    if (!on) {
+      sourceSeq++
+      source.value = null
+      checkingSource.value = false
+      return
+    }
+    checkingSource.value = true
+    sourceTimer = setTimeout(() => void checkSource(), 350)
+  },
+  { immediate: true },
+)
+const sourceError = computed(() => source.value?.error ?? '')
+const errorCount = computed(() => Object.keys(fieldErrors.value).length + (sourceError.value ? 1 : 0))
+/** Controllo completo prima del salvataggio (la cartella si ricontrolla adesso). */
+async function validateDraft(): Promise<boolean> {
+  const folderError = await checkSource()
+  return !folderError && !Object.keys(fieldErrors.value).length
 }
 
 // --- procedura guidata (stato per utente, sul PC) ---------------------------------
@@ -913,14 +989,18 @@ async function ghSync() {
         </div>
         <div>
           <label class="label" for="st-repo">{{ m.repo }}</label>
-          <input id="st-repo" v-model="draft.repoUrl" class="field font-mono text-[12.5px]" :placeholder="m.repoPh" />
+          <input id="st-repo" v-model="draft.repoUrl" class="field font-mono text-[12.5px]" :class="{ '!border-danger': err('repoUrl') }" :aria-invalid="!!err('repoUrl')" :placeholder="m.repoPh" />
+          <p v-if="err('repoUrl')" class="mt-1 text-[12px] text-danger" :data-field-error="'repoUrl'">{{ err('repoUrl') }}</p>
         </div>
         <div>
           <label class="label" for="st-src">{{ m.sourcePathLong }}</label>
           <div class="flex gap-2">
-            <input id="st-src" v-model="draft.sourcePath" class="field font-mono text-[12.5px]" :placeholder="m.sourcePh" />
+            <input id="st-src" v-model="draft.sourcePath" class="field font-mono text-[12.5px]" :class="{ '!border-danger': sourceError }" :aria-invalid="!!sourceError" :placeholder="m.sourcePh" />
             <BaseButton @click="pickSource"><FolderOpen :size="15" /> {{ common.actions.browse }}</BaseButton>
           </div>
+          <p v-if="sourceError" class="mt-1 text-[12px] text-danger" data-field-error="sourcePath">{{ sourceError }}</p>
+          <p v-else-if="checkingSource && draft.sourcePath.trim()" class="mt-1 flex items-center gap-1 text-[12px] text-ink-3"><Loader2 :size="12" class="animate-spin" /> {{ m.checkingFolder }}</p>
+          <p v-else-if="source?.note" class="mt-1 text-[12px] text-ink-3" data-field-note="sourcePath">{{ source.note }}</p>
         </div>
         <div class="md:col-span-2">
           <label class="label" for="st-notes">{{ m.notes }}</label>
@@ -945,9 +1025,10 @@ async function ghSync() {
         <div v-for="(p, i) in draft.prerequisites" :key="p.id" class="mb-2 grid grid-cols-[1fr_6rem_1fr_1fr_auto] items-center gap-2">
           <input v-model="p.name" class="field field-sm" :placeholder="m.prereqName" list="known-prereqs" @change="onPrereqName(p)" />
           <input v-model="p.version" class="field field-sm" :placeholder="m.version" />
-          <input v-model="p.url" class="field field-sm font-mono text-[12px]" :placeholder="m.downloadUrl" />
+          <input v-model="p.url" class="field field-sm font-mono text-[12px]" :class="{ '!border-danger': err(`prereq:${p.id}:url`) }" :aria-invalid="!!err(`prereq:${p.id}:url`)" :placeholder="m.downloadUrl" />
           <input v-model="p.check" class="field field-sm font-mono text-[12px]" :placeholder="m.checkCmd" />
           <BaseButton size="icon-sm" variant="ghost" :title="common.actions.remove" @click="removePrereq(i)"><Trash2 :size="14" /></BaseButton>
+          <p v-if="err(`prereq:${p.id}:url`)" class="col-span-full -mt-1 text-[12px] text-danger" :data-field-error="`prereq:${p.id}:url`">{{ err(`prereq:${p.id}:url`) }}</p>
         </div>
         <p v-if="!draft.prerequisites.length" class="text-[12.5px] text-ink-3">{{ m.prereqsHint }}</p>
       </section>
@@ -973,10 +1054,11 @@ async function ghSync() {
           </div>
           <div class="mt-2 grid grid-cols-1 gap-2 pl-10 md:grid-cols-[1fr_14rem]">
             <textarea v-if="st.kind === 'command'" v-model="st.command" class="field field-sm min-h-16 resize-y font-mono text-[12px]" :placeholder="m.commands" />
-            <input v-else-if="st.kind === 'link'" v-model="st.url" class="field field-sm font-mono text-[12px]" placeholder="https://…" />
+            <input v-else-if="st.kind === 'link'" v-model="st.url" class="field field-sm font-mono text-[12px]" :class="{ '!border-danger': err(`step:${st.id}:url`) }" :aria-invalid="!!err(`step:${st.id}:url`)" placeholder="https://…" />
             <textarea v-else v-model="st.notes" class="field field-sm min-h-16 resize-y" :placeholder="m.manual" />
-            <input v-if="st.kind === 'command'" v-model="st.cwd" class="field field-sm font-mono text-[12px]" :placeholder="m.cwd" />
+            <input v-if="st.kind === 'command'" v-model="st.cwd" class="field field-sm font-mono text-[12px]" :class="{ '!border-danger': err(`step:${st.id}:cwd`) }" :aria-invalid="!!err(`step:${st.id}:cwd`)" :placeholder="m.cwd" />
           </div>
+          <p v-for="k in [`step:${st.id}:url`, `step:${st.id}:cwd`].filter(err)" :key="k" class="mt-1 pl-10 text-[12px] text-danger" :data-field-error="k">{{ err(k) }}</p>
           <input v-if="st.kind !== 'manual'" v-model="st.notes" class="field field-sm mt-2 ml-10 w-[calc(100%-2.5rem)]" :placeholder="m.shortNote" />
         </div>
         <p v-if="!draft.steps.length" class="text-[12.5px] text-ink-3">{{ m.stepsHint }}</p>
@@ -989,10 +1071,11 @@ async function ghSync() {
           <BaseButton size="sm" variant="ghost" @click="draft.envVars.push({ key: '', example: '', notes: '' })"><Plus :size="14" /> {{ m.envVar }}</BaseButton>
         </div>
         <div v-for="(v, i) in draft.envVars" :key="i" class="mb-2 grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
-          <input v-model="v.key" class="field field-sm font-mono text-[12px]" :placeholder="m.varName" />
+          <input v-model="v.key" class="field field-sm font-mono text-[12px]" :class="{ '!border-danger': err(`env:${i}:key`) }" :aria-invalid="!!err(`env:${i}:key`)" :placeholder="m.varName" />
           <input v-model="v.example" class="field field-sm font-mono text-[12px]" :placeholder="m.varExample" />
           <input v-model="v.notes" class="field field-sm" :placeholder="m.varNotes" />
           <BaseButton size="icon-sm" variant="ghost" :title="common.actions.remove" @click="draft.envVars.splice(i, 1)"><Trash2 :size="14" /></BaseButton>
+          <p v-if="err(`env:${i}:key`)" class="col-span-full -mt-1 text-[12px] text-danger" :data-field-error="`env:${i}:key`">{{ err(`env:${i}:key`) }}</p>
         </div>
       </section>
 
@@ -1006,9 +1089,10 @@ async function ghSync() {
         <div v-for="(f, i) in draft.files" :key="f.id" class="mb-2 rounded-md border border-line p-3">
           <div class="flex items-center gap-2">
             <FileCode :size="15" class="shrink-0 text-ink-3" />
-            <input v-model="f.path" class="field field-sm font-mono text-[12px]" :placeholder="m.filePath" />
+            <input v-model="f.path" class="field field-sm font-mono text-[12px]" :class="{ '!border-danger': err(`file:${f.id}:path`) }" :aria-invalid="!!err(`file:${f.id}:path`)" :placeholder="m.filePath" />
             <BaseButton size="icon-sm" variant="ghost" :title="common.actions.remove" @click="draft.files.splice(i, 1)"><Trash2 :size="14" /></BaseButton>
           </div>
+          <p v-if="err(`file:${f.id}:path`)" class="mt-1 pl-6 text-[12px] text-danger" :data-field-error="`file:${f.id}:path`">{{ err(`file:${f.id}:path`) }}</p>
           <textarea v-model="f.content" class="field field-sm mt-2 min-h-24 resize-y font-mono text-[12px]" :placeholder="m.fileContent" spellcheck="false" />
         </div>
         <p v-if="!draft.files.length" class="text-[12.5px] text-ink-3">{{ m.filesEmpty }}</p>
@@ -1016,9 +1100,10 @@ async function ghSync() {
 
       <!-- Salvataggio: sempre visibile mentre si modifica -->
       <div class="sticky -bottom-10 z-10 -mx-2 flex items-center gap-2 border-t border-line bg-bg/95 px-2 py-3 backdrop-blur">
-        <span class="flex-1 text-[12.5px]" :class="dirty ? 'font-semibold text-p-alta' : 'text-ink-3'">{{ dirty ? m.unsaved : m.noChanges }}</span>
+        <span v-if="errorCount" class="flex flex-1 items-center gap-1.5 text-[12.5px] font-semibold text-danger" data-invalid-count><AlertTriangle :size="14" /> {{ m.invalidFields(errorCount) }}</span>
+        <span v-else class="flex-1 text-[12.5px]" :class="dirty ? 'font-semibold text-p-alta' : 'text-ink-3'">{{ dirty ? m.unsaved : m.noChanges }}</span>
         <BaseButton size="sm" variant="ghost" @click="cancel">{{ common.actions.cancel }}</BaseButton>
-        <BaseButton size="sm" variant="primary" type="submit" :title="m.saveHint"><Save :size="14" /> {{ common.actions.save }}</BaseButton>
+        <BaseButton size="sm" variant="primary" type="submit" :disabled="errorCount > 0" :title="errorCount ? m.fixBeforeSave : m.saveHint"><Save :size="14" /> {{ common.actions.save }}</BaseButton>
       </div>
     </form>
 
