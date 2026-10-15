@@ -1039,7 +1039,8 @@ async function ghSync() {
             <span class="block text-ink-3">{{ m.repo }}</span>
             <span class="flex items-center gap-2"><code class="truncate font-mono text-[12.5px]">{{ view.repoUrl }}</code><BaseButton size="icon-sm" variant="ghost" :title="common.actions.copy" @click="copy(view.repoUrl)"><Copy :size="13" /></BaseButton><BaseButton v-if="/^https?:/.test(view.repoUrl)" size="icon-sm" variant="ghost" :title="common.actions.open" @click="open(view.repoUrl, 'link')"><ExternalLink :size="13" /></BaseButton></span>
           </div>
-          <div v-if="folderPath" class="text-[13px]">
+          <!-- Solo se la cartella del progetto c'è davvero su questo PC (altrimenti la si cerca più sotto) -->
+          <div v-if="folderPath && folder?.ok" class="text-[13px]" data-project-folder>
             <span class="block text-ink-3">{{ m.sourcePath }} <span v-if="localPath" class="rounded-full bg-surface-2 px-1.5 text-[11px]" data-local-path>{{ m.onThisPc }}</span></span>
             <span class="flex items-center gap-2"><code class="truncate font-mono text-[12.5px]">{{ folderPath }}</code><BaseButton size="icon-sm" variant="ghost" :title="m.copyPath" @click="copy(folderPath)"><Copy :size="13" /></BaseButton><BaseButton size="icon-sm" variant="ghost" :title="m.openFolder" @click="open(folderPath, 'file')"><FolderOpen :size="13" /></BaseButton></span>
           </div>

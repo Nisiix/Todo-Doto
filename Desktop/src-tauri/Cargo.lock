@@ -2865,7 +2865,7 @@ dependencies = [
 
 [[package]]
 name = "todo-doto"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "serde",
  "serde_json",
