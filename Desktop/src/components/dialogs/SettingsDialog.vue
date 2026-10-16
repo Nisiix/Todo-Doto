@@ -160,14 +160,14 @@ async function backupNow() {
 }
 const lastBackup = computed(() => ws.backups[0] ?? null)
 
-/** Schede: Generali, Dati utente (nomi e password), Notifiche, IA locale (per questo PC), Backup (solo amministratori). */
+/** Schede: Generali, Dati utente (nomi e password), IA locale (per questo PC), Notifiche, Backup (solo amministratori). */
 type Tab = 'general' | 'user' | 'notifications' | 'ai' | 'backup'
 const tab = ref<Tab>('general')
 const tabs = computed(() => [
   { id: 'general' as Tab, label: m.tabGeneral, icon: SlidersHorizontal },
   { id: 'user' as Tab, label: m.tabUser, icon: UserRound },
-  { id: 'notifications' as Tab, label: m.tabNotifications, icon: Bell },
   { id: 'ai' as Tab, label: m.tabAi, icon: Cpu },
+  { id: 'notifications' as Tab, label: m.tabNotifications, icon: Bell },
   ...(ws.isAdmin ? [{ id: 'backup' as Tab, label: m.tabBackup, icon: Archive }] : []),
 ])
 const aiSettings = ref<InstanceType<typeof AiSettings> | null>(null)

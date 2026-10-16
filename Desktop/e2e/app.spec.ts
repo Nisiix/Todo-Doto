@@ -1353,7 +1353,7 @@ test('stack: indirizzi, percorsi e nomi di variabile non validi impediscono il s
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {
   await createLocalWorkspace(page)
   await openSettings(page)
-  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Dati utente', 'Notifiche', 'IA locale', 'Backup'])
+  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Dati utente', 'IA locale', 'Notifiche', 'Backup'])
   await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
   await expect(page.locator('#s-projects')).toBeVisible()
   await expect(page.locator('#s-me')).toBeHidden()
@@ -1390,11 +1390,28 @@ test('impostazioni in schede: Generali (con la password), Notifiche, Backup', as
  * chiave. Riparte da una configurazione vuota di questo "PC" (banner visibile).
  * Va chiamata prima di aprire la pagina.
  */
-async function fakeOllama(page: Page, opts: { models: string[]; stackAnswer?: object; answers?: [string, object][] }) {
+async function fakeOllama(page: Page, opts: { models: string[]; stackAnswer?: object; answers?: [string, object][]; installed?: boolean; running?: boolean }) {
   await page.addInitScript((o) => {
     const w = window as unknown as Record<string, unknown>
     w.__pgmSeedFiles = {}
     const models = [...o.models]
+    // Ollama sul PC: installato? avviato? (l'app lo installa e lo avvia da sola)
+    const state = { installed: o.installed ?? true, running: o.running ?? o.installed ?? true, installs: 0, starts: 0 }
+    w.__pgmOllamaState = state
+    w.__pgmOllama = {
+      info: () => ({ installed: state.installed, canInstall: true }),
+      start() {
+        state.starts++
+        if (state.installed) state.running = true
+      },
+      install() {
+        state.installs++
+        state.installed = true
+        state.running = true
+        const lines = ['##step check', '##step download', '##progress 500000000 1000000000', '##progress 1000000000 1000000000', '##step verify', '##step install', '##step start', '##ready']
+        return { lines, code: 0 }
+      },
+    }
     const chats: string[] = []
     w.__pgmAiChats = chats
     const answers: [string, object][] = [...(o.answers ?? []), ...(o.stackAnswer ? [['scheda «Stack»', o.stackAnswer] as [string, object]] : [])]
@@ -1403,6 +1420,7 @@ async function fakeOllama(page: Page, opts: { models: string[]; stackAnswer?: ob
     const vec = (t: string) => [...groups.map((g) => (g.test(t.replace(/^search_(query|document): /, '')) ? 1 : 0)), 0.05]
     w.__pgmAi = {
       request(req: { url: string; body?: string }) {
+        if (!state.running) throw new Error('unreachable')
         const path = new URL(req.url).pathname
         if (path === '/api/tags') return { status: 200, body: JSON.stringify({ models: models.map((name) => ({ name })) }) }
         if (path === '/api/version') return { status: 200, body: '{"version":"0.12.6"}' }
@@ -1452,19 +1470,26 @@ test('IA locale: banner per tutti, impostazioni con prova e download dei modelli
   // «Apri Impostazioni» porta alla scheda IA locale
   await banner.getByRole('button', { name: 'Apri Impostazioni' }).click()
   await expect(page.locator('[data-settings-panel="ai"]')).toBeVisible()
-  await page.locator('[data-ai-test]').click()
+  // Con la casella spenta i campi sono disattivati
+  await expect(page.locator('#ai-url')).toBeDisabled()
+  // Accesa: Ollama c'è, campi già compilati e connessione verificata da sola (nessun pulsante «Prova»)
+  await page.locator('[data-ai-enabled]').check()
   await expect(page.locator('[data-ai-status]')).toContainText('Ollama risponde: 0 modelli installati.')
   await expect(page.locator('[data-ai-status]')).toContainText('«qwen3:4b» non è installato.')
+  await expect(page.locator('#ai-url')).toHaveValue('http://127.0.0.1:11434')
+  await expect(page.locator('#ai-model')).toHaveValue('qwen3:4b')
+  await expect(page.locator('#ai-embed')).toHaveValue('nomic-embed-text')
+  await expect(page.locator('[data-ai-test]')).toHaveCount(0)
   // Indirizzo esterno: rifiutato
   await page.fill('#ai-url', 'https://api.example.com')
   await expect(page.getByText(/Indirizzo non consentito/).first()).toBeVisible()
-  await page.fill('#ai-url', '')
+  await page.fill('#ai-url', 'http://127.0.0.1:11434')
+  await expect(page.locator('[data-ai-status]')).toContainText('Ollama risponde')
   // Download dei modelli mancanti (lo fa Ollama), poi tutto pronto
   await page.locator('[data-ai-download]').click()
   await expect(page.locator('[data-ai-pull-msg]')).toHaveText('Modelli scaricati: l’IA locale è pronta.')
   await expect(page.locator('[data-ai-status]')).toContainText('«qwen3:4b» pronto.')
   await expect(page.locator('[data-ai-status]')).toContainText('«nomic-embed-text» pronto.')
-  await page.locator('[data-ai-enabled]').check()
   await dialog(page).getByRole('button', { name: 'Salva' }).click()
   await expect(dialog(page)).toBeHidden()
   await expect(banner).toHaveCount(0)
@@ -1501,6 +1526,46 @@ test('IA locale: banner per tutti, impostazioni con prova e download dei modelli
   expect(sent).toContain('DATABASE_URL=')
   expect(sent).not.toContain('SEGRETISSIMA')
   expect(sent).not.toContain('user:pass')
+})
+
+test('IA locale: senza Ollama la casella lo installa e lo avvia da sola, poi verifica la connessione', async ({ page }) => {
+  await fakeOllama(page, { models: ['qwen3:4b', 'nomic-embed-text:latest'], installed: false })
+  await createLocalWorkspace(page)
+  await openSettings(page)
+  await page.locator('[data-settings-tab="ai"]').click()
+  await expect(page.locator('#ai-model')).toBeDisabled()
+  await page.locator('[data-ai-enabled]').check()
+  await expect(page.locator('[data-ai-status]')).toContainText('Ollama risponde: 2 modelli installati.')
+  await expect(page.locator('[data-ai-status]')).toContainText('«qwen3:4b» pronto.')
+  expect(await page.evaluate(() => (window as unknown as { __pgmOllamaState: { installs: number } }).__pgmOllamaState.installs)).toBe(1)
+  await expect(page.locator('#ai-model')).toBeEnabled()
+  await expect(page.locator('#ai-url')).toHaveValue('http://127.0.0.1:11434')
+  await expect(page.locator('[data-ai-test]')).toHaveCount(0)
+  await dialog(page).getByRole('button', { name: 'Salva' }).click()
+  await expect(dialog(page)).toBeHidden()
+  const saved = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()
+    return JSON.parse(await fs.readText('/appdata/config.json')).ai
+  })
+  expect(saved).toMatchObject({ enabled: true, provider: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'qwen3:4b', embedModel: 'nomic-embed-text' })
+})
+
+test('IA locale: Ollama spento si avvia da solo; con un server compatibile OpenAI si configura a mano e si prova', async ({ page }) => {
+  await fakeOllama(page, { models: ['qwen3:4b'], installed: true, running: false })
+  await createLocalWorkspace(page)
+  await openSettings(page)
+  await page.locator('[data-settings-tab="ai"]').click()
+  await page.locator('[data-ai-enabled]').check()
+  await expect(page.locator('[data-ai-status]')).toContainText('Ollama risponde: 1 modello installato.')
+  const st = await page.evaluate(() => (window as unknown as { __pgmOllamaState: { installs: number; starts: number } }).__pgmOllamaState)
+  expect(st).toMatchObject({ installs: 0, starts: 1 })
+  // Compatibile OpenAI: l'indirizzo di Ollama non vale più, serve «Prova connessione»
+  await page.getByRole('radio', { name: 'Compatibile OpenAI' }).click()
+  await expect(page.locator('#ai-url')).toHaveValue('')
+  await expect(page.locator('[data-ai-status]')).toHaveCount(0)
+  await page.fill('#ai-url', 'http://127.0.0.1:1234/v1')
+  await page.locator('[data-ai-test]').click()
+  await expect(page.locator('[data-ai-status]')).toContainText('Verifica non riuscita: HTTP 404') // il server simulato non ha /v1/models
 })
 
 test('IA locale: il banner chiuso con la X non ricompare; con il modello già installato si attiva da sola', async ({ page }) => {

@@ -1,6 +1,6 @@
 [package]
 name = "todo-doto"
-version = "0.2.26"
+version = "0.2.27"
 description = "Roadmap e todo di progetto, in locale o su cartella di rete"
 authors = ["nisos"]
 edition = "2021"

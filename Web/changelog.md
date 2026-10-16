@@ -2,6 +2,16 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.2.27 — 16 ottobre 2026
+
+- IA locale: spuntando «Usa l'IA locale su questo PC» Ollama si configura da solo. Se manca si installa (scaricato da ollama.com, solo se firmato da Ollama), se è spento si avvia; indirizzo e modelli sono già compilati e la connessione si verifica da sola.
+- Con un server compatibile OpenAI si configura a mano e si prova con «Prova connessione».
+- Impostazioni: la scheda IA locale viene prima di Notifiche.
+
+## 0.2.26 — 16 ottobre 2026
+
+- IA locale facoltativa (Ollama sul PC, solo 127.0.0.1): analisi dello Stack più precisa e funzioni assistite.
+
 ## 0.2.25 — 16 ottobre 2026
 
 - Nella barra laterale le sezioni del progetto sono ora nell'ordine Stack, Todo, Gantt, Allegati.

@@ -1,7 +1,8 @@
 //! Backend Tauri: il più sottile possibile. Tutta la logica applicativa vive nel
 //! frontend; qui esponiamo l'identità locale (utente + macchina), un piccolo
 //! ricevitore per il redirect OAuth di Google (loopback su 127.0.0.1), le
-//! richieste all'IA locale (solo 127.0.0.1, vedi ai.rs) e i plugin
+//! richieste all'IA locale (solo 127.0.0.1, vedi ai.rs), la ricerca, l'avvio e
+//! l'installazione di Ollama (ollama.rs) e i plugin
 //! ufficiali per filesystem, dialog, http, apertura file e stato della finestra.
 
 use std::io::{Read, Write};
@@ -13,6 +14,7 @@ use serde::Serialize;
 mod secrets;
 mod git;
 mod ai;
+mod ollama;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -257,17 +259,24 @@ fn shell_command(command: &str) -> std::process::Command {
     }
 }
 
-fn kill_tree(child: &mut std::process::Child) {
+/// Termina un processo con tutti quelli che ha avviato (su Windows).
+pub(crate) fn kill_pid_tree(pid: u32) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         let _ = std::process::Command::new("taskkill")
-            .args(["/T", "/F", "/PID", &child.id().to_string()])
+            .args(["/T", "/F", "/PID", &pid.to_string()])
             .creation_flags(0x0800_0000)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
     }
+    #[cfg(not(windows))]
+    let _ = pid;
+}
+
+fn kill_tree(child: &mut std::process::Child) {
+    kill_pid_tree(child.id());
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -379,7 +388,11 @@ pub fn run() {
             git::git_log,
             ai::ai_request,
             ai::ai_stream,
-            ai::ai_cancel
+            ai::ai_cancel,
+            ollama::ollama_info,
+            ollama::ollama_start,
+            ollama::ollama_install,
+            ollama::ollama_install_cancel
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Todo Doto");
