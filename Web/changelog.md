@@ -2,6 +2,11 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.2.29 — 16 ottobre 2026
+
+- GitHub nei workspace di rete: il token lo imposta solo un amministratore; cleaner e membri non vedono il pulsante e trovano già gli Stack sincronizzati.
+- Google Drive: il client Google lo configura un amministratore per tutto il workspace, gli altri collegano solo il proprio account. Chiunque può risincronizzare e vede i file a cui ha accesso, senza cambiare cosa vedono gli altri; scegliere o togliere la cartella resta dell'amministratore.
+
 ## 0.2.28 — 16 ottobre 2026
 
 - Condivisione solo in rete: un workspace si condivide solo con la cartella Dati e la cartella dei progetti su un'unità di rete, un progetto solo con la sua cartella in rete; altrimenti l'app spiega che è in locale.

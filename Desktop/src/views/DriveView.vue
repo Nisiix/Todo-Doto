@@ -25,6 +25,8 @@ const m = defineMessages({
     forget: 'Rimuovi cartella sincronizzata',
     folderSummary: (name: string, n: number) => `Cartella «${name}» · ${n} ${plural(n, 'elemento', 'elementi')}`,
     syncedBy: (when: string, who: string) => `sincronizzata ${when} da ${who}`,
+    syncedMine: (when: string) => `sincronizzata ${when} con il tuo account: vedi i file a cui hai accesso`,
+    syncMineHint: 'Rilegge la cartella con il tuo account Google: vedrai i file a cui hai accesso (gli altri non cambiano)',
     lead: 'Replica la struttura di una cartella di Drive nel workspace e apri i documenti direttamente qui.',
     syncing: (p: string | number) => `Sincronizzo… ${p}`,
     sync: 'Sincronizza',
@@ -36,7 +38,10 @@ const m = defineMessages({
     step1b: 'Abilita l’API «Google Drive API» per il progetto.',
     step1c: 'Crea credenziali → ID client OAuth → tipo',
     desktopApp: 'App desktop',
-    step1d: 'Copia qui l’ID client (e il segreto, se mostrato). Restano cifrati solo su questo PC.',
+    step1d: 'Copia qui l’ID client (e il segreto, se mostrato): valgono per tutto il workspace, così gli altri membri devono solo collegare il proprio account Google.',
+    adminSetup: 'Google Drive non è ancora configurato per questo workspace: lo configura un amministratore, una volta sola per tutti. Poi ti basterà collegare il tuo account Google.',
+    noFolderYet: 'Nessuna cartella di Drive ancora: la sceglie un amministratore. La struttura la vedrai qui; per aprire i documenti collegherai il tuo account Google.',
+    ownAccount: 'Per aprire i documenti collega il tuo account Google: l’accesso dipende dai permessi del tuo account sui file di Drive.',
     readOnly1: 'L’app chiede solo il permesso di',
     read: 'lettura',
     readOnly2: 'di Drive e non salva mai il tuo account nella cartella condivisa.',
@@ -63,6 +68,8 @@ const m = defineMessages({
     forget: 'Remove synced folder',
     folderSummary: (name: string, n: number) => `Folder “${name}” · ${n} ${plural(n, 'item', 'items')}`,
     syncedBy: (when: string, who: string) => `synced ${when} by ${who}`,
+    syncedMine: (when: string) => `synced ${when} with your account: you see the files you have access to`,
+    syncMineHint: 'Reads the folder again with your Google account: you will see the files you have access to (nothing changes for the others)',
     lead: 'Mirror the structure of a Drive folder in the workspace and open the documents right here.',
     syncing: (p: string | number) => `Syncing… ${p}`,
     sync: 'Sync',
@@ -74,7 +81,10 @@ const m = defineMessages({
     step1b: 'Enable the “Google Drive API” for the project.',
     step1c: 'Create credentials → OAuth client ID → type',
     desktopApp: 'Desktop app',
-    step1d: 'Copy the client ID here (and the secret, if shown). They stay encrypted on this PC only.',
+    step1d: 'Copy the client ID here (and the secret, if shown): they apply to the whole workspace, so the other members only need to connect their own Google account.',
+    adminSetup: 'Google Drive is not configured for this workspace yet: an administrator does it, once for everyone. Then you will only need to connect your Google account.',
+    noFolderYet: 'No Drive folder yet: an administrator chooses it. You will see its structure here; to open the documents you will connect your Google account.',
+    ownAccount: 'To open the documents connect your Google account: access depends on your account permissions on the Drive files.',
     readOnly1: 'The app only asks for',
     read: 'read',
     readOnly2: 'permission on Drive and never stores your account in the shared folder.',
@@ -200,14 +210,15 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
           <p class="mt-1 text-[13.5px] text-ink-2">
             <template v-if="drive.rootFolderId">
               {{ m.folderSummary(drive.rootName, drive.nodes.length) }}
-              <template v-if="drive.syncedAt"> · {{ m.syncedBy(dayjs(drive.syncedAt).fromNow(), ws.userName(ws.drive.syncedBy)) }}</template>
+              <template v-if="drive.personalView && drive.syncedAt"> · <span data-drive-personal>{{ m.syncedMine(dayjs(drive.syncedAt).fromNow()) }}</span></template>
+              <template v-else-if="drive.syncedAt"> · {{ m.syncedBy(dayjs(drive.syncedAt).fromNow(), ws.userName(ws.drive.syncedBy)) }}</template>
             </template>
             <template v-else>{{ m.lead }}</template>
           </p>
         </div>
         <div class="flex items-center gap-1.5">
           <span v-if="drive.account" class="mr-1 text-[12.5px] text-ink-3" :title="drive.account.name">{{ drive.account.email }}</span>
-          <BaseButton v-if="drive.rootFolderId && drive.status === 'connected'" size="sm" :disabled="drive.syncing" @click="drive.sync()">
+          <BaseButton v-if="drive.rootFolderId && drive.status === 'connected'" size="sm" :disabled="drive.syncing" :title="ws.isAdmin ? undefined : m.syncMineHint" data-drive-sync @click="drive.sync()">
             <Loader2 v-if="drive.syncing" :size="14" class="animate-spin" /><RefreshCw v-else :size="14" />
             {{ drive.syncing ? m.syncing(drive.syncProgress) : m.sync }}
           </BaseButton>
@@ -216,12 +227,14 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
         </div>
       </div>
       <p v-if="drive.error" class="mt-2 text-[13px] text-danger">{{ drive.error }}</p>
+      <p v-if="isTauri && !ws.isAdmin && drive.rootFolderId && drive.status !== 'connected' && drive.status !== 'unconfigured'" class="mt-2 text-[12.5px] text-ink-3" data-drive-own-account>{{ m.ownAccount }}</p>
     </header>
 
     <!-- Configurazione -->
     <div v-if="!isTauri" class="m-8 max-w-xl rounded-lg border border-dashed border-line-strong p-5 text-[13.5px] text-ink-2">
       {{ m.desktopOnly }}
     </div>
+    <p v-else-if="drive.status === 'unconfigured' && !ws.isAdmin" class="m-8 max-w-xl rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2" data-drive-admin-setup>{{ m.adminSetup }}</p>
     <div v-else-if="drive.status === 'unconfigured'" class="m-8 max-w-xl space-y-4">
       <div class="rounded-lg border border-line bg-surface p-5">
         <h2 class="text-[15px] font-bold">{{ m.step1 }}</h2>
@@ -246,6 +259,7 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
         <BaseButton type="submit" variant="primary">{{ m.step2 }}</BaseButton>
       </form>
     </div>
+    <p v-else-if="!drive.rootFolderId && !ws.isAdmin" class="m-8 max-w-xl rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2" data-drive-no-folder>{{ m.noFolderYet }}</p>
     <div v-else-if="drive.status !== 'connected' && !drive.rootFolderId" class="m-8 max-w-xl rounded-lg border border-line bg-surface p-5 text-[13.5px] text-ink-2">
       <p>{{ m.configured }}</p>
       <BaseButton class="mt-3" variant="primary" :disabled="drive.status === 'connecting'" @click="drive.connect()">
@@ -280,7 +294,7 @@ const openOnDrive = async (n: DriveNode) => n.webViewLink && (await getFs()).ope
             </div>
           </li>
         </ul>
-        <button class="mt-4 flex items-center gap-1.5 px-2 text-[12px] text-ink-3 hover:text-danger" @click="forgetFolder"><Link2Off :size="12" /> {{ m.forget }}</button>
+        <button v-if="ws.isAdmin" class="mt-4 flex items-center gap-1.5 px-2 text-[12px] text-ink-3 hover:text-danger" @click="forgetFolder"><Link2Off :size="12" /> {{ m.forget }}</button>
       </aside>
 
       <div class="flex min-w-0 flex-1 flex-col">

@@ -17,12 +17,14 @@ const M = defineMessages({
     synced: (n: number) => `${n} ${plural(n, 'progetto sincronizzato', 'progetti sincronizzati')} da GitHub`,
     imported: (n: number) => `${n} ${plural(n, 'progetto creato o collegato', 'progetti creati o collegati')} da GitHub`,
     syncFailed: (name: string, err: string) => `Sincronizzazione di «${name}» non riuscita: ${err}`,
+    adminOnly: 'Solo un amministratore può collegare GitHub.',
   },
   en: {
     connected: (login: string) => `GitHub connected as ${login}`,
     synced: (n: number) => `${n} ${plural(n, 'project', 'projects')} synced from GitHub`,
     imported: (n: number) => `${n} ${plural(n, 'project', 'projects')} created or linked from GitHub`,
     syncFailed: (name: string, err: string) => `Syncing “${name}” failed: ${err}`,
+    adminOnly: 'Only an administrator can connect GitHub.',
   },
 })
 
@@ -30,7 +32,8 @@ const M = defineMessages({
 const AUTO_SYNC_MS = 60 * 60 * 1000
 
 /**
- * Collegamento a GitHub (per macchina: il token è dell'utente) e
+ * Collegamento a GitHub (per macchina: il token è di chi lo imposta, che nei
+ * workspace di rete è sempre un amministratore) e
  * sincronizzazione dei progetti del workspace collegati a un repository:
  * lo Stack si ricava dai file del repository e si unisce a quello esistente.
  */
@@ -68,6 +71,8 @@ export const useGitHubStore = defineStore('github', () => {
 
   async function connect(token: string) {
     error.value = ''
+    // Nei workspace di rete il token lo imposta solo un amministratore
+    if (!ws.isAdmin) throw new Error(M.adminOnly)
     const t = token.trim()
     const user = await new GitHubClient(await getHttp(), t).user()
     auth.value = { token: t, login: user.login, name: user.name, autoSync: auth.value?.autoSync ?? true }

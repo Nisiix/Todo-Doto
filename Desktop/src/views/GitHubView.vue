@@ -33,7 +33,7 @@ const m = defineMessages({
     syncAll: 'Sincronizza tutti',
     syncing: (what: string) => `Sincronizzo… ${what}`,
     autoSync: 'Sincronizza automaticamente all’apertura del workspace (al massimo una volta all’ora)',
-    adminOnly: 'Solo gli amministratori possono creare e sincronizzare i progetti da GitHub.',
+    adminOnlyConnect: 'Il collegamento a GitHub lo gestisce un amministratore del workspace: è lui a impostare il token, e i progetti collegati si aggiornano per tutti. Lo Stack di ogni progetto collegato lo vedi già nella sua pagina.',
     repos: 'Repository',
     loadRepos: 'Aggiorna elenco',
     search: 'Cerca un repository',
@@ -69,7 +69,7 @@ const m = defineMessages({
     syncAll: 'Sync all',
     syncing: (what: string) => `Syncing… ${what}`,
     autoSync: 'Sync automatically when the workspace opens (at most once an hour)',
-    adminOnly: 'Only administrators can create and sync projects from GitHub.',
+    adminOnlyConnect: 'The GitHub connection is managed by a workspace administrator: they set the token, and linked projects are updated for everyone. You already see the Stack of each linked project on its page.',
     repos: 'Repositories',
     loadRepos: 'Refresh list',
     search: 'Search a repository',
@@ -150,15 +150,18 @@ const syncedLabel = (at: string) => (at ? m.syncedAgo(dayjs(at).fromNow()) : m.n
           <h1 class="flex items-center gap-2 text-[24px] font-extrabold leading-tight tracking-tight"><GitHubMark :size="22" /> GitHub</h1>
           <p class="mt-1 max-w-3xl text-[13.5px] text-ink-2">{{ m.lead }}</p>
         </div>
-        <template v-if="gh.connected">
+        <template v-if="gh.connected && ws.isAdmin">
           <span class="mt-1 text-[12.5px] text-ink-3">{{ gh.account?.login }}</span>
           <BaseButton size="sm" variant="ghost" :title="m.disconnect" :aria-label="m.disconnect" @click="disconnect"><Unplug :size="14" /></BaseButton>
         </template>
       </div>
     </header>
 
+    <!-- Solo gli amministratori impostano il token (workspace di rete; in locale si è sempre amministratori) -->
+    <p v-if="!ws.isAdmin" class="m-8 max-w-xl rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2" data-github-admin-only>{{ m.adminOnlyConnect }}</p>
+
     <!-- Collegamento -->
-    <div v-if="!gh.connected" class="m-8 max-w-xl space-y-4">
+    <div v-else-if="!gh.connected" class="m-8 max-w-xl space-y-4">
       <div class="rounded-lg border border-line bg-surface p-5">
         <h2 class="text-[15px] font-bold">{{ m.tokenTitle }}</h2>
         <ol class="mt-2 list-decimal space-y-1 pl-5 text-[13.5px] text-ink-2">
@@ -181,7 +184,6 @@ const syncedLabel = (at: string) => (at ? m.syncedAgo(dayjs(at).fromNow()) : m.n
     </div>
 
     <div v-else class="space-y-8 px-8 py-6">
-      <p v-if="!ws.isAdmin" class="max-w-xl rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2">{{ m.adminOnly }}</p>
 
       <!-- Progetti collegati -->
       <section class="max-w-4xl">

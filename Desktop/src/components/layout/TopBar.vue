@@ -131,7 +131,9 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       <Cloud :size="16" /> Drive
     </RouterLink>
 
+    <!-- GitHub: il token lo imposta solo un amministratore (gli altri vedono i progetti già sincronizzati) -->
     <RouterLink
+      v-if="ws.isAdmin"
       :to="{ name: 'github' }"
       class="flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2 hover:text-ink"
       active-class="bg-accent-soft text-accent-ink"

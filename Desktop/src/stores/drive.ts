@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { getFs } from '@/services/fs'
 import { getHttp } from '@/services/http'
 import { loadDriveAuth, saveDriveAuth, type DriveAuthFile } from '@/services/config'
@@ -10,13 +10,37 @@ import { useWorkspaceStore } from './workspace'
 import { useUiStore } from './ui'
 import { DRIVE_FOLDER_MIME, type DriveNode } from '@/types'
 import { common } from '@/i18n/common'
-import { compareText } from '@/i18n'
+import { compareText, defineMessages } from '@/i18n'
+
+const M = defineMessages({
+  it: { adminOnly: 'Solo un amministratore sceglie la cartella di Drive del workspace.' },
+  en: { adminOnly: 'Only an administrator chooses the workspace Drive folder.' },
+})
 
 export type DriveStatus = 'unconfigured' | 'disconnected' | 'connecting' | 'connected'
+
+/** Struttura sincronizzata da un utente non amministratore con il proprio account (resta sul suo PC). */
+interface PersonalDrive {
+  rootFolderId: string
+  rootName: string
+  nodes: DriveNode[]
+  syncedAt: string
+}
 
 /**
  * Stato del collegamento a Google Drive (per macchina: account e token sono
  * dell'utente) e della cartella sincronizzata (per workspace: solo struttura).
+ *
+ * L'accesso ai documenti dipende dai permessi dell'account Google di ciascuno:
+ * ognuno collega il proprio account (condividere il token di un altro gli
+ * darebbe il Drive di quella persona). Ciò che si condivide lo decide un
+ * amministratore: il client OAuth (così gli altri non devono crearne uno nella
+ * Google Cloud Console) e la cartella da replicare (anche toglierla).
+ *
+ * Risincronizzare lo può fare chiunque, e vale per sé: ognuno vede i file a cui
+ * il proprio account ha accesso. La struttura sincronizzata da un
+ * amministratore è quella del workspace (la vedono tutti); quella di un altro
+ * utente resta solo sul suo PC e, per lui, prende il posto di quella condivisa.
  */
 export const useDriveStore = defineStore('drive', () => {
   const session = useSessionStore()
@@ -32,8 +56,11 @@ export const useDriveStore = defineStore('drive', () => {
   const loaded = ref(false)
 
   const account = computed(() => auth.value?.account ?? null)
-  const nodes = computed(() => ws.drive.nodes)
-  const rootName = computed(() => ws.drive.rootName)
+  /** Struttura sincronizzata da questo utente con il proprio account (sul PC), per la cartella del workspace. */
+  const personal = ref<PersonalDrive | null>(null)
+  const mine = computed(() => (personal.value && personal.value.rootFolderId === ws.drive.rootFolderId ? personal.value : null))
+  const nodes = computed(() => mine.value?.nodes ?? ws.drive.nodes)
+  const rootName = computed(() => mine.value?.rootName || ws.drive.rootName)
   const rootFolderId = computed(() => ws.drive.rootFolderId)
   const nodesById = computed(() => Object.fromEntries(nodes.value.map((n) => [n.id, n])))
   const childrenOf = (parentId: string | null) =>
@@ -61,33 +88,95 @@ export const useDriveStore = defineStore('drive', () => {
     status.value = tokens ? 'connected' : 'disconnected'
   }
 
+  /** Client OAuth da usare su questo PC: quello configurato qui, altrimenti quello del workspace. */
+  function effectiveClient(): { clientId: string; clientSecret: string } | null {
+    if (auth.value?.clientId) return { clientId: auth.value.clientId, clientSecret: auth.value.clientSecret }
+    const id = ws.drive.oauthClientId.trim()
+    return id ? { clientId: id, clientSecret: ws.drive.oauthClientSecret } : null
+  }
+  /** Il client viene dal workspace (impostato da un amministratore), non da questo PC. */
+  const sharedClient = computed(() => !auth.value?.clientId && !!ws.drive.oauthClientId.trim())
+
   async function buildClient() {
-    if (!auth.value?.clientId) {
+    const oauth = effectiveClient()
+    if (!oauth) {
       client.value = null
       status.value = 'unconfigured'
       return
     }
-    client.value = new DriveClient(await getHttp(), { clientId: auth.value.clientId, clientSecret: auth.value.clientSecret }, auth.value.tokens, persistTokens)
-    status.value = auth.value.tokens ? 'connected' : 'disconnected'
+    client.value = new DriveClient(await getHttp(), oauth, auth.value?.tokens ?? null, persistTokens)
+    status.value = auth.value?.tokens ? 'connected' : 'disconnected'
   }
+
+  // --- struttura personale (per PC e workspace) -------------------------------------
+  const personalPath = async () => {
+    const fs = await getFs()
+    return fs.join(await fs.appDataDir(), 'drive', `${ws.meta?.id ?? 'ws'}.json`)
+  }
+  async function loadPersonal() {
+    personal.value = null
+    if (!ws.meta) return
+    try {
+      const fs = await getFs()
+      const path = await personalPath()
+      if (await fs.exists(path)) personal.value = JSON.parse(await fs.readText(path)) as PersonalDrive
+    } catch {
+      personal.value = null
+    }
+  }
+  async function savePersonal(data: PersonalDrive | null) {
+    personal.value = data
+    const fs = await getFs()
+    const path = await personalPath()
+    if (data) {
+      await fs.mkdir(await fs.join(await fs.appDataDir(), 'drive'))
+      await fs.writeTextAtomic(path, JSON.stringify(data))
+    } else if (await fs.exists(path)) await fs.remove(path)
+  }
+  watch(
+    () => ws.meta?.id,
+    () => void (loaded.value && loadPersonal()),
+  )
 
   async function init() {
     if (loaded.value) return
+    await loadPersonal()
     auth.value = await loadDriveAuth(session.localSecret)
+    // Amministratore con il client configurato solo su questo PC (versioni precedenti): lo si
+    // condivide con il workspace di rete, così gli altri devono solo collegare il proprio account
+    if (ws.isNetwork && ws.isAdmin && auth.value?.clientId && !ws.drive.oauthClientId.trim()) {
+      await ws.writeDrive({ ...ws.drive, oauthClientId: auth.value.clientId, oauthClientSecret: auth.value.clientSecret })
+    }
     await buildClient()
     loaded.value = true
   }
+  // Il client del workspace può arrivare (o cambiare) dopo: aprendo il workspace o quando lo imposta un amministratore
+  watch(
+    () => [ws.drive.oauthClientId, ws.drive.oauthClientSecret],
+    () => void (loaded.value && !auth.value?.clientId && buildClient()),
+  )
 
-  /** Salva l'ID client (e l'eventuale segreto) creati nella Google Cloud Console. */
+  /**
+   * Salva l'ID client (e l'eventuale segreto) creati nella Google Cloud Console.
+   * Un amministratore lo imposta per tutto il workspace: gli altri collegano solo il proprio account.
+   */
   async function configure(clientId: string, clientSecret: string) {
-    auth.value = { clientId: clientId.trim(), clientSecret: clientSecret.trim(), tokens: null, account: null }
+    const id = clientId.trim()
+    const secret = clientSecret.trim()
+    if (ws.isAdmin) {
+      await ws.writeDrive({ ...ws.drive, oauthClientId: id, oauthClientSecret: secret })
+      // Su questo PC vale quello del workspace (niente copia locale da tenere allineata)
+      auth.value = { clientId: '', clientSecret: '', tokens: null, account: null }
+    } else auth.value = { clientId: id, clientSecret: secret, tokens: null, account: null }
     await saveDriveAuth(auth.value, session.localSecret)
     await buildClient()
   }
 
   /** Flusso OAuth: browser di sistema → consenso → redirect sul ricevitore locale. */
   async function connect() {
-    if (!client.value || !auth.value) return
+    const oauth = effectiveClient()
+    if (!client.value || !oauth) return
+    auth.value ??= { clientId: '', clientSecret: '', tokens: null, account: null }
     error.value = ''
     status.value = 'connecting'
     try {
@@ -96,7 +185,7 @@ export const useDriveStore = defineStore('drive', () => {
       const redirectUri = `http://127.0.0.1:${port}/callback`
       const { verifier, challenge } = await createPkce()
       const state = randomState()
-      await fs.openExternal(buildAuthUrl({ clientId: auth.value.clientId, redirectUri, state, challenge }), 'link')
+      await fs.openExternal(buildAuthUrl({ clientId: oauth.clientId, redirectUri, state, challenge }), 'link')
       const cb = await fs.oauthWait()
       if (cb.error) throw new DriveError(cb.error === 'access_denied' ? common.drive.accessCancelled : cb.error)
       if (!cb.code || cb.state !== state) throw new DriveError(common.drive.badState)
@@ -118,11 +207,12 @@ export const useDriveStore = defineStore('drive', () => {
       auth.value = { ...auth.value, tokens: null, account: null }
       await saveDriveAuth(auth.value, session.localSecret)
     }
-    status.value = auth.value?.clientId ? 'disconnected' : 'unconfigured'
+    status.value = effectiveClient() ? 'disconnected' : 'unconfigured'
   }
 
   /** Imposta la cartella da replicare (link o id) e sincronizza. */
   async function setRootFolder(linkOrId: string) {
+    if (!ws.isAdmin) throw new DriveError(M.adminOnly)
     const id = parseFolderId(linkOrId)
     if (!id) throw new DriveError(common.drive.pasteFolder)
     if (!client.value) throw new DriveError(common.drive.linkFirst)
@@ -143,7 +233,14 @@ export const useDriveStore = defineStore('drive', () => {
     try {
       const info = await c.folderInfo(rootId)
       const list = await c.walkFolder(rootId, (n) => (syncProgress.value = n))
-      await ws.writeDrive({ schema: 1, rootFolderId: rootId, rootName: info.name, nodes: list, syncedAt: nowIso(), syncedBy: ws.currentUser?.id ?? null })
+      if (ws.isAdmin) {
+        // Amministratore: diventa la struttura del workspace, quella che vedono tutti
+        await ws.writeDrive({ ...ws.drive, schema: 1, rootFolderId: rootId, rootName: info.name, nodes: list, syncedAt: nowIso(), syncedBy: ws.currentUser?.id ?? null })
+        await savePersonal(null)
+      } else {
+        // Gli altri: i file che vedono con il proprio account, solo per sé (su questo PC)
+        await savePersonal({ rootFolderId: rootId, rootName: info.name, nodes: list, syncedAt: nowIso() })
+      }
       ui.toast(common.drive.synced(list.length), 'success')
     } catch (e) {
       error.value = e instanceof Error ? e.message : String(e)
@@ -154,7 +251,8 @@ export const useDriveStore = defineStore('drive', () => {
   }
 
   async function clearRootFolder() {
-    await ws.writeDrive({ schema: 1, rootFolderId: null, rootName: '', nodes: [], syncedAt: null, syncedBy: null })
+    if (!ws.isAdmin) return
+    await ws.writeDrive({ ...ws.drive, schema: 1, rootFolderId: null, rootName: '', nodes: [], syncedAt: null, syncedBy: null })
   }
 
   // Cache dei contenuti scaricati, per non riscaricare a ogni apertura
@@ -187,8 +285,11 @@ export const useDriveStore = defineStore('drive', () => {
     childrenOf,
     isFolder,
     pathOf,
-    syncedAt: computed(() => ws.drive.syncedAt),
-    clientId: computed(() => auth.value?.clientId ?? ''),
+    syncedAt: computed(() => mine.value?.syncedAt ?? ws.drive.syncedAt),
+    /** La struttura mostrata è quella sincronizzata da questo utente (non quella del workspace). */
+    personalView: computed(() => !!mine.value),
+    clientId: computed(() => effectiveClient()?.clientId ?? ''),
+    sharedClient,
     init,
     configure,
     connect,

@@ -428,6 +428,13 @@ export const DriveFileSchema = z.object({
   syncedAt: iso.nullable().default(null),
   syncedBy: z.string().nullable().default(null),
   nodes: z.array(DriveNodeSchema).default([]),
+  /**
+   * Client OAuth di Google (tipo «App desktop») impostato da un amministratore
+   * per tutto il workspace: gli altri collegano solo il proprio account. Per le
+   * app desktop Google non considera il segreto confidenziale.
+   */
+  oauthClientId: z.string().default(''),
+  oauthClientSecret: z.string().default(''),
 })
 export type DriveFile = z.infer<typeof DriveFileSchema>
 

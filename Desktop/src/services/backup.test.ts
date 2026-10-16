@@ -64,7 +64,7 @@ describe('copie di sicurezza: contenuto', () => {
       workspace: { schema: 1, id: 'ws_1', name: 'W', mode: 'local', createdBy: 'u', createdAt: '2026-01-01T00:00:00.000Z', auth: null, projectsPath: '', backup: { enabled: true, dir: '' } },
       users: { users: [] },
       tree: { folders: [], labels: [] },
-      drive: { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] },
+      drive: { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [], oauthClientId: '', oauthClientSecret: '' },
       audit: { entries: [] },
       projects: [],
     } as unknown as BackupBundle

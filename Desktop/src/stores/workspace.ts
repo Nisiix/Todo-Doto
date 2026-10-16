@@ -54,7 +54,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const meta = ref<WorkspaceMeta | null>(null)
   const users = ref<User[]>([])
   const tree = ref<TreeFile>({ folders: [], labels: [] })
-  const drive = ref<DriveFile>({ schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] })
+  const drive = ref<DriveFile>({ schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [], oauthClientId: '', oauthClientSecret: '' })
   const audit = ref<AuditEntry[]>([])
   /** Copie di sicurezza presenti (la più recente per prima) ed eventuale errore dell'ultima automatica. */
   const backups = ref<BackupInfo[]>([])
@@ -250,7 +250,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     passwordRemembered.value = false
     users.value = []
     tree.value = { folders: [], labels: [] }
-    drive.value = { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [] }
+    drive.value = { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [], oauthClientId: '', oauthClientSecret: '' }
     audit.value = []
     readiness.value = {}
     backups.value = []
