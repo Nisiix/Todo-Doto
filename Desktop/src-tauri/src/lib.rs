@@ -354,6 +354,98 @@ async fn run_check(command: String, timeout_ms: Option<u64>) -> Result<CheckOutp
         .map_err(|e| e.to_string())
 }
 
+/// Comandi lunghi in corso (id → processo), per poterli interrompere.
+static RUNS: Mutex<Option<std::collections::HashMap<String, u32>>> = Mutex::new(None);
+
+/// Esegue un comando lungo (installazione di un prerequisito con winget, passo
+/// della configurazione) senza finestra, nella cartella indicata, e invia ogni
+/// riga di output a `on_line`: anche quelle separate da \r, come le barre di
+/// avanzamento di winget. Nessun tempo massimo: si interrompe con `run_cancel`.
+#[tauri::command]
+async fn run_stream(command: String, cwd: Option<String>, id: String, on_line: tauri::ipc::Channel<String>) -> Result<i32, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        run_stream_blocking(&command, cwd.as_deref(), &id, |line| {
+            let _ = on_line.send(line);
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn run_stream_blocking<F: Fn(String)>(command: &str, cwd: Option<&str>, id: &str, on_line: F) -> Result<i32, String> {
+    use std::process::Stdio;
+    let dir = cwd.map(std::path::PathBuf::from).filter(|p| p.is_dir()).unwrap_or_else(std::env::temp_dir);
+    let mut cmd = shell_command(command);
+    cmd.current_dir(dir).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    if let Ok(mut g) = RUNS.lock() {
+        g.get_or_insert_with(std::collections::HashMap::new).insert(id.to_string(), child.id());
+    }
+    // Output e errori letti insieme, riga per riga (\n o \r)
+    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let pipes: Vec<Box<dyn Read + Send>> = [
+        child.stdout.take().map(|s| Box::new(s) as Box<dyn Read + Send>),
+        child.stderr.take().map(|s| Box::new(s) as Box<dyn Read + Send>),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let mut readers = Vec::new();
+    for mut pipe in pipes {
+        let tx = tx.clone();
+        readers.push(std::thread::spawn(move || {
+            let mut chunk = [0u8; 4096];
+            let mut line: Vec<u8> = Vec::new();
+            loop {
+                match pipe.read(&mut chunk) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        for &b in &chunk[..n] {
+                            if b == b'\n' || b == b'\r' {
+                                if !line.is_empty() {
+                                    let _ = tx.send(String::from_utf8_lossy(&line).into_owned());
+                                    line.clear();
+                                }
+                            } else if line.len() < 8192 {
+                                line.push(b);
+                            }
+                        }
+                    }
+                }
+            }
+            if !line.is_empty() {
+                let _ = tx.send(String::from_utf8_lossy(&line).into_owned());
+            }
+        }));
+    }
+    drop(tx);
+    for text in rx {
+        let t = text.trim();
+        if !t.is_empty() {
+            on_line(t.to_string());
+        }
+    }
+    for r in readers {
+        let _ = r.join();
+    }
+    let status = child.wait().map_err(|e| e.to_string())?;
+    // Se l'id non c'è più l'ha tolto run_cancel: interrotto
+    let still = RUNS.lock().ok().and_then(|mut g| g.as_mut().and_then(|m| m.remove(id)));
+    if still.is_none() {
+        return Err("cancelled".into());
+    }
+    Ok(status.code().unwrap_or(1))
+}
+
+/// Interrompe un comando avviato con `run_stream` (con i programmi che ha avviato).
+#[tauri::command]
+fn run_cancel(id: String) {
+    let pid = RUNS.lock().ok().and_then(|mut g| g.as_mut().and_then(|m| m.remove(&id)));
+    if let Some(pid) = pid {
+        kill_pid_tree(pid);
+    }
+}
+
 /// La cartella è su un'unità di rete? Sì per i percorsi \\server\condivisione e
 /// per le lettere di unità collegate a una condivisione (es. Z:); no per i
 /// dischi di questo PC. Decide se un workspace o un progetto si può condividere.
@@ -411,6 +503,8 @@ pub fn run() {
             oauth_start,
             oauth_wait,
             run_check,
+            run_stream,
+            run_cancel,
             allow_paths,
             path_is_remote,
             secrets::protect_secret,
@@ -431,6 +525,14 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn streams_output_lines_and_exit_code() {
+        let lines = std::sync::Mutex::new(Vec::new());
+        let code = run_stream_blocking("echo uno&& echo due&& exit 3", None, "test-run", |l| lines.lock().unwrap().push(l)).unwrap();
+        assert_eq!(code, 3);
+        assert_eq!(*lines.lock().unwrap(), vec!["uno".to_string(), "due".to_string()]);
+    }
 
     #[test]
     fn recognizes_network_paths() {

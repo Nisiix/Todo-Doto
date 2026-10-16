@@ -583,13 +583,9 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await expect(page.locator('[data-prereq-summary]')).toHaveText('1 da installare o aggiornare')
   await page.getByTitle('Segna come fatto').first().click() // il primo passo
   await expect(page.getByText('1 di 3 completati')).toBeVisible()
-  await page.getByRole('button', { name: 'Gestisci configurazione automatica' }).click()
-  await expect(dialog(page)).toContainText('Configurazione automatica di Stack test')
-  await expect(dialog(page)).toContainText('npm install')
-  await expect(dialog(page).locator('[data-auto-blocked]')).toContainText('Node.js')
-  await expect(dialog(page).getByRole('button', { name: 'Avvia configurazione' })).toBeDisabled()
-  await expect(dialog(page).getByRole('button', { name: 'Salva lo script…' })).toBeDisabled()
-  await page.keyboard.press('Escape')
+  // Nel browser (senza comandi simulati) la configurazione automatica non parte: solo nell'app desktop
+  await page.locator('[data-auto-setup]').click()
+  await expect(page.getByText(/disponibile nell’app desktop/)).toBeVisible()
 
   // Esito incerto (errore senza versione): segnalato; si sblocca solo confermandolo a mano
   await fakeChecks(page, { 'node -v': { code: 1, stderr: 'errore imprevisto' } })
@@ -613,12 +609,13 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await expect(page.getByText('2 di 3 completati')).toBeVisible()
   await expect(page.locator('[data-prereq-summary]')).toHaveText('1 installato')
 
-  // Configurazione automatica: nessun blocco, avvio (nel browser: solo app desktop)
-  await page.getByRole('button', { name: 'Gestisci configurazione automatica' }).click()
-  await expect(dialog(page).locator('[data-auto-blocked]')).toHaveCount(0)
-  await dialog(page).getByRole('button', { name: 'Avvia configurazione' }).click()
-  await expect(page.getByText(/disponibile nell’app desktop/)).toBeVisible()
-  await page.keyboard.press('Escape')
+  // Configurazione automatica (comandi simulati): esegue il passo rimasto, lo spunta, niente dialog
+  await page.evaluate(() => Object.assign(window, { __pgmRun: (cmd: string) => ({ lines: [`> ${cmd}`, 'fatto'], code: 0 }) }))
+  await page.locator('[data-auto-setup]').click()
+  await expect(page.getByText('Configurazione completata.')).toBeVisible()
+  await expect(page.getByText('3 di 3 completati')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.locator('[data-auto-setup]')).toHaveCount(0) // non resta niente da fare
 
   // Strumenti AI, ora nella pagina Stack: skill incollata, visibile nel visualizzatore
   await expect(page.getByRole('heading', { name: 'Strumenti AI' })).toBeVisible()
@@ -1442,16 +1439,34 @@ test('stack .NET Framework: niente .NET SDK né Visual Studio 2022; i programmi 
     'strumento --version': { code: 9009, stderr: "'strumento' is not recognized as an internal or external command" },
   })
   await page.getByRole('button', { name: 'Ricontrolla' }).first().click()
-  await expect(page.locator('[data-installable]')).toContainText('Mancano su questo PC: Node.js')
+  await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'missing')
   await expect(page.locator('[data-install-manual]')).toContainText('Da installare a mano: Strumento interno')
   // Senza IA locale si consiglia di attivarla, per completare in automatico
   await expect(page.locator('[data-install-enable-ai]')).toContainText('Attiva l’IA locale')
   await page.locator('[data-install-enable-ai]').getByRole('button', { name: 'Attiva l’IA locale' }).click()
   await expect(page.locator('[data-settings-panel="ai"]')).toBeVisible()
   await page.keyboard.press('Escape')
-  // Nel browser l'installazione non parte (solo nell'app desktop)
-  await page.locator('[data-install-missing]').click()
-  await expect(page.getByText('L’installazione automatica è disponibile nell’app desktop.')).toBeVisible()
+  // «Gestisci configurazione automatica»: Node.js si scarica e si installa con winget (simulato),
+  // con la fase sul prerequisito, e si spunta da solo; quello sconosciuto ferma la configurazione
+  await page.evaluate(() =>
+    Object.assign(window, {
+      __pgmRun: async (cmd: string) => {
+        if (!cmd.startsWith('winget install --id OpenJS.NodeJS.LTS ')) return { lines: ['comando inatteso'], code: 1 }
+        const w = window as unknown as { __pgmChecks: Record<string, unknown> }
+        w.__pgmChecks['node -v'] = { code: 0, stdout: 'v22.11.0', stderr: '', timedOut: false }
+        const lines = ['Download in corso https://nodejs.org/node.msi', '  ██▒▒  10.0 MB / 30.0 MB', '  ████  30.0 MB / 30.0 MB', 'Hash del programma di installazione verificato', 'Avvio dell’installazione del pacchetto in corso...', 'Installazione riuscita']
+        return { lines, code: 0 }
+      },
+    }),
+  )
+  await page.locator('[data-auto-setup]').click()
+  const nodeRow = page.locator('[data-prereq="Node.js"]')
+  await expect(nodeRow.locator('[data-run-phase]')).toHaveAttribute('data-phase', 'done')
+  await expect(nodeRow).toHaveAttribute('data-status', 'ok')
+  await expect(page.locator('[data-prereq="Strumento interno"] [data-run-phase]')).toContainText('Da installare a mano')
+  await expect(page.locator('[data-run-message]')).toContainText('Configurazione interrotta: prima vanno installati')
+  await expect(page.locator('[data-run-message]')).toContainText('Strumento interno')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('stack: l’apertura nell’editor è l’operazione conclusiva, con il suo pulsante; configurazione automatica solo con passi da fare', async ({ page }) => {
@@ -1484,6 +1499,50 @@ test('stack: l’apertura nell’editor è l’operazione conclusiva, con il suo
   await page.getByTitle('Segna come fatto').click()
   await expect(page.locator('[data-auto-setup]')).toHaveCount(0)
   await expect(editor).toBeVisible()
+})
+
+test('configurazione automatica: comandi spuntati da soli, i passi a mano aspettano «Fatto, continua», un errore la ferma', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Passi')
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  const titles = page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze')
+  const commands = page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)')
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await titles.last().fill('Prepara la cartella')
+  await commands.last().fill('mkdir dati')
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await titles.last().fill('Chiedi l’accesso alla VPN')
+  await page.locator('form select').last().selectOption('manual')
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await titles.last().fill('Importa i dati')
+  await commands.last().fill('importa --tutto')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText('0 di 3 completati')).toBeVisible()
+
+  const ran: string[] = []
+  await page.exposeFunction('__recordRun', (c: string) => void ran.push(c))
+  await page.evaluate(() =>
+    Object.assign(window, {
+      __pgmRun: async (cmd: string) => {
+        await (window as unknown as { __recordRun: (c: string) => Promise<void> }).__recordRun(cmd)
+        return cmd.startsWith('importa') ? { lines: ['errore: archivio non trovato'], code: 2 } : { lines: ['ok'], code: 0 }
+      },
+    }),
+  )
+  await page.locator('[data-auto-setup]').click()
+  // Il comando si esegue e si spunta da solo; il passo a mano aspetta la conferma
+  await expect(page.locator('[data-run-continue]')).toBeVisible()
+  await expect(page.getByText('1 di 3 completati')).toBeVisible()
+  await expect(page.locator('[data-run-active]')).toBeVisible()
+  await page.locator('[data-run-continue]').click()
+  // Poi il terzo passo non riesce: la configurazione si ferma lì, con l'output
+  await expect(page.locator('[data-run-message]')).toContainText('Configurazione interrotta al passo «Importa i dati»')
+  await expect(page.getByText('2 di 3 completati')).toBeVisible()
+  await expect(page.getByText('Comando non riuscito (codice 2).')).toBeVisible()
+  expect(ran).toEqual(['mkdir dati', 'importa --tutto'])
+  // Rimane un passo da fare: il pulsante c'è ancora
+  await expect(page.locator('[data-auto-setup]')).toBeVisible()
 })
 
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {

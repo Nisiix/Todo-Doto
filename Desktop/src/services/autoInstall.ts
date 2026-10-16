@@ -6,12 +6,12 @@
  * conosce davvero. Si eseguono solo installazioni di pacchetti winget, mai
  * comandi proposti dall'IA.
  *
- * L'installazione gira in una finestra del prompt dei comandi (si vede cosa
- * succede, Windows chiede le autorizzazioni dove servono); tornando nell'app
- * le verifiche ripartono da sole.
+ * L'installazione la esegue l'app (senza finestre: Windows chiede le
+ * autorizzazioni dove servono) mostrando fase e avanzamento per ciascun
+ * prerequisito; finita, si ricontrolla e il prerequisito si spunta da solo.
  */
 import { z } from 'zod'
-import { defineMessages, locale } from '@/i18n'
+import { locale } from '@/i18n'
 import type { AiConfig, Prerequisite } from '@/types'
 import { chatJson } from './localAi'
 import { lookupPrerequisite } from './prerequisites'
@@ -93,64 +93,36 @@ export const wingetShowFound = (output: string) => /^\s*(Version|Versione|Versi�
 
 export const wingetShowCommand = (id: string) => `winget show --id ${id} -e --source winget --disable-interactivity --accept-source-agreements`
 
-const S = defineMessages({
-  it: {
-    title: (p: string) => `Todo Doto - installazione dei programmi per ${p}`,
-    lead: 'Todo Doto installa con winget (Gestione pacchetti di Windows) i programmi che mancano su questo PC. Se Windows chiede l\'autorizzazione, confermala.',
-    licences: 'Installando, accetti le licenze dei programmi (mostrate da winget).',
-    noWinget: 'winget non e\' disponibile su questo PC: installa "Programma di installazione app" dal Microsoft Store, poi riprova.',
-    step: (n: string, id: string) => `Installo ${n} (${id})...`,
-    ok: (n: string) => `${n}: installato.`,
-    fail: (n: string) => `${n}: installazione non riuscita (codice %ERRORLEVEL%).`,
-    done: 'Finito. Torna su Todo Doto: le verifiche ripartono da sole.',
-  },
-  en: {
-    title: (p: string) => `Todo Doto - installing the programs for ${p}`,
-    lead: 'Todo Doto installs the programs missing on this PC with winget (Windows Package Manager). If Windows asks for permission, confirm it.',
-    licences: 'By installing you accept the program licenses (shown by winget).',
-    noWinget: 'winget is not available on this PC: install "App Installer" from the Microsoft Store, then try again.',
-    step: (n: string, id: string) => `Installing ${n} (${id})...`,
-    ok: (n: string) => `${n}: installed.`,
-    fail: (n: string) => `${n}: installation failed (code %ERRORLEVEL%).`,
-    done: 'Done. Go back to Todo Doto: the checks start again by themselves.',
-  },
-})
-
-/** Testo sicuro per `echo` nel prompt dei comandi. */
-// (anche le parentesi: dentro i blocchi if (...) else (...) chiuderebbero il blocco)
-const echo = (s: string) => `echo ${s.replace(/[&|<>^%()]/g, (c) => (c === '%' ? '%%' : `^${c}`))}`
-const echoKeepErrorlevel = (s: string) => `echo ${s.replace(/[&|<>^()]/g, (c) => `^${c}`)}`
-
-/** Script .cmd che installa i pacchetti uno dopo l'altro (si ferma solo alla fine, per lasciare leggere). */
-export function installScript(projectName: string, plans: InstallPlan[]): string {
-  const lines = [
-    '@echo off',
-    'chcp 65001 >nul',
-    `title ${S.title(projectName).replace(/[&|<>^%]/g, '')}`,
-    echo(S.lead),
-    echo(S.licences),
-    'echo.',
-    'where winget >nul 2>nul',
-    'if errorlevel 1 (',
-    `  ${echo(S.noWinget)}`,
-    '  pause',
-    '  exit /b 1',
-    ')',
-  ]
-  for (const p of plans) {
-    if (!isWingetId(p.id)) continue
-    const override = p.override ? ` --override "${p.override.replace(/"/g, '')}"` : ''
-    lines.push(
-      'echo.',
-      echo(S.step(p.name, p.id)),
-      `winget install --id ${p.id} -e --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity${override}`,
-      // winget esce con codici negativi (es. -1978335212): «if errorlevel 1» non li vedrebbe
-      `if %ERRORLEVEL% NEQ 0 (${echoKeepErrorlevel(S.fail(p.name))}) else (${echo(S.ok(p.name))})`,
-    )
-  }
-  lines.push('echo.', echo(S.done), 'pause', '')
-  return lines.join('\r\n')
+/** Comando winget che installa il pacchetto (solo identificativi validi: niente altri comandi). */
+export function wingetInstallCommand(p: InstallPlan): string | null {
+  if (!isWingetId(p.id)) return null
+  const override = p.override ? ` --override "${p.override.replace(/"/g, '')}"` : ''
+  return `winget install --id ${p.id} -e --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity${override}`
 }
+
+export type InstallPhase = 'download' | 'verify' | 'install'
+
+/**
+ * Fase e avanzamento da una riga di output di winget (italiano e inglese):
+ * "12.0 MB / 50.0 MB" o "45%" = scaricamento; hash = verifica; installazione.
+ */
+export function wingetProgress(line: string): { phase?: InstallPhase; pct?: number } {
+  const unit = (n: string, u: string) => Number(n.replace(',', '.')) * ({ KB: 1e3, MB: 1e6, GB: 1e9 } as Record<string, number>)[u.toUpperCase()]!
+  const bytes = /(\d+(?:[.,]\d+)?)\s*(KB|MB|GB)\s*\/\s*(\d+(?:[.,]\d+)?)\s*(KB|MB|GB)/i.exec(line)
+  if (bytes) {
+    const total = unit(bytes[3]!, bytes[4]!)
+    return { phase: 'download', pct: total ? Math.min(100, Math.round((unit(bytes[1]!, bytes[2]!) / total) * 100)) : undefined }
+  }
+  const pct = /(\d{1,3})\s*%/.exec(line)
+  if (pct) return { phase: 'download', pct: Math.min(100, Number(pct[1])) }
+  if (/hash|verific/i.test(line)) return { phase: 'verify' }
+  if (/install/i.test(line)) return { phase: 'install' }
+  if (/download|scaric/i.test(line)) return { phase: 'download' }
+  return {}
+}
+
+/** winget dice che il pacchetto c'è già (aggiornato o no): non è un errore. */
+export const wingetAlreadyInstalled = (lines: string[]) => lines.some((l) => /already installed|gi[aà] installat|no (available )?upgrade|nessun aggiornamento/i.test(l))
 
 const AiPlan = z.object({ wingetId: z.string().max(100), confidence: z.enum(['high', 'medium', 'low']) })
 

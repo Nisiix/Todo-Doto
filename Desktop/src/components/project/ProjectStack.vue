@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { AlertTriangle, ArrowDown, Download, LifeBuoy, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, LifeBuoy, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, X, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -32,7 +32,7 @@ import { applyPrerequisiteFixes, autofillPrerequisite, KNOWN_PREREQUISITES, look
 import { isEditorStep, mergeImportedStack, mergeStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
-import { aiInstallPlan, catalogPlan, installScript, wingetShowCommand, wingetShowFound, type InstallPlan } from '@/services/autoInstall'
+import { aiInstallPlan, catalogPlan, wingetAlreadyInstalled, wingetInstallCommand, wingetProgress, wingetShowCommand, wingetShowFound, type InstallPlan } from '@/services/autoInstall'
 import { applyTokens, copyStack, hasStack, resolveStack, slugify, varsFor } from '@/services/scaffold'
 import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Prerequisite, type Project, type Stack } from '@/types'
 import { DATE, defineMessages, plural } from '@/i18n'
@@ -111,8 +111,26 @@ const m = defineMessages({
     gitOff: 'Chiusura dei task dai commit disattivata',
     gitAutoCloseHint: 'La cartella del progetto è un repository git: un commit con «chiude TODO-12» nel messaggio completa il task TODO-12. Il codice e la frase da copiare sono nel dettaglio di ogni task.',
     setupLead: (done: number, total: number) => `Segui i passi nell’ordine e spunta quelli fatti: il progresso è tuo, non si vede agli altri. ${done} di ${total} completati.`,
-    scriptHint: 'Esegue sul tuo PC, in sequenza, le verifiche dei prerequisiti e i comandi dei passi',
+    scriptHint: 'Installa i prerequisiti che mancano (con winget) ed esegue i passi uno dopo l’altro, spuntandoli',
     genScript: 'Gestisci configurazione automatica',
+    runInProgress: 'Configurazione in corso…',
+    runStop: 'Interrompi',
+    runContinue: 'Fatto, continua',
+    runDownloading: (p: number | null) => (p === null ? 'Scarico…' : `Scarico… ${p}%`),
+    runVerifying: 'Verifico il programma scaricato…',
+    runInstalling: 'Installo…',
+    runChecking: 'Installato: verifico…',
+    runRunning: 'In esecuzione…',
+    runCompleted: 'Fatto',
+    runWaiting: 'Da fare a mano: quando hai finito premi «Fatto, continua».',
+    runNoPackage: 'Da installare a mano: Todo Doto non conosce un pacchetto da installare in automatico.',
+    runInstallFailed: (c: number) => `Installazione non riuscita (codice ${c}).`,
+    runStillMissing: 'Installato, ma la verifica non lo trova ancora: riavvia il PC o controlla a mano.',
+    runBlocked: (list: string) => `Configurazione interrotta: prima vanno installati ${list}.`,
+    runStepFailed: (c: number) => `Comando non riuscito (codice ${c}).`,
+    runStoppedAt: (t: string) => `Configurazione interrotta al passo «${t}».`,
+    runStopped: 'Configurazione interrotta.',
+    runDone: 'Configurazione completata.',
     editorLead: 'Operazione conclusiva, a configurazione finita: apre il progetto nell’editor indicato.',
     openEditor: (editor: string) => `Apri in ${editor}`,
     openFolderOnly: 'Apri la cartella',
@@ -120,16 +138,7 @@ const m = defineMessages({
     editorDesktopOnly: 'L’apertura nell’editor è disponibile nell’app desktop.',
     vscodeMissing: 'Visual Studio Code non risponde al comando «code»: ho aperto la cartella del progetto.',
     fileMissing: (f: string) => `${f} non si trova nella cartella del progetto: ho aperto la cartella.`,
-    autoTitle: (n: string) => `Configurazione automatica di ${n}`,
-    autoLead: 'Lo script esegue sul tuo PC, in una finestra del prompt dei comandi, le verifiche e i comandi elencati qui sotto, uno dopo l’altro; si ferma al primo errore e sui passi da fare a mano.',
-    autoWorkdir: 'Cartella in cui si eseguono i comandi',
-    autoNoWorkdir: 'Nessuna cartella del progetto indicata: i comandi partono dalla cartella dello script. Puoi impostarla nelle impostazioni del progetto.',
-    autoChecks: 'Verifiche',
-    autoSteps: 'Passi',
-    autoManual: 'da fare a mano',
-    autoRun: 'Avvia configurazione',
     autoSave: 'Salva lo script…',
-    autoStarted: 'Configurazione avviata in una finestra del prompt dei comandi',
     autoFailed: (err: string) => `Non riesco ad avviare la configurazione: ${err}`,
     autoDesktopOnly: 'L’esecuzione della configurazione è disponibile nell’app desktop: salva lo script e avvialo con doppio click.',
     cmdCopied: 'Comando copiato',
@@ -156,10 +165,6 @@ const m = defineMessages({
     detected: (parts: string) => `Dai file del progetto: ${parts}`,
     corrected: (n: number) => `${n} ${plural(n, 'prerequisito corretto', 'prerequisiti corretti')}`,
     detectedNothing: 'Nessun dato nuovo dai file del progetto: lo stack era già completo, o la cartella non contiene file di progetto riconoscibili.',
-    canInstall: (list: string) => `Mancano su questo PC: ${list}. Todo Doto può scaricarli e installarli in automatico con winget (Gestione pacchetti di Windows).`,
-    installMissing: 'Installa automaticamente',
-    installStarted: 'Installazione avviata in una finestra a parte: al termine torna qui, le verifiche ripartono da sole.',
-    installDesktopOnly: 'L’installazione automatica è disponibile nell’app desktop.',
     cannotInstall: (list: string) => `Da installare a mano: ${list} (Todo Doto non conosce un pacchetto da installare in automatico).`,
     installFailedSome: (list: string) => `Ancora mancanti dopo l’installazione automatica: ${list}.`,
     findWithAi: 'Trova con l’IA come installarli',
@@ -244,10 +249,6 @@ const m = defineMessages({
     installFirst: 'Installalo o aggiornalo, poi ricontrolla',
     prereqSummary: (ok: number, action: number, uncertain: number) =>
       [ok && `${ok} ${plural(ok, 'installato', 'installati')}`, action && `${action} da installare o aggiornare`, uncertain && `${uncertain} da verificare a mano`].filter(Boolean).join(' · '),
-    autoBlocked: 'Configurazione automatica bloccata',
-    autoBlockedLead: 'Prima di avviare lo script risolvi questi prerequisiti: installa quelli mancanti o da aggiornare e premi «Ricontrolla»; per quelli incerti controlla a mano e spunta il cerchio nella procedura.',
-    autoChecking: 'Verifica dei prerequisiti in corso…',
-    blockedHint: 'Risolvi prima i prerequisiti segnalati',
     ghSynced: (when: string) => `sincronizzato ${when}`,
     ghNever: 'mai sincronizzato',
     ghSync: 'Sincronizza',
@@ -329,8 +330,26 @@ const m = defineMessages({
     gitOff: 'Closing tasks from commits is off',
     gitAutoCloseHint: 'The project folder is a git repository: a commit with “closes TODO-12” in its message completes task TODO-12. The code and the phrase to copy are in the details of each task.',
     setupLead: (done: number, total: number) => `Follow the steps in order and tick the ones you have done: your progress is yours only, others cannot see it. ${done} of ${total} completed.`,
-    scriptHint: 'Runs the prerequisite checks and step commands on your PC, in sequence',
+    scriptHint: 'Installs the missing prerequisites (with winget) and runs the steps one after the other, ticking them',
     genScript: 'Manage automatic setup',
+    runInProgress: 'Setup in progress…',
+    runStop: 'Stop',
+    runContinue: 'Done, continue',
+    runDownloading: (p: number | null) => (p === null ? 'Downloading…' : `Downloading… ${p}%`),
+    runVerifying: 'Checking the downloaded program…',
+    runInstalling: 'Installing…',
+    runChecking: 'Installed: checking…',
+    runRunning: 'Running…',
+    runCompleted: 'Done',
+    runWaiting: 'To do by hand: when you are done press “Done, continue”.',
+    runNoPackage: 'To install manually: Todo Doto does not know a package to install automatically.',
+    runInstallFailed: (c: number) => `Installation failed (code ${c}).`,
+    runStillMissing: 'Installed, but the check does not find it yet: restart the PC or check by hand.',
+    runBlocked: (list: string) => `Setup stopped: first install ${list}.`,
+    runStepFailed: (c: number) => `Command failed (code ${c}).`,
+    runStoppedAt: (t: string) => `Setup stopped at the step “${t}”.`,
+    runStopped: 'Setup stopped.',
+    runDone: 'Setup completed.',
     editorLead: 'Final operation, once the setup is done: opens the project in the chosen editor.',
     openEditor: (editor: string) => `Open in ${editor}`,
     openFolderOnly: 'Open the folder',
@@ -338,16 +357,7 @@ const m = defineMessages({
     editorDesktopOnly: 'Opening in the editor is available in the desktop app.',
     vscodeMissing: 'Visual Studio Code does not answer the “code” command: the project folder was opened instead.',
     fileMissing: (f: string) => `${f} is not in the project folder: the folder was opened instead.`,
-    autoTitle: (n: string) => `Automatic setup of ${n}`,
-    autoLead: 'The script runs on your PC, in a command prompt window, the checks and commands listed below, one after the other; it stops at the first error and at the manual steps.',
-    autoWorkdir: 'Folder where the commands run',
-    autoNoWorkdir: 'No project folder set: the commands start from the script folder. You can set it in the project settings.',
-    autoChecks: 'Checks',
-    autoSteps: 'Steps',
-    autoManual: 'manual',
-    autoRun: 'Start setup',
     autoSave: 'Save the script…',
-    autoStarted: 'Setup started in a command prompt window',
     autoFailed: (err: string) => `Cannot start the setup: ${err}`,
     autoDesktopOnly: 'Running the setup is available in the desktop app: save the script and double-click it.',
     cmdCopied: 'Command copied',
@@ -374,10 +384,6 @@ const m = defineMessages({
     detected: (parts: string) => `From the project files: ${parts}`,
     corrected: (n: number) => `${n} ${plural(n, 'prerequisite', 'prerequisites')} corrected`,
     detectedNothing: 'Nothing new from the project files: the stack was already complete, or the folder has no recognizable project files.',
-    canInstall: (list: string) => `Missing on this PC: ${list}. Todo Doto can download and install them automatically with winget (Windows Package Manager).`,
-    installMissing: 'Install automatically',
-    installStarted: 'Installation started in a separate window: when it is done come back here, the checks start again by themselves.',
-    installDesktopOnly: 'Automatic installation is available in the desktop app.',
     cannotInstall: (list: string) => `To install manually: ${list} (Todo Doto does not know a package to install automatically).`,
     installFailedSome: (list: string) => `Still missing after the automatic installation: ${list}.`,
     findWithAi: 'Find how to install them with AI',
@@ -462,10 +468,6 @@ const m = defineMessages({
     installFirst: 'Install or update it, then check again',
     prereqSummary: (ok: number, action: number, uncertain: number) =>
       [ok && `${ok} installed`, action && `${action} to install or update`, uncertain && `${uncertain} to verify by hand`].filter(Boolean).join(' · '),
-    autoBlocked: 'Automatic setup blocked',
-    autoBlockedLead: 'Before running the script, sort out these prerequisites: install the missing or outdated ones and press “Check again”; for the uncertain ones verify by hand and tick the circle in the procedure.',
-    autoChecking: 'Checking the prerequisites…',
-    blockedHint: 'Sort out the flagged prerequisites first',
     ghSynced: (when: string) => `synced ${when}`,
     ghNever: 'never synced',
     ghSync: 'Sync',
@@ -961,7 +963,6 @@ const prereqStats = computed(() => {
 })
 /** Prerequisiti che impediscono la configurazione automatica: mancanti, da aggiornare o incerti non confermati. */
 const blockers = computed(() => view.value.prerequisites.filter((p) => blocksAutoSetup(statusOf(p.id), done.value.has(p.id))))
-const autoBlocked = computed(() => checks.busy.value || blockers.value.length > 0)
 function statusText(p: Prerequisite): string {
   const r = checks.results.value[p.id]
   if (!r || checks.checking.value.has(p.id)) return m.chkChecking
@@ -1021,33 +1022,8 @@ const open = async (target: string, kind: 'file' | 'link') => {
     ui.toast(m.cannotOpen(e instanceof Error ? e.message : String(e)), 'error')
   }
 }
-// --- configurazione automatica: lo script eseguito dall'app ---------------------------
-const showAuto = ref(false)
-const autoDir = ref('')
-async function openAuto() {
-  autoDir.value = await projectDir()
-  showAuto.value = true
-  // Esiti freschi prima di decidere se lo script può partire
-  void checks.checkAll(true)
-}
-const script = () => setupScriptWindows(props.project.name, view.value, { baseDir: autoDir.value })
-/** Scrive lo script nella cartella dati dell'app e lo apre: Windows lo esegue nel prompt dei comandi. */
-async function runAuto() {
-  if (autoBlocked.value) return
-  if (!isTauri) return ui.toast(m.autoDesktopOnly, 'info', undefined, 6000)
-  try {
-    const fs = await getFs()
-    const dir = await fs.join(await fs.appDataDir(), 'scripts')
-    await fs.mkdir(dir)
-    const path = await fs.join(dir, `setup-${slugify(props.project.name)}.cmd`)
-    await fs.writeTextAtomic(path, script())
-    await fs.openExternal(path, 'file')
-    showAuto.value = false
-    ui.toast(m.autoStarted, 'success', undefined, 5000)
-  } catch (e) {
-    ui.toast(m.autoFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
-  }
-}
+// --- script di configurazione da salvare (per eseguirlo altrove) ---------------------
+const script = async () => setupScriptWindows(props.project.name, view.value, { baseDir: await projectDir() })
 // --- apertura del progetto nell'editor (operazione conclusiva) -----------------------------
 /**
  * Cosa apre il passo dell'editor: un file di progetto indicato nel passo (es.
@@ -1097,31 +1073,11 @@ const aiTried = ref(new Set<string>())
 const aiSearching = ref(false)
 const planFor = (p: Prerequisite) => aiPlans.value[p.id] ?? catalogPlan(p)
 const missingPrereqs = computed(() => (checks.os !== 'windows' || checks.busy.value ? [] : view.value.prerequisites.filter((p) => needsAction(statusOf(p.id)))))
-const installable = computed(() => missingPrereqs.value.filter((p) => planFor(p) && !attempted.value.has(p.id)))
 const installFailed = computed(() => missingPrereqs.value.filter((p) => attempted.value.has(p.id)))
 const noPackage = computed(() => missingPrereqs.value.filter((p) => !planFor(p)))
 /** Per questi serve l'IA (pacchetto sconosciuto, o installazione automatica non riuscita). */
 const needAi = computed(() => [...noPackage.value, ...installFailed.value].filter((p) => !aiTried.value.has(p.id)))
 const names = (list: Prerequisite[]) => list.map((p) => p.name).join(', ')
-
-/** Scarica e installa i prerequisiti mancanti con winget, in una finestra del prompt dei comandi. */
-async function installMissing() {
-  const list = installable.value
-  if (!list.length) return
-  if (!isTauri) return ui.toast(m.installDesktopOnly, 'info', undefined, 6000)
-  try {
-    const fs = await getFs()
-    const dir = await fs.join(await fs.appDataDir(), 'scripts')
-    await fs.mkdir(dir)
-    const path = await fs.join(dir, `install-${slugify(props.project.name)}.cmd`)
-    await fs.writeTextAtomic(path, installScript(props.project.name, list.map((p) => planFor(p)!)))
-    await fs.openExternal(path, 'file')
-    attempted.value = new Set([...attempted.value, ...list.map((p) => p.id)])
-    ui.toast(m.installStarted, 'success', undefined, 8000)
-  } catch (e) {
-    ui.toast(m.autoFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
-  }
-}
 
 /** Con l'IA locale: il pacchetto winget dei prerequisiti che l'app non sa installare (verificato con winget). */
 async function findWithAi() {
@@ -1152,13 +1108,172 @@ async function findWithAi() {
   if (missed.length) ui.toast(m.aiNotFound(names(missed)), 'info', undefined, 8000)
 }
 
+// --- configurazione automatica: la esegue l'app, un prerequisito e un passo alla volta ---
+/**
+ * «Gestisci configurazione automatica»: verifica i prerequisiti, installa con
+ * winget quelli che mancano (mostrando scarico e installazione sul singolo
+ * prerequisito, che si spunta da solo quando la verifica lo trova), poi esegue
+ * i passi uno dopo l'altro nella cartella del progetto e li spunta. I passi da
+ * fare a mano (o un link da aprire) aspettano «Fatto, continua».
+ */
+type RunPhase = 'download' | 'verify' | 'install' | 'checking' | 'running' | 'done' | 'failed' | 'waiting'
+interface RunItem {
+  phase: RunPhase
+  pct: number | null
+  detail: string
+  output: string[]
+}
+const runItems = ref<Record<string, RunItem>>({})
+const running = ref(false)
+const runMessage = ref('')
+const waitingStep = ref<string | null>(null)
+let runCtl: AbortController | null = null
+let resumeWaiting: ((go: boolean) => void) | null = null
+
+function setItem(id: string, patch: Partial<RunItem>) {
+  const cur = runItems.value[id] ?? { phase: 'running' as RunPhase, pct: null, detail: '', output: [] }
+  runItems.value = { ...runItems.value, [id]: { ...cur, ...patch } }
+}
+function pushOutput(id: string, line: string) {
+  setItem(id, { output: [...(runItems.value[id]?.output ?? []), line].slice(-200) })
+}
+function markDone(id: string) {
+  if (done.value.has(id)) return
+  toggleDone(id)
+}
+/** Nell'anteprima nel browser si esegue solo con i comandi simulati dei test. */
+const canRunHere = () => isTauri || typeof (window as unknown as { __pgmRun?: unknown }).__pgmRun === 'function'
+const isAbsolutePath = (p: string) => /^([a-zA-Z]:[\\/]|\\\\|\/)/.test(p.trim())
+
+/** C'è qualcosa da fare: un passo non ancora fatto o un prerequisito da installare. */
+const autoNeeded = computed(() => pendingSteps.value > 0 || missingPrereqs.value.length > 0)
+
+async function runSetup() {
+  if (running.value) return
+  if (!canRunHere()) return ui.toast(m.autoDesktopOnly, 'info', undefined, 6000)
+  running.value = true
+  runMessage.value = ''
+  runItems.value = {}
+  const ctl = (runCtl = new AbortController())
+  const fs = await getFs()
+  try {
+    // 1. Prerequisiti: verifica, poi installazione con winget di quelli che mancano
+    await checks.checkAll(true)
+    for (const p of view.value.prerequisites.filter((x) => needsAction(statusOf(x.id)))) {
+      const plan = planFor(p)
+      const command = plan && checks.os === 'windows' ? wingetInstallCommand(plan) : null
+      if (!command) {
+        setItem(p.id, { phase: 'failed', detail: m.runNoPackage })
+        continue
+      }
+      setItem(p.id, { phase: 'download', pct: null, detail: '' })
+      const lines: string[] = []
+      const code = await fs.runStream(command, {
+        signal: ctl.signal,
+        onLine: (l) => {
+          lines.push(l)
+          pushOutput(p.id, l)
+          const g = wingetProgress(l)
+          if (g.phase) setItem(p.id, { phase: g.phase, pct: g.phase === 'download' ? (g.pct ?? runItems.value[p.id]?.pct ?? null) : null })
+        },
+      })
+      attempted.value = new Set(attempted.value).add(p.id)
+      if (code !== 0 && !wingetAlreadyInstalled(lines)) setItem(p.id, { phase: 'failed', detail: m.runInstallFailed(code) })
+      else setItem(p.id, { phase: 'checking', pct: null })
+    }
+    // Nuova verifica (con il PATH aggiornato): quelli installati si spuntano da soli
+    if (Object.keys(runItems.value).length) {
+      await checks.checkAll(true)
+      for (const [id, it] of Object.entries(runItems.value)) {
+        if (it.phase !== 'checking') continue
+        setItem(id, isSatisfied(statusOf(id)) ? { phase: 'done', detail: '' } : { phase: 'failed', detail: m.runStillMissing })
+      }
+    }
+    if (blockers.value.length) {
+      runMessage.value = m.runBlocked(names(blockers.value))
+      return
+    }
+
+    // 2. Passi, nella cartella del progetto
+    const base = await projectDir()
+    if (base && !(await fs.exists(base))) await fs.mkdir(base)
+    for (const st of setupSteps.value) {
+      if (done.value.has(st.id)) continue
+      if (st.kind === 'command' && st.command.trim()) {
+        setItem(st.id, { phase: 'running', detail: '', output: [] })
+        const sub = st.cwd.trim()
+        const cwd = sub ? (isAbsolutePath(sub) ? sub : await fs.join(base, sub)) : base
+        const command = st.command.split('\n').map((l) => l.trim()).filter(Boolean).join(' && ')
+        const code = await fs.runStream(command, { cwd: cwd || undefined, signal: ctl.signal, onLine: (l) => pushOutput(st.id, l) })
+        if (code !== 0) {
+          setItem(st.id, { phase: 'failed', detail: m.runStepFailed(code) })
+          runMessage.value = m.runStoppedAt(st.title)
+          return
+        }
+      } else {
+        // Da fare a mano (o un link da aprire): si aspetta la conferma
+        if (st.kind === 'link' && st.url) await open(st.url, 'link')
+        setItem(st.id, { phase: 'waiting' })
+        waitingStep.value = st.id
+        const go = await new Promise<boolean>((resolve) => (resumeWaiting = resolve))
+        waitingStep.value = null
+        resumeWaiting = null
+        if (!go) {
+          runMessage.value = m.runStopped
+          return
+        }
+      }
+      setItem(st.id, { phase: 'done' })
+      markDone(st.id)
+    }
+    const t = editorTarget.value
+    ui.toast(m.runDone, 'success', editorStepOf.value ? { label: t.kind === 'folder' ? m.openFolderOnly : m.openEditor(t.label), run: () => void openInEditor() } : undefined, 9000)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    runMessage.value = ctl.signal.aborted || msg === 'cancelled' ? m.runStopped : m.autoFailed(msg)
+  } finally {
+    running.value = false
+    runCtl = null
+    resumeWaiting?.(false)
+    // Ciò che stava ancora andando resta com'era (niente fasi in sospeso)
+    for (const [id, it] of Object.entries(runItems.value)) if (['download', 'verify', 'install', 'checking', 'running', 'waiting'].includes(it.phase)) setItem(id, { phase: 'failed', detail: m.runStopped })
+  }
+}
+function stopSetup() {
+  runCtl?.abort()
+  resumeWaiting?.(false)
+}
+function continueManual() {
+  resumeWaiting?.(true)
+}
+/** Testo della fase di un prerequisito o di un passo. */
+function phaseText(it: RunItem): string {
+  switch (it.phase) {
+    case 'download':
+      return m.runDownloading(it.pct)
+    case 'verify':
+      return m.runVerifying
+    case 'install':
+      return m.runInstalling
+    case 'checking':
+      return m.runChecking
+    case 'running':
+      return m.runRunning
+    case 'done':
+      return m.runCompleted
+    case 'waiting':
+      return m.runWaiting
+    default:
+      return it.detail
+  }
+}
+
 async function downloadScript() {
-  if (autoBlocked.value) return
   const fs = await getFs()
   const name = `setup-${slugify(props.project.name)}.cmd`
   const path = await fs.saveFile(name, m.saveScript)
   if (!path) return
-  await fs.writeTextAtomic(path, script())
+  await fs.writeTextAtomic(path, await script())
   ui.toast(m.scriptSaved, 'success', { label: m.openFolder, run: () => open(path.replace(/[\\/][^\\/]+$/, ''), 'file') }, 6000)
 }
 
@@ -1471,17 +1586,18 @@ async function ghSync() {
             <BaseButton v-if="view.prerequisites.length" size="sm" variant="ghost" :disabled="checks.busy.value" :title="m.recheckHint" @click="checks.checkAll(true)">
               <RefreshCw :size="13" :class="{ 'animate-spin': checks.busy.value }" /> {{ m.recheck }}
             </BaseButton>
-            <BaseButton v-if="pendingSteps" size="sm" variant="primary" :title="m.scriptHint" data-auto-setup @click="openAuto"><Play :size="14" /> {{ m.genScript }}</BaseButton>
+            <BaseButton v-if="setupSteps.length" size="icon-sm" variant="ghost" :title="m.autoSave" :aria-label="m.autoSave" @click="downloadScript"><FileDown :size="14" /></BaseButton>
+            <template v-if="running">
+              <span class="flex items-center gap-1.5 text-[12.5px] font-medium text-ink-2" data-run-active><Loader2 :size="13" class="animate-spin" /> {{ m.runInProgress }}</span>
+              <BaseButton size="sm" variant="outline" data-run-stop @click="stopSetup"><X :size="13" /> {{ m.runStop }}</BaseButton>
+            </template>
+            <BaseButton v-else-if="autoNeeded" size="sm" variant="primary" :title="m.scriptHint" :disabled="checks.busy.value" data-auto-setup @click="runSetup"><Play :size="14" /> {{ m.genScript }}</BaseButton>
           </div>
+          <p v-if="runMessage" class="mt-2 flex items-start gap-1.5 text-[12.5px] font-medium text-danger" data-run-message><AlertTriangle :size="14" class="mt-0.5 shrink-0" /> {{ runMessage }}</p>
           <div class="mt-3 h-1.5 rounded-full bg-surface-2"><div class="h-full rounded-full bg-ok transition-[width]" :style="{ width: (totalSteps ? (doneCount / totalSteps) * 100 : 0) + '%' }" /></div>
 
           <!-- Programmi mancanti: installazione automatica con winget; per quelli sconosciuti, l'IA locale -->
-          <div v-if="installable.length || noPackage.length || installFailed.length" class="mt-3 space-y-2" data-auto-install>
-            <div v-if="installable.length" class="flex flex-wrap items-center gap-2 rounded-md border border-accent/40 bg-accent-soft/40 px-3 py-2 text-[13px]" data-installable>
-              <Download :size="15" class="shrink-0 text-accent" />
-              <span class="min-w-0 flex-1">{{ m.canInstall(names(installable)) }}</span>
-              <BaseButton size="sm" variant="primary" data-install-missing @click="installMissing"><Download :size="13" /> {{ m.installMissing }}</BaseButton>
-            </div>
+          <div v-if="!running && (noPackage.length || installFailed.length)" class="mt-3 space-y-2" data-auto-install>
             <div v-if="noPackage.length || installFailed.length" class="space-y-1.5 rounded-md border border-line bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2" data-install-manual>
               <p v-if="installFailed.length">{{ m.installFailedSome(names(installFailed)) }}</p>
               <p v-if="noPackage.length">{{ m.cannotInstall(names(noPackage)) }}</p>
@@ -1521,6 +1637,21 @@ async function ghSync() {
                   <span v-if="done.has(p.id) && !prereqLocked(p.id)" class="font-normal text-ink-3">· {{ m.confirmInstalled }}</span>
                 </div>
                 <p v-if="checks.results.value[p.id]?.note && statusOf(p.id)" class="mt-0.5 text-[12px] text-ink-2" data-check-note>{{ checks.results.value[p.id]!.note }}</p>
+                <div v-if="runItems[p.id]" class="mt-1 space-y-1 text-[12.5px]" data-run-phase :data-phase="runItems[p.id]!.phase">
+                  <p class="flex items-center gap-1.5 font-medium" :class="runItems[p.id]!.phase === 'failed' ? 'text-danger' : runItems[p.id]!.phase === 'done' ? 'text-ok' : 'text-accent-ink'">
+                    <Loader2 v-if="['download', 'verify', 'install', 'checking'].includes(runItems[p.id]!.phase)" :size="13" class="shrink-0 animate-spin" />
+                    <CheckCircle2 v-else-if="runItems[p.id]!.phase === 'done'" :size="13" class="shrink-0" />
+                    <XCircle v-else :size="13" class="shrink-0" />
+                    {{ phaseText(runItems[p.id]!) }}
+                  </p>
+                  <div v-if="['download', 'verify', 'install'].includes(runItems[p.id]!.phase)" class="h-1.5 max-w-sm overflow-hidden rounded-full bg-line" role="progressbar" :aria-valuenow="runItems[p.id]!.pct ?? undefined" aria-valuemin="0" aria-valuemax="100">
+                    <div class="h-full rounded-full bg-accent transition-[width]" :class="{ 'animate-pulse': runItems[p.id]!.pct === null || runItems[p.id]!.phase !== 'download' }" :style="{ width: `${runItems[p.id]!.phase === 'download' ? (runItems[p.id]!.pct ?? 8) : 100}%` }" />
+                  </div>
+                  <details v-if="runItems[p.id]!.output.length && runItems[p.id]!.phase === 'failed'" class="text-[12px] text-ink-3">
+                    <summary class="cursor-pointer select-none">{{ m.details }}</summary>
+                    <pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface-2 px-2 py-1.5 font-mono text-[11.5px]">{{ runItems[p.id]!.output.join('\n') }}</pre>
+                  </details>
+                </div>
                 <div class="mt-1 flex flex-wrap items-center gap-2 text-[12.5px]">
                   <BaseButton v-if="statusOf(p.id) === 'confirm'" size="sm" variant="outline" @click="runCustomCheck(p)"><Play :size="12" /> {{ m.runCheck }}</BaseButton>
                   <code v-if="p.check" class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[12px]">{{ p.check }}</code>
@@ -1544,6 +1675,21 @@ async function ghSync() {
                   <BaseButton size="sm" variant="ghost" @click="copy((st.cwd ? `cd ${st.cwd}\n` : '') + st.command, m.cmdCopied)"><Copy :size="12" /> {{ common.actions.copy }}</BaseButton>
                 </div>
                 <BaseButton v-else-if="st.kind === 'link' && st.url" size="sm" variant="ghost" class="mt-1" @click="open(st.url, 'link')"><ExternalLink :size="12" /> {{ st.url }}</BaseButton>
+                <div v-if="runItems[st.id]" class="mt-1 space-y-1 text-[12.5px]" data-run-phase :data-phase="runItems[st.id]!.phase">
+                  <p class="flex items-center gap-1.5 font-medium" :class="runItems[st.id]!.phase === 'failed' ? 'text-danger' : runItems[st.id]!.phase === 'done' ? 'text-ok' : 'text-accent-ink'">
+                    <Loader2 v-if="runItems[st.id]!.phase === 'running'" :size="13" class="shrink-0 animate-spin" />
+                    <CheckCircle2 v-else-if="runItems[st.id]!.phase === 'done'" :size="13" class="shrink-0" />
+                    <AlertTriangle v-else-if="runItems[st.id]!.phase === 'waiting'" :size="13" class="shrink-0" />
+                    <XCircle v-else :size="13" class="shrink-0" />
+                    {{ phaseText(runItems[st.id]!) }}
+                  </p>
+                  <p v-if="runItems[st.id]!.phase === 'running' && runItems[st.id]!.output.length" class="truncate font-mono text-[11.5px] text-ink-3">{{ runItems[st.id]!.output.at(-1) }}</p>
+                  <BaseButton v-if="runItems[st.id]!.phase === 'waiting' && waitingStep === st.id" size="sm" variant="primary" data-run-continue @click="continueManual"><Check :size="13" /> {{ m.runContinue }}</BaseButton>
+                  <details v-if="runItems[st.id]!.output.length && runItems[st.id]!.phase !== 'running'" class="text-[12px] text-ink-3">
+                    <summary class="cursor-pointer select-none">{{ m.details }}</summary>
+                    <pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface-2 px-2 py-1.5 font-mono text-[11.5px]">{{ runItems[st.id]!.output.join('\n') }}</pre>
+                  </details>
+                </div>
               </div>
             </li>
           </ol>
@@ -1583,54 +1729,6 @@ async function ghSync() {
       </template>
     </template>
 
-    <!-- Configurazione automatica: riepilogo e avvio dello script -->
-    <BaseDialog v-model:open="showAuto" :title="m.autoTitle(project.name)" :description="m.autoLead" width="lg">
-      <div class="space-y-4 text-[13px]">
-        <div>
-          <span class="label">{{ m.autoWorkdir }}</span>
-          <p v-if="autoDir" class="rounded-md bg-surface-2 px-3 py-2 font-mono text-[12.5px]" data-auto-dir>{{ autoDir }}</p>
-          <p v-else class="text-ink-3">{{ m.autoNoWorkdir }}</p>
-        </div>
-        <div v-if="checks.busy.value" class="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2 text-ink-2"><Loader2 :size="14" class="animate-spin" /> {{ m.autoChecking }}</div>
-        <div v-else-if="blockers.length" class="rounded-md border border-danger/40 bg-danger/5 px-3 py-2.5" data-auto-blocked>
-          <p class="flex items-center gap-1.5 font-semibold text-danger"><AlertTriangle :size="14" /> {{ m.autoBlocked }}</p>
-          <p class="mt-0.5 text-[12.5px] text-ink-2">{{ m.autoBlockedLead }}</p>
-          <ul class="mt-1.5 space-y-0.5 text-[12.5px]">
-            <li v-for="p in blockers" :key="p.id"><span class="font-semibold">{{ p.name }}</span> — <span :class="statusTone(p.id)">{{ statusText(p) }}</span></li>
-          </ul>
-        </div>
-        <div v-if="view.prerequisites.length">
-          <span class="label">{{ m.autoChecks }}</span>
-          <ul class="space-y-1">
-            <li v-for="p in view.prerequisites" :key="p.id" class="flex items-center gap-2" :class="statusTone(p.id)">
-              <Loader2 v-if="!statusOf(p.id)" :size="13" class="shrink-0 animate-spin" />
-              <CheckCircle2 v-else-if="prereqDone(p.id)" :size="13" class="shrink-0" />
-              <XCircle v-else-if="needsAction(statusOf(p.id))" :size="13" class="shrink-0" />
-              <AlertTriangle v-else :size="13" class="shrink-0" />
-              <span class="text-ink">{{ p.name }}</span> <span v-if="p.version" class="text-ink-3">{{ p.version }}</span>
-              <span class="truncate text-[12px]">· {{ statusText(p) }}</span>
-              <code v-if="p.check" class="ml-auto shrink-0 rounded bg-surface-2 px-1.5 font-mono text-[11.5px] text-ink">{{ p.check }}</code>
-            </li>
-          </ul>
-        </div>
-        <div v-if="view.steps.length">
-          <span class="label">{{ m.autoSteps }}</span>
-          <ol class="space-y-1.5">
-            <li v-for="(st, i) in view.steps" :key="st.id">
-              <span class="font-semibold">{{ i + 1 }}. {{ st.title }}</span>
-              <span v-if="st.kind === 'manual'" class="ml-1.5 rounded-full bg-p-media/20 px-1.5 text-[11px] font-medium">{{ m.autoManual }}</span>
-              <pre v-if="st.kind === 'command' && st.command" class="mt-0.5 overflow-x-auto rounded bg-surface-2 px-2 py-1 font-mono text-[12px]">{{ st.cwd ? `cd ${st.cwd}\n` : '' }}{{ st.command }}</pre>
-              <span v-else-if="st.kind === 'link'" class="ml-1.5 font-mono text-[12px] text-accent-ink">{{ st.url }}</span>
-            </li>
-          </ol>
-        </div>
-      </div>
-      <template #footer>
-        <BaseButton variant="ghost" @click="showAuto = false">{{ common.actions.cancel }}</BaseButton>
-        <BaseButton variant="outline" :disabled="autoBlocked" :title="autoBlocked ? m.blockedHint : undefined" @click="downloadScript"><FileDown :size="14" /> {{ m.autoSave }}</BaseButton>
-        <BaseButton variant="primary" data-autofocus :disabled="autoBlocked" :title="autoBlocked ? m.blockedHint : undefined" @click="runAuto"><Play :size="14" /> {{ m.autoRun }}</BaseButton>
-      </template>
-    </BaseDialog>
 
   </div>
 </template>

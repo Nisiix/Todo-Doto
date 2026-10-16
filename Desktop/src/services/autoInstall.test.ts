@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_AI_CONFIG } from '@/types'
-import { aiInstallPlan, catalogPlan, installScript, isWingetId, wingetShowFound } from './autoInstall'
+import { aiInstallPlan, catalogPlan, isWingetId, wingetAlreadyInstalled, wingetInstallCommand, wingetProgress, wingetShowFound } from './autoInstall'
 import { applyPrerequisiteFixes, reviewPrerequisites, suggestPrerequisites, vsForNetFramework } from './prerequisites'
 
 const pre = (name: string, version = '') => ({ id: `pre_${name}`, name, version, url: '', check: '' })
@@ -23,20 +23,27 @@ describe('installazione automatica con winget', () => {
     expect(catalogPlan(pre('Strumento sconosciuto'))).toBeNull()
   })
 
-  it('lo script installa solo pacchetti winget validi, uno dopo l’altro', () => {
-    const script = installScript('Portale & co', [
-      { name: 'Node.js', id: 'OpenJS.NodeJS.LTS', source: 'catalog' },
-      { name: 'Build Tools', id: 'Microsoft.VisualStudio.2022.BuildTools', override: '--add "X"', source: 'catalog' },
-      { name: 'Pericolo', id: 'Git.Git & del C:\\*', source: 'ai' },
-    ])
-    expect(script).toContain('winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements')
-    expect(script).toContain('--override "--add X"')
-    expect(script).not.toContain('del C:')
-    expect(script).toContain('where winget')
-    expect(script).toMatch(/title Todo Doto - installazione dei programmi per Portale  co/)
+  it('comando winget solo per pacchetti validi; fase e avanzamento dall’output', () => {
+    expect(wingetInstallCommand({ name: 'Node.js', id: 'OpenJS.NodeJS.LTS', source: 'catalog' })).toBe(
+      'winget install --id OpenJS.NodeJS.LTS -e --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity',
+    )
+    expect(wingetInstallCommand({ name: 'BT', id: 'Microsoft.VisualStudio.2022.BuildTools', override: '--add "X"', source: 'catalog' })).toContain('--override "--add X"')
+    expect(wingetInstallCommand({ name: 'Pericolo', id: 'Git.Git & del C:\*', source: 'ai' })).toBeNull()
     expect(isWingetId('Git.Git')).toBe(true)
     expect(isWingetId('Git')).toBe(false)
     expect(isWingetId('Git.Git && calc')).toBe(false)
+    // Output di winget (italiano e inglese)
+    expect(wingetProgress('Download in corso https://nodejs.org/dist/node.msi')).toEqual({ phase: 'download' })
+    expect(wingetProgress('  ██████████▒▒▒▒▒▒  12.0 MB / 30.0 MB')).toEqual({ phase: 'download', pct: 40 })
+    expect(wingetProgress('   ▒▒▒▒  45%')).toEqual({ phase: 'download', pct: 45 })
+    expect(wingetProgress('Hash del programma di installazione verificato')).toEqual({ phase: 'verify' })
+    expect(wingetProgress('Successfully verified installer hash')).toEqual({ phase: 'verify' })
+    expect(wingetProgress('Avvio dell’installazione del pacchetto in corso...')).toEqual({ phase: 'install' })
+    expect(wingetProgress('Starting package install...')).toEqual({ phase: 'install' })
+    expect(wingetProgress('Trovato Node.js LTS [OpenJS.NodeJS.LTS]')).toEqual({})
+    expect(wingetAlreadyInstalled(['Trovato un pacchetto esistente già installato.'])).toBe(true)
+    expect(wingetAlreadyInstalled(['Found an existing package already installed.'])).toBe(true)
+    expect(wingetAlreadyInstalled(['Installazione riuscita'])).toBe(false)
   })
 
   it('l’IA propone il pacchetto, che vale solo se winget lo conosce', async () => {

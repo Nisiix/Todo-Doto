@@ -75,6 +75,13 @@ export interface FsApi {
    */
   runCheck(command: string, timeoutMs?: number): Promise<CheckOutput>
   /**
+   * Esegue un comando lungo (installazione di un prerequisito, passo della
+   * configurazione) senza finestre, nella cartella `cwd`: ogni riga di output
+   * va a `onLine` mentre arriva. Restituisce il codice d'uscita; errore
+   * "cancelled" se interrotto con `signal`. Solo nell'app desktop.
+   */
+  runStream(command: string, opts: { cwd?: string; onLine: (line: string) => void; signal?: AbortSignal }): Promise<number>
+  /**
    * Cifratura legata all'utente del sistema operativo (Windows DPAPI): il dato
    * si decifra solo dallo stesso account sullo stesso PC. `null` se il sistema
    * non la offre (altri OS, anteprima nel browser): si usa allora AES-GCM locale.
@@ -205,6 +212,20 @@ async function tauriFs(): Promise<FsApi> {
     oauthStart: () => invoke<number>('oauth_start'),
     oauthWait: () => invoke('oauth_wait', { locale }),
     runCheck: (command, timeoutMs) => invoke<CheckOutput>('run_check', { command, timeoutMs }),
+    async runStream(command, { cwd, onLine, signal }) {
+      const { Channel } = await import('@tauri-apps/api/core')
+      if (signal?.aborted) throw new Error('cancelled')
+      const id = `run${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      const channel = new Channel<string>()
+      channel.onmessage = onLine
+      const stop = () => void invoke('run_cancel', { id })
+      signal?.addEventListener('abort', stop, { once: true })
+      try {
+        return await invoke<number>('run_stream', { command, cwd: cwd ?? null, id, onLine: channel })
+      } finally {
+        signal?.removeEventListener('abort', stop)
+      }
+    },
     async gitLog(repo, max = 300) {
       try {
         return await invoke<GitCommit[]>('git_log', { repo, max })
@@ -370,6 +391,18 @@ function memoryFs(): FsApi {
     },
     async oauthWait() {
       throw new Error(common.drive.desktopOnly)
+    },
+    async runStream(command, { cwd, onLine, signal }) {
+      // Nell'anteprima nel browser i comandi non si eseguono; i test simulano l'esito con window.__pgmRun
+      const fake = (window as unknown as { __pgmRun?: (command: string, cwd?: string) => { lines: string[]; code: number } | Promise<{ lines: string[]; code: number }> }).__pgmRun
+      if (!fake) throw new Error(common.drive.desktopOnly)
+      const r = await fake(command, cwd)
+      for (const l of r.lines) {
+        if (signal?.aborted) throw new Error('cancelled')
+        onLine(l)
+        await new Promise((res) => setTimeout(res, 0))
+      }
+      return r.code
     },
     async runCheck(command) {
       // Nell'anteprima nel browser i comandi non si possono eseguire; i test

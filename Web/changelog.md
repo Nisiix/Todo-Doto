@@ -2,6 +2,10 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.2.31 — 16 ottobre 2026
+
+- Configurazione automatica fatta dall'app, senza dialog: «Gestisci configurazione automatica» installa con winget i prerequisiti che mancano (con scarico e installazione mostrati sul singolo prerequisito, che si spunta da solo) ed esegue i passi uno dopo l'altro spuntandoli; i passi a mano aspettano «Fatto, continua». Non c'è più il pulsante «Installa automaticamente».
+
 ## 0.2.30 — 16 ottobre 2026
 
 - Stack: «Apri nell'editor» è l'operazione conclusiva, con un pulsante che apre il progetto nell'editor indicato (es. la soluzione in Visual Studio), non più un passo da spuntare. «Gestisci configurazione automatica» compare solo se ci sono passi da fare; tolto «Ricomincia».
