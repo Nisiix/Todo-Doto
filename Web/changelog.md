@@ -2,6 +2,12 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.2.28 — 16 ottobre 2026
+
+- Condivisione solo in rete: un workspace si condivide solo con la cartella Dati e la cartella dei progetti su un'unità di rete, un progetto solo con la sua cartella in rete; altrimenti l'app spiega che è in locale.
+- Prerequisiti più precisi anche senza IA: niente .NET SDK né Visual Studio 2022 imposti ai progetti .NET Framework (es. Visual Basic Express 2010); gli stack salvati prima si correggono con un clic, e da soli quando la cartella del progetto è disponibile.
+- Configurazione del PC: i programmi mancanti si installano in automatico con winget; per quelli sconosciuti li cerca l'IA locale (o se ne consiglia l'attivazione).
+
 ## 0.2.27 — 16 ottobre 2026
 
 - IA locale: spuntando «Usa l'IA locale su questo PC» Ollama si configura da solo. Se manca si installa (scaricato da ollama.com, solo se firmato da Ollama), se è spento si avvia; indirizzo e modelli sono già compilati e la connessione si verifica da sola.

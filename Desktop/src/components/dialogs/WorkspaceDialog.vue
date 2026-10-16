@@ -10,6 +10,7 @@ import type { WorkspaceMode } from '@/types'
 import { Database, FolderGit2, FolderOpen, HardDrive, Loader2, Network } from 'lucide-vue-next'
 import { isInside, samePath, scanProjects, type DetectedProject } from '@/services/projectScan'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
+import { checkShare, workspaceParts, workspaceShareText, type ShareCheck } from '@/services/sharing'
 import { defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -215,6 +216,19 @@ watchDebounced(
   { debounce: 350 },
 )
 
+// Condiviso in rete: la cartella Dati e quella dei progetti devono essere su un'unità di rete
+const share = ref<ShareCheck | null>(null)
+watchDebounced(
+  () => [open.value, mode.value, dataPath.value, path.value] as const,
+  async ([o, md, d, p]) => {
+    if (!o || md !== 'network' || !d.trim() || !p.trim()) return void (share.value = null)
+    const c = await checkShare(workspaceParts(d, p))
+    if (d === dataPath.value && p === path.value) share.value = c
+  },
+  { debounce: 300 },
+)
+const shareText = computed(() => (mode.value === 'network' && share.value ? workspaceShareText(share.value) : ''))
+
 async function submit() {
   error.value = ''
   if (!name.value.trim()) return (error.value = m.errName)
@@ -230,6 +244,9 @@ async function submit() {
   const dataProblem = await checkFolder(fs, dataPath.value, { write: true })
   if (dataProblem) return (error.value = `${m.dataFolder}: ${dataProblem}`)
   if (mode.value === 'network') {
+    const c = await checkShare(workspaceParts(dataPath.value, path.value))
+    share.value = c
+    if (!c.ok) return (error.value = workspaceShareText(c))
     if (password.value.length < 6) return (error.value = common.password.tooShort)
     if (password.value !== password2.value) return (error.value = common.password.mismatch)
   }
@@ -337,6 +354,9 @@ async function submit() {
           </button>
         </div>
       </div>
+      <p v-if="shareText" class="flex items-start gap-1.5 rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-[12.5px] text-danger" data-share-blocked>
+        <HardDrive :size="14" class="mt-0.5 shrink-0" /> {{ shareText }}
+      </p>
       <div v-if="mode === 'network'" class="grid grid-cols-2 gap-2">
         <div>
           <label class="label" for="ws-pw">{{ m.password }}</label>

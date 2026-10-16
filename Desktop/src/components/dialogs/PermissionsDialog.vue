@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Shield } from 'lucide-vue-next'
+import { HardDrive, Shield } from 'lucide-vue-next'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import VisibilityDot from '@/components/ui/VisibilityDot.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
+import { useSharing } from '@/composables/useSharing'
 import { projectVisibility } from '@/types'
 import { compareText, defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -24,6 +25,7 @@ const m = defineMessages({
     noRestricted: 'Nessun progetto a visibilità limitata: tutti i progetti sono pubblici. Per limitarne uno, scegli «Limitata» nella sua intestazione.',
     publicCount: (n: number) => `${n} ${plural(n, 'progetto pubblico', 'progetti pubblici')}, visibili a tutti`,
     onlyAdmins: 'solo amministratori',
+    local: 'in locale: non condivisibile',
     changed: (n: number) => (n ? `${n} ${plural(n, 'progetto modificato', 'progetti modificati')}` : 'Nessuna modifica'),
     saved: (n: number) => `Permessi aggiornati (${n} ${plural(n, 'progetto', 'progetti')})`,
   },
@@ -39,6 +41,7 @@ const m = defineMessages({
     noRestricted: 'No project with restricted visibility: every project is public. To restrict one, choose “Restricted” in its header.',
     publicCount: (n: number) => `${n} public ${plural(n, 'project', 'projects')}, visible to everyone`,
     onlyAdmins: 'administrators only',
+    local: 'local: cannot be shared',
     changed: (n: number) => (n ? `${n} ${plural(n, 'project', 'projects')} changed` : 'No changes'),
     saved: (n: number) => `Permissions updated (${n} ${plural(n, 'project', 'projects')})`,
   },
@@ -52,6 +55,9 @@ const m = defineMessages({
 const props = defineProps<{ projectId?: string | null }>()
 const open = defineModel<boolean>('open', { default: false })
 const ws = useWorkspaceStore()
+/** Progetti in locale (cartella Dati o cartella del progetto): non si scelgono utenti. */
+const sharing = useSharing()
+const blockedText = (p: Parameters<typeof sharing.projectText>[0]) => sharing.projectText(p)
 const ui = useUiStore()
 
 /** Utenti con permessi da scegliere: gli amministratori vedono comunque tutto. */
@@ -109,6 +115,9 @@ async function save() {
         <span class="ml-auto flex items-center gap-1 text-[12px] text-ink-3"><Shield :size="12" /> {{ m.adminsSeeAll }}</span>
       </div>
 
+      <p v-if="sharing.workspaceText.value" class="flex items-start gap-1.5 rounded-md bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2" data-share-blocked>
+        <HardDrive :size="14" class="mt-0.5 shrink-0 text-p-alta" /> {{ sharing.workspaceText.value }}
+      </p>
       <p v-if="!restricted.length" class="rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2" data-no-restricted>{{ m.noRestricted }}</p>
       <p v-else-if="!others.length" class="rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2">{{ m.noOthers }}</p>
       <div v-else class="max-h-[60vh] overflow-auto rounded-md border border-line">
@@ -131,11 +140,12 @@ async function save() {
                   <VisibilityDot :project="p" />
                   <span class="font-semibold">{{ p.name }}</span>
                   <span v-if="changedIds.includes(p.id)" class="text-[11px] font-semibold text-p-alta">●</span>
-                  <span v-if="!draft[p.id]?.length" class="text-[11px] text-ink-3">({{ m.onlyAdmins }})</span>
+                  <span v-if="blockedText(p)" class="flex items-center gap-1 text-[11px] text-p-alta" :title="blockedText(p)" data-share-blocked><HardDrive :size="11" /> {{ m.local }}</span>
+                  <span v-else-if="!draft[p.id]?.length" class="text-[11px] text-ink-3">({{ m.onlyAdmins }})</span>
                 </span>
               </td>
               <td v-for="u in others" :key="u.id" class="px-2 py-1.5 text-center">
-                <input type="checkbox" class="accent-accent" :checked="canSee(p.id, u.id)" :aria-label="m.canSee(u.displayName, p.name)" @change="toggle(p.id, u.id)" />
+                <input type="checkbox" class="accent-accent disabled:opacity-40" :checked="canSee(p.id, u.id)" :disabled="!!blockedText(p)" :title="blockedText(p) || undefined" :aria-label="m.canSee(u.displayName, p.name)" @change="toggle(p.id, u.id)" />
               </td>
             </tr>
           </tbody>

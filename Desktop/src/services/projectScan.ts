@@ -284,6 +284,9 @@ const DEEP_SKIP = /^(\.|node_modules$|bin$|obj$|dist$|build$|out$|target$|packag
 /** Cartelle che di solito contengono più parti di un progetto: vi si guarda un livello più in giù. */
 const CONTAINER_DIRS = /^(src|source|sources|apps?|services|projects|modules|packages|code)$/i
 
+/** Progetti (id|cartella) i cui prerequisiti sono già stati confrontati con i file in questa sessione. */
+export const autoReviewed = new Set<string>()
+
 /** Stack ricavato dai file; `excluded`: prerequisiti che i file dicono NON servire (es. .NET SDK per .NET Framework). */
 export interface DetectedStack {
   description: string

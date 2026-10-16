@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { ListPlus, Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { HardDrive, ListPlus, Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -23,6 +23,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useGitStore } from '@/stores/git'
 import { useConfirm } from '@/composables/useConfirm'
+import { useSharing } from '@/composables/useSharing'
 import { BUCKET_LABEL, EMPTY_FILTER, projectVisibility, type Bucket, type ItemFilter, type Visibility } from '@/types'
 import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
 import { projectSection, type ProjectSection } from '@/services/sections'
@@ -40,6 +41,7 @@ const m = defineMessages({
     visPublic: 'Pubblica',
     visRestricted: 'Limitata',
     visTitle: 'Visibilità del progetto',
+    visLocal: 'In locale',
     visPublicItem: 'Pubblica: visibile a tutti',
     visRestrictedItem: 'Limitata: solo utenti scelti',
     visUsers: 'Scegli gli utenti…',
@@ -69,6 +71,7 @@ const m = defineMessages({
     visPublic: 'Public',
     visRestricted: 'Restricted',
     visTitle: 'Project visibility',
+    visLocal: 'Local',
     visPublicItem: 'Public: visible to everyone',
     visRestrictedItem: 'Restricted: chosen users only',
     visUsers: 'Choose the users…',
@@ -179,6 +182,9 @@ const visibilityMenu = computed(() => [
   { label: m.visRestrictedItem, onSelect: () => setVisibility('restricted') },
   ...(visibility.value === 'restricted' ? [{ sep: true, label: '' }, { label: m.visUsers, onSelect: openPermissions }] : []),
 ])
+/** Progetto con la cartella Dati o la sua cartella in locale: non si può mostrare agli altri membri. */
+const sharing = useSharing()
+const shareText = computed(() => (project.value ? sharing.projectText(project.value) : ''))
 const favorite = computed(() => ws.isFavorite(props.id))
 
 // --- azioni progetto ----------------------------------------------------------
@@ -272,7 +278,17 @@ const tabs: { id: Bucket; label: string }[] = [
               </button>
               <!-- Visibilità: verde pubblica, arancione limitata (l'admin la cambia da qui) -->
               <template v-if="ws.isNetwork">
-                <BaseMenu v-if="ws.isAdmin && !trashed" :items="visibilityMenu">
+                <button
+                  v-if="ws.isAdmin && !trashed && shareText"
+                  type="button"
+                  class="flex h-6 items-center gap-1.5 rounded-full border border-line px-2 text-[12px] font-medium text-ink-2 hover:bg-surface-2"
+                  :title="shareText"
+                  data-share-blocked
+                  @click="ui.toast(shareText, 'warning', undefined, 10000)"
+                >
+                  <HardDrive :size="12" class="text-p-alta" /> {{ m.visLocal }}
+                </button>
+                <BaseMenu v-else-if="ws.isAdmin && !trashed" :items="visibilityMenu">
                   <button type="button" class="flex h-6 items-center gap-1.5 rounded-full border border-line px-2 text-[12px] font-medium text-ink-2 hover:bg-surface-2" :title="m.visTitle" data-visibility-button>
                     <VisibilityDot :project="project" /> {{ visibility === 'restricted' ? m.visRestricted : m.visPublic }}
                   </button>

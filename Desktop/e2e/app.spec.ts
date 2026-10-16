@@ -14,7 +14,11 @@ test.beforeEach(async ({ page }) => {
   // "PC" su cui il banner dell'IA locale è già stato chiuso: non copre i pulsanti negli altri test
   // (i test dell'IA locale ripartono da una configurazione vuota con fakeOllama)
   await page.addInitScript(() => {
-    Object.assign(window, { __pgmSeedFiles: { '/appdata/config.json': JSON.stringify({ ai: { bannerDismissed: true, autoDetectDone: true } }) } })
+    Object.assign(window, {
+      __pgmSeedFiles: { '/appdata/config.json': JSON.stringify({ ai: { bannerDismissed: true, autoDetectDone: true } }) },
+      // Unità di rete simulata: le cartelle sotto /rete sono "in rete", le altre su questo PC
+      __pgmNetworkDrives: ['/rete'],
+    })
   })
 })
 test.afterEach(() => expect(pageErrors).toEqual([]))
@@ -22,6 +26,16 @@ test.afterEach(() => expect(pageErrors).toEqual([]))
 /** Cartella dei progetti e cartella Dati Todo Doto, con i pulsanti Sfoglia del dialog. */
 async function pickWorkspaceFolders(page: Page) {
   await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
+}
+
+/** Cartella dei progetti e cartella Dati su un'unità di rete (simulata: sotto /rete). */
+async function pickNetworkFolders(page: Page) {
+  const id = Math.random().toString(36).slice(2, 7)
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await pick(`/rete/progetti-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick(`/rete/dati-${id}`)
   await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
 }
 
@@ -95,6 +109,16 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await pickWorkspaceFolders(page)
   await page.getByText('Condiviso in rete').click()
   await page.fill('#ws-pw', 'segreto1')
+  await page.fill('#ws-pw2', 'segreto1')
+  // Cartelle su questo PC: non si può condividere il workspace
+  await expect(page.locator('[data-share-blocked]')).toContainText('Non è possibile condividere il workspace')
+  await expect(page.locator('[data-share-blocked]')).toContainText('sono in locale, su questo PC')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.locator('form').getByText(/^Non è possibile condividere il workspace/).last()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Rete' })).toHaveCount(0)
+  // Su un'unità di rete sì
+  await pickNetworkFolders(page)
+  await expect(page.locator('[data-share-blocked]')).toHaveCount(0)
   await page.fill('#ws-pw2', 'diversa')
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
   await expect(page.getByText('Le due password non coincidono.')).toBeVisible()
@@ -150,6 +174,22 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await page.getByRole('menuitem', { name: 'Scegli gli utenti…' }).click()
   await expect(dialog(page)).toContainText('Gestione permessi')
   await expect(dialog(page).locator('#perm-filter')).toHaveValue(/.+/)
+  await page.keyboard.press('Escape')
+
+  // Progetto con la cartella su questo PC: non si può mostrare agli altri membri
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
+  await page.fill('#p-disk', '/demo/Locale')
+  await page.locator('#p-disk').dispatchEvent('input')
+  await expect(dialog(page).locator('[data-share-blocked]')).toContainText('Non è possibile condividere questo progetto con gli altri membri')
+  await expect(dialog(page).locator('[data-share-blocked]')).toContainText('la cartella del progetto (/demo/Locale) è in locale')
+  await expect(dialog(page).getByRole('radio', { name: 'Pubblica' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'Locale' })).toBeVisible()
+  await expect(aside.getByRole('link', { name: /Locale/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'restricted')
+  // Nell'intestazione «In locale» invece del menu della visibilità; un clic spiega perché
+  await expect(page.locator('[data-visibility-button]')).toHaveCount(0)
+  await page.getByRole('button', { name: 'In locale' }).click()
+  await expect(page.getByText(/Non è possibile condividere questo progetto/).last()).toBeVisible()
 })
 
 test('workspace di rete: “Ricorda la password” a scelta, cambio password dell’admin', async ({ page }) => {
@@ -163,7 +203,7 @@ test('workspace di rete: “Ricorda la password” a scelta, cambio password del
   await page.goto('/')
   await page.getByRole('button', { name: 'Crea workspace' }).first().click()
   await page.fill('#ws-name', 'Rete2')
-  await pickWorkspaceFolders(page)
+  await pickNetworkFolders(page)
   // In locale non c'è nessuna password né opzione per ricordarla
   await expect(page.locator('#ws-pw')).toHaveCount(0)
   await expect(page.getByLabel(/Ricorda la password/)).toHaveCount(0)
@@ -1001,7 +1041,7 @@ test('configurazione del PC: banner rosso con «Visualizza», notifica locale e 
   await page.goto('/')
   await page.getByRole('button', { name: 'Crea workspace' }).first().click()
   await page.fill('#ws-name', 'Team')
-  await pickWorkspaceFolders(page)
+  await pickNetworkFolders(page)
   await page.getByText('Condiviso in rete').click()
   await page.fill('#ws-pw', 'segreto1')
   await page.fill('#ws-pw2', 'segreto1')
@@ -1348,6 +1388,61 @@ test('stack: indirizzi, percorsi e nomi di variabile non validi impediscono il s
   await expect(errors).toHaveCount(0)
   await save.click()
   await expect(page.getByText('Stack salvato')).toBeVisible()
+})
+
+test('stack .NET Framework: niente .NET SDK né Visual Studio 2022; i programmi mancanti si installano in automatico o con l’IA', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Gestionale VB')
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  // .NET Framework: si aggiunge Visual Studio senza versione imposta, il .NET SDK no
+  await page.getByPlaceholder('Es. Vue 3, Tauri, .NET 4.0').fill('.NET Framework')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Prerequisiti aggiunti in automatico: Visual Studio')).toBeVisible()
+  const names = page.getByPlaceholder('Nome, es. Node.js')
+  const versions = page.getByPlaceholder('Versione', { exact: true })
+  await expect(versions.first()).toHaveValue('')
+  // Come uno stack salvato prima del riconoscimento preciso: .NET SDK 8+ e Visual Studio 2022
+  await versions.first().fill('2022')
+  await page.getByRole('button', { name: 'Prerequisito', exact: true }).click()
+  await names.last().fill('.NET SDK')
+  await names.last().blur()
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText('Stack salvato')).toBeVisible()
+
+  // Le regole note lo correggono anche senza i file del progetto
+  const review = page.locator('[data-prereq-review]')
+  await expect(review).toContainText('.NET SDK: non serve')
+  await expect(review).toContainText('Visual Studio: qualsiasi versione invece di 2022')
+  await review.locator('[data-prereq-fix]').click()
+  await expect(page.getByText(/Prerequisiti corretti: .*\.NET SDK: non serve/)).toBeVisible()
+  await expect(review).toHaveCount(0)
+  await expect(page.getByText('Prerequisito: .NET SDK')).toHaveCount(0)
+
+  // Programmi mancanti su questo PC: quelli noti si installano con winget, gli altri con l'IA locale
+  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+  for (const [n, check] of [['Node.js', ''], ['Strumento interno', 'strumento --version']]) {
+    await page.getByRole('button', { name: 'Prerequisito', exact: true }).click()
+    await names.last().fill(n)
+    await names.last().blur()
+    if (check) await page.getByPlaceholder('Comando di verifica, es. node -v').last().fill(check)
+  }
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await fakeChecks(page, {
+    'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" },
+    'strumento --version': { code: 9009, stderr: "'strumento' is not recognized as an internal or external command" },
+  })
+  await page.getByRole('button', { name: 'Ricontrolla' }).first().click()
+  await expect(page.locator('[data-installable]')).toContainText('Mancano su questo PC: Node.js')
+  await expect(page.locator('[data-install-manual]')).toContainText('Da installare a mano: Strumento interno')
+  // Senza IA locale si consiglia di attivarla, per completare in automatico
+  await expect(page.locator('[data-install-enable-ai]')).toContainText('Attiva l’IA locale')
+  await page.locator('[data-install-enable-ai]').getByRole('button', { name: 'Attiva l’IA locale' }).click()
+  await expect(page.locator('[data-settings-panel="ai"]')).toBeVisible()
+  await page.keyboard.press('Escape')
+  // Nel browser l'installazione non parte (solo nell'app desktop)
+  await page.locator('[data-install-missing]').click()
+  await expect(page.getByText('L’installazione automatica è disponibile nell’app desktop.')).toBeVisible()
 })
 
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {

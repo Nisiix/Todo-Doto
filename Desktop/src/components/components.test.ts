@@ -102,7 +102,9 @@ describe('gestione permessi dei progetti', () => {
     const PermissionsDialog = (await import('./dialogs/PermissionsDialog.vue')).default
     await useSessionStore().init()
     const ws = useWorkspaceStore()
-    await ws.create({ path: '/perm', name: 'Rete', mode: 'network', password: 'segreto1' })
+    // Cartella Dati e cartella dei progetti su un'unità di rete (simulata): i progetti si possono condividere
+    Object.assign(window, { __pgmNetworkDrives: ['/rete'] })
+    await ws.create({ path: '/rete/perm', projectsPath: '/rete/progetti', name: 'Rete', mode: 'network', password: 'segreto1' })
     await ws.storage!.mutateUsers((f) => {
       f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' })
       f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carlo', role: 'member', createdAt: '' })

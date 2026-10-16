@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { watchDebounced } from '@vueuse/core'
-import { FolderGit2, FolderOpen, FolderPlus, Loader2, AlertTriangle } from 'lucide-vue-next'
+import { FolderGit2, FolderOpen, FolderPlus, HardDrive, Loader2, AlertTriangle } from 'lucide-vue-next'
 import { getFs } from '@/services/fs'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -13,6 +13,7 @@ import { copyStack, hasStack, scaffoldFiles, writeProjectFolderAt } from '@/serv
 import { checkFolder, explainFsError } from '@/services/fsErrors'
 import { detectStack, inspectFolder, samePath, type FolderKind } from '@/services/projectScan'
 import { useUiStore } from '@/stores/ui'
+import { checkShare, projectParts, projectShareText, shareState } from '@/services/sharing'
 import { defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -20,6 +21,7 @@ const m = defineMessages({
   it: {
     errName: 'Il progetto ha bisogno di un nome.',
     errFolder: 'Indica la cartella del progetto sul disco.',
+    localOnlyAdmins: 'Per ora lo vedono solo gli amministratori.',
     newProject: 'Nuovo progetto',
     namePlaceholder: 'Es. Progetto di test',
     nameHint: 'Il nome del progetto è il nome della sua cartella e dopo la creazione non si cambia più. Scrivendolo qui, la cartella viene proposta dentro la cartella dei progetti.',
@@ -49,6 +51,7 @@ const m = defineMessages({
   en: {
     errName: 'The project needs a name.',
     errFolder: 'Set the project folder on disk.',
+    localOnlyAdmins: 'For now only administrators can see it.',
     newProject: 'New project',
     namePlaceholder: 'E.g. Test project',
     nameHint: 'The project name is the name of its folder and cannot be changed after creation. Typing it here suggests a folder inside the projects folder.',
@@ -163,6 +166,12 @@ async function inspect(path: string) {
   }
 }
 watchDebounced(() => [open.value, diskPath.value] as const, ([o, p]) => o && void inspect(p), { debounce: 300 })
+// Visibilità ad altri membri solo con la cartella Dati e la cartella del progetto in rete
+const dataPath = computed(() => ws.storage?.root ?? '')
+// (prima di scrivere il nome la cartella sarà dentro quella dei progetti: conta quella)
+const folderForShare = computed(() => diskPath.value.trim() || ws.projectsRoot)
+const share = computed(() => (ws.isNetwork && folderForShare.value ? shareState(projectParts(dataPath.value, folderForShare.value)) : null))
+const shareText = computed(() => (share.value ? projectShareText(share.value) : ''))
 const isImport = computed(() => kind.value === 'project')
 const blocked = computed(() => !!folderProblem.value || kind.value === 'other' || kind.value === 'workspace' || kind.value === 'projects')
 
@@ -193,9 +202,11 @@ async function submit() {
   if (kind.value === 'workspace') return (error.value = m.kindWorkspace)
   if (kind.value === 'projects') return (error.value = m.kindProjects(markers.value.slice(0, 4).join(', ')))
 
-  // Visibilità: conta solo nei workspace di rete (in locale c'è un solo utente)
-  const vis: Visibility = ws.isNetwork ? visibility.value : 'public'
-  const memberIds = resolveMembers(ws.users, vis, members.value)
+  // Visibilità: conta solo nei workspace di rete (in locale c'è un solo utente). Con le
+  // cartelle in locale gli altri non raggiungerebbero il progetto: lo vedono solo gli amministratori.
+  const shareable = ws.isNetwork && (await checkShare(projectParts(dataPath.value, dir))).ok
+  const vis: Visibility = !ws.isNetwork ? 'public' : shareable ? visibility.value : 'restricted'
+  const memberIds = shareable ? resolveMembers(ws.users, vis, members.value) : []
   const importing = kind.value === 'project'
   // Progetto esistente: stack ricavato dai suoi file
   let detected: Awaited<ReturnType<typeof detectStack>> | null = null
@@ -275,7 +286,12 @@ async function submit() {
         <p v-if="stackSource" class="mt-1 text-[12px] text-ink-3">{{ m.stackHint }}</p>
       </div>
 
-      <ProjectAccessFields v-if="ws.isNetwork && ws.isAdmin" v-model:visibility="visibility" v-model:members="members" />
+      <template v-if="ws.isNetwork && ws.isAdmin">
+        <p v-if="shareText" class="flex items-start gap-1.5 rounded-md border border-line bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2" data-share-blocked>
+          <HardDrive :size="14" class="mt-0.5 shrink-0 text-p-alta" /> <span>{{ shareText }} {{ m.localOnlyAdmins }}</span>
+        </p>
+        <ProjectAccessFields v-else-if="share?.ok" v-model:visibility="visibility" v-model:members="members" />
+      </template>
 
       <p v-if="error" class="text-[13px] text-danger" data-project-error>{{ error }}</p>
     </form>

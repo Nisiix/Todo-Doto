@@ -83,7 +83,8 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
   {
     name: 'Visual Studio',
     aliases: ['visual studio community', 'vs2022'],
-    version: '2022',
+    // Nessuna versione predefinita: quella giusta la dichiara la soluzione (.sln), es. 2010 per un progetto Express 2010
+    version: '',
     url: 'https://visualstudio.microsoft.com/downloads/',
     check: '',
     neededBy: ['WPF', 'WinForms', 'Windows Forms', '.NET Framework', '.NET 4.0', 'VB.NET'],
@@ -240,6 +241,74 @@ export function autofillPrerequisite(p: Pick<Prerequisite, 'name' | 'version' | 
   return changed
 }
 
+/** Framework del .NET moderno (progetti "SDK"): servono il .NET SDK. */
+const MODERN_DOTNET = ['.NET', 'ASP.NET Core', 'Blazor', '.NET MAUI', 'MAUI'].map(key)
+/** Solo .NET Framework o Visual Basic 6, senza .NET moderno: si compila con Visual Studio, non con il .NET SDK. */
+function isClassicDotnet(tech: Set<string>): boolean {
+  return (tech.has(key('.NET Framework')) || tech.has(key('Visual Basic 6'))) && !MODERN_DOTNET.some((t) => tech.has(t))
+}
+
+/** Versione minima di Visual Studio per una versione di .NET Framework (es. 4.0 → 2010). */
+export function vsForNetFramework(version: string): number | null {
+  const m = /^(\d+)\.(\d+)(?:\.(\d+))?/.exec(version.trim())
+  if (!m) return null
+  const v = Number(m[1]) * 100 + Number(m[2]) * 10 + Number(m[3] ?? 0)
+  if (v >= 480) return 2019
+  if (v >= 470) return 2017
+  if (v >= 460) return 2015
+  if (v >= 451) return 2013
+  if (v >= 450) return 2012
+  if (v >= 400) return 2010
+  if (v >= 350) return 2008
+  if (v >= 200) return 2005
+  return null
+}
+
+export interface PrerequisiteFix {
+  name: string
+  /** Versione di prima. */
+  from: string
+  /** Nuova versione; null = da togliere. */
+  to: string | null
+  reason: 'classic-dotnet' | 'default-version'
+}
+
+/**
+ * Revisione dei prerequisiti già salvati, anche senza la cartella del progetto
+ * (es. stack creato prima del riconoscimento preciso): il .NET SDK in un
+ * progetto solo .NET Framework non serve; Visual Studio "2022" (il vecchio
+ * valore predefinito, non dichiarato dai file) in un progetto .NET Framework
+ * diventa la versione minima per il suo framework, o nessuna versione.
+ */
+export function reviewPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks' | 'prerequisites'>): PrerequisiteFix[] {
+  const tech = new Set([...stack.languages, ...stack.frameworks].map(key))
+  if (!isClassicDotnet(tech)) return []
+  const canon = (n: string) => lookupPrerequisite(n)?.name ?? n
+  const fx = stack.prerequisites.find((p) => canon(p.name) === '.NET Framework')
+  const fixes: PrerequisiteFix[] = []
+  for (const p of stack.prerequisites) {
+    const name = canon(p.name)
+    if (name === '.NET SDK') fixes.push({ name: p.name, from: p.version, to: null, reason: 'classic-dotnet' })
+    else if (name === 'Visual Studio' && /^\s*2022\s*$/.test(p.version)) {
+      const year = fx ? vsForNetFramework(fx.version) : null
+      fixes.push({ name: p.name, from: p.version, to: year ? `${year}+` : '', reason: 'default-version' })
+    }
+  }
+  return fixes
+}
+
+/** Applica le correzioni della revisione. */
+export function applyPrerequisiteFixes<T extends Pick<Stack, 'prerequisites'>>(stack: T, fixes: PrerequisiteFix[]): T {
+  const byName = new Map(fixes.map((f) => [f.name, f]))
+  const prerequisites = stack.prerequisites
+    .filter((p) => byName.get(p.name)?.to !== null)
+    .map((p) => {
+      const f = byName.get(p.name)
+      return f && f.to !== null ? { ...p, version: f.to } : p
+    })
+  return { ...stack, prerequisites }
+}
+
 /**
  * Prerequisiti deducibili dallo stack (linguaggi, framework, repository git)
  * che non sono ancora nell'elenco, nell'ordine del catalogo.
@@ -248,9 +317,12 @@ export function suggestPrerequisites(stack: Pick<Stack, 'languages' | 'framework
   const tech = new Set([...stack.languages, ...stack.frameworks].map(key))
   const present = new Set(stack.prerequisites.map((p) => lookupPrerequisite(p.name)?.name ?? p.name).map(key))
   const usesGit = /git|\.git$|github|gitlab|bitbucket|azure\s*devops/i.test(stack.repoUrl)
+  const classic = isClassicDotnet(tech)
   return KNOWN_PREREQUISITES.filter((k) => {
     if (present.has(key(k.name)) || exclude.includes(k.name)) return false
     if (k.name === 'Git') return usesGit
+    // Progetto .NET Framework (o VB6) senza .NET moderno: il .NET SDK non serve, anche se c'è C# o VB.NET
+    if (k.name === '.NET SDK' && classic) return false
     return k.neededBy.some((t) => tech.has(key(t)))
   })
 }

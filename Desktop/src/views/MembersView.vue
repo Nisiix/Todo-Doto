@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Eraser, KeyRound, Shield, ShieldOff, UserX } from 'lucide-vue-next'
+import { Eraser, HardDrive, KeyRound, Shield, ShieldOff, UserX } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import PermissionsDialog from '@/components/dialogs/PermissionsDialog.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -10,6 +10,7 @@ import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useConfirm } from '@/composables/useConfirm'
+import { useSharing } from '@/composables/useSharing'
 import { projectVisibility, ROLE_LABEL, type Role, type User } from '@/types'
 import { compareText, DATE, defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -54,6 +55,8 @@ const m = defineMessages({
 })
 
 const ws = useWorkspaceStore()
+/** Workspace di rete con la cartella Dati o quella dei progetti in locale: non si condivide. */
+const sharing = useSharing()
 const confirm = useConfirm()
 const showPermissions = ref(false)
 /** Progetto da mostrare subito nella gestione permessi (?permissions=<id>, dal menu della visibilità). */
@@ -109,6 +112,9 @@ const menu = (u: User) => [
         {{ m.networkLead1 }} <b>Cleaner</b> {{ m.networkLead2 }}
       </template>
       <template v-else>{{ m.localLead }}</template>
+    </p>
+    <p v-if="sharing.workspaceText.value" class="mt-3 flex max-w-xl items-start gap-1.5 rounded-md border border-line bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2" data-share-blocked>
+      <HardDrive :size="14" class="mt-0.5 shrink-0 text-p-alta" /> {{ sharing.workspaceText.value }}
     </p>
 
     <ul class="mt-6 max-w-3xl divide-y divide-line">

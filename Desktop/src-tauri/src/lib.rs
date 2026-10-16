@@ -354,6 +354,35 @@ async fn run_check(command: String, timeout_ms: Option<u64>) -> Result<CheckOutp
         .map_err(|e| e.to_string())
 }
 
+/// La cartella è su un'unità di rete? Sì per i percorsi \\server\condivisione e
+/// per le lettere di unità collegate a una condivisione (es. Z:); no per i
+/// dischi di questo PC. Decide se un workspace o un progetto si può condividere.
+#[tauri::command]
+fn path_is_remote(path: String) -> bool {
+    is_remote_path(&path)
+}
+
+fn is_remote_path(path: &str) -> bool {
+    let p = path.trim();
+    if p.starts_with(r"\\") || p.starts_with("//") {
+        // \\?\C:\… e \\.\C:\… sono percorsi locali estesi; \\?\UNC\… è di rete
+        if p.starts_with(r"\\?\") || p.starts_with(r"\\.\") {
+            return p[4..].to_ascii_uppercase().starts_with(r"UNC\");
+        }
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        let b = p.as_bytes();
+        if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
+            let root: Vec<u16> = format!("{}:\\", b[0] as char).encode_utf16().chain(std::iter::once(0)).collect();
+            // DRIVE_REMOTE = 4: unità collegata a una condivisione di rete
+            return unsafe { windows_sys::Win32::Storage::FileSystem::GetDriveTypeW(root.as_ptr()) } == 4;
+        }
+    }
+    false
+}
+
 /// Aggiunge cartelle (con tutto il contenuto) ai percorsi consentiti del plugin
 /// fs. Serve ai percorsi di rete (\\server\condivisione) e alle unità mappate
 /// riaperti dopo un riavvio, che non passano dalla finestra "Sfoglia" (la quale
@@ -383,6 +412,7 @@ pub fn run() {
             oauth_wait,
             run_check,
             allow_paths,
+            path_is_remote,
             secrets::protect_secret,
             secrets::unprotect_secret,
             git::git_log,
@@ -401,6 +431,16 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recognizes_network_paths() {
+        assert!(is_remote_path(r"\\server\progetti\Portale"));
+        assert!(is_remote_path("//server/progetti"));
+        assert!(is_remote_path(r"\\?\UNC\server\progetti"));
+        assert!(!is_remote_path(r"\\?\C:\Progetti"));
+        assert!(!is_remote_path(""));
+        assert!(!is_remote_path("/home/utente/progetti"));
+    }
 
     #[test]
     fn parses_code_and_state() {

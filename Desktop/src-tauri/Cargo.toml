@@ -1,6 +1,6 @@
 [package]
 name = "todo-doto"
-version = "0.2.27"
+version = "0.2.28"
 description = "Roadmap e todo di progetto, in locale o su cartella di rete"
 authors = ["nisos"]
 edition = "2021"
@@ -31,7 +31,7 @@ tokio = { version = "1", features = ["time"] }
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"
 # DPAPI: password ricordate cifrate per l'utente Windows corrente
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security_Cryptography", "Win32_Storage_FileSystem"] }
 
 [profile.release]
 codegen-units = 1

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { AlertTriangle, ArrowDown, LifeBuoy, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, Download, LifeBuoy, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -17,7 +17,7 @@ import { usePrereqChecks } from '@/composables/usePrereqChecks'
 import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
 import { parseGitHubRepo } from '@/services/github'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
-import { correctPrerequisites, detectStack, newScanTrace } from '@/services/projectScan'
+import { autoReviewed, correctPrerequisites, detectStack, newScanTrace } from '@/services/projectScan'
 import { analyzeStack, applyProposals, readEnvExamples, type StackProposal } from '@/services/aiStack'
 import { useAiStore, withAi } from '@/stores/ai'
 import type { CheckHelpInput } from '@/services/aiAssist'
@@ -28,10 +28,11 @@ import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { getFs, isTauri } from '@/services/fs'
-import { autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, suggestPrerequisites } from '@/services/prerequisites'
+import { applyPrerequisiteFixes, autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, reviewPrerequisites, suggestPrerequisites, type PrerequisiteFix } from '@/services/prerequisites'
 import { mergeImportedStack, mergeStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
+import { aiInstallPlan, catalogPlan, installScript, wingetShowCommand, wingetShowFound, type InstallPlan } from '@/services/autoInstall'
 import { applyTokens, copyStack, hasStack, resolveStack, slugify, varsFor } from '@/services/scaffold'
 import { PLATFORMS, PLATFORM_LABEL, SETUP_STEP_KINDS, SETUP_STEP_LABEL, type Prerequisite, type Project, type Stack } from '@/types'
 import { DATE, defineMessages, plural } from '@/i18n'
@@ -149,6 +150,28 @@ const m = defineMessages({
     detected: (parts: string) => `Dai file del progetto: ${parts}`,
     corrected: (n: number) => `${n} ${plural(n, 'prerequisito corretto', 'prerequisiti corretti')}`,
     detectedNothing: 'Nessun dato nuovo dai file del progetto: lo stack era già completo, o la cartella non contiene file di progetto riconoscibili.',
+    canInstall: (list: string) => `Mancano su questo PC: ${list}. Todo Doto può scaricarli e installarli in automatico con winget (Gestione pacchetti di Windows).`,
+    installMissing: 'Installa automaticamente',
+    installStarted: 'Installazione avviata in una finestra a parte: al termine torna qui, le verifiche ripartono da sole.',
+    installDesktopOnly: 'L’installazione automatica è disponibile nell’app desktop.',
+    cannotInstall: (list: string) => `Da installare a mano: ${list} (Todo Doto non conosce un pacchetto da installare in automatico).`,
+    installFailedSome: (list: string) => `Ancora mancanti dopo l’installazione automatica: ${list}.`,
+    findWithAi: 'Trova con l’IA come installarli',
+    findingWithAi: 'Cerco con l’IA…',
+    aiFound: (list: string) => `Trovati con l’IA: ${list}. Ora si possono installare in automatico.`,
+    aiNotFound: (list: string) => `L’IA non ha trovato un pacchetto per: ${list}. Usa «Scarica» accanto a ciascuno.`,
+    enableAiHint: 'Attiva l’IA locale: trova come installare anche questi programmi e completa la configurazione in automatico.',
+    enableAi: 'Attiva l’IA locale',
+    reviewTitle: 'Prerequisiti da rivedere',
+    reviewLead: 'Lo stack è stato salvato prima del riconoscimento preciso: per un progetto .NET Framework questi prerequisiti non sono corretti.',
+    reviewFix: 'Correggi',
+    reviewAskAdmin: 'Un amministratore può correggerli da qui.',
+    fixRemove: (n: string) => `${n}: non serve (progetto .NET Framework, si compila con Visual Studio)`,
+    fixVersion: (n: string, a: string, b: string) => `${n}: ${b} invece di ${a || 'qualsiasi versione'}`,
+    fixAnyVersion: (n: string, a: string) => `${n}: qualsiasi versione invece di ${a} (la versione giusta la dichiara la soluzione .sln)`,
+    autoCorrected: (list: string) => `Prerequisiti corretti dai file del progetto: ${list}.`,
+    ruleCorrected: (list: string) => `Prerequisiti corretti: ${list}.`,
+    undo: 'Annulla',
     detectFailed: (err: string) => `Non riesco a leggere la cartella del progetto: ${err}`,
     suggestionsAdded: (parts: string) => `Aggiunti allo stack: ${parts}`,
     detectEmpty: 'Linguaggi, framework e prerequisiti non sono ancora indicati: puoi ricavarli dai file della cartella del progetto.',
@@ -334,6 +357,28 @@ const m = defineMessages({
     detected: (parts: string) => `From the project files: ${parts}`,
     corrected: (n: number) => `${n} ${plural(n, 'prerequisite', 'prerequisites')} corrected`,
     detectedNothing: 'Nothing new from the project files: the stack was already complete, or the folder has no recognizable project files.',
+    canInstall: (list: string) => `Missing on this PC: ${list}. Todo Doto can download and install them automatically with winget (Windows Package Manager).`,
+    installMissing: 'Install automatically',
+    installStarted: 'Installation started in a separate window: when it is done come back here, the checks start again by themselves.',
+    installDesktopOnly: 'Automatic installation is available in the desktop app.',
+    cannotInstall: (list: string) => `To install manually: ${list} (Todo Doto does not know a package to install automatically).`,
+    installFailedSome: (list: string) => `Still missing after the automatic installation: ${list}.`,
+    findWithAi: 'Find how to install them with AI',
+    findingWithAi: 'Searching with AI…',
+    aiFound: (list: string) => `Found with AI: ${list}. They can now be installed automatically.`,
+    aiNotFound: (list: string) => `AI found no package for: ${list}. Use “Download” next to each one.`,
+    enableAiHint: 'Turn on local AI: it finds how to install these programs too and completes the setup automatically.',
+    enableAi: 'Turn on local AI',
+    reviewTitle: 'Prerequisites to review',
+    reviewLead: 'The stack was saved before the precise recognition: for a .NET Framework project these prerequisites are not right.',
+    reviewFix: 'Fix',
+    reviewAskAdmin: 'An administrator can fix them from here.',
+    fixRemove: (n: string) => `${n}: not needed (.NET Framework project, built with Visual Studio)`,
+    fixVersion: (n: string, a: string, b: string) => `${n}: ${b} instead of ${a || 'any version'}`,
+    fixAnyVersion: (n: string, a: string) => `${n}: any version instead of ${a} (the right version is declared by the .sln solution)`,
+    autoCorrected: (list: string) => `Prerequisites corrected from the project files: ${list}.`,
+    ruleCorrected: (list: string) => `Prerequisites corrected: ${list}.`,
+    undo: 'Undo',
     detectFailed: (err: string) => `Cannot read the project folder: ${err}`,
     suggestionsAdded: (parts: string) => `Added to the stack: ${parts}`,
     detectEmpty: 'Languages, frameworks and prerequisites are not set yet: you can derive them from the files in the project folder.',
@@ -587,6 +632,29 @@ async function detectFromFolder() {
   }
 }
 
+// --- prerequisiti da rivedere -------------------------------------------------------
+/** Correzioni dalle regole note, anche senza la cartella (stack salvato prima del riconoscimento preciso). */
+const prereqFixes = computed(() => reviewPrerequisites(stack.value))
+const fixText = (f: PrerequisiteFix) => (f.to === null ? m.fixRemove(f.name) : f.to ? m.fixVersion(f.name, f.from, f.to) : m.fixAnyVersion(f.name, f.from))
+/** Cosa è cambiato tra due elenchi di prerequisiti (per l'avviso). */
+function describeChanges(before: Prerequisite[], after: Prerequisite[]): string {
+  const out: string[] = []
+  for (const p of before) {
+    const a = after.find((x) => x.id === p.id)
+    if (!a) out.push(m.fixRemove(p.name))
+    else if (a.version !== p.version) out.push(a.version ? m.fixVersion(p.name, p.version, a.version) : m.fixAnyVersion(p.name, p.version))
+  }
+  return out.join('; ')
+}
+/** Salva i prerequisiti corretti, con «Annulla» nell'avviso. */
+async function savePrerequisites(next: Prerequisite[], message: (list: string) => string) {
+  const before = stack.value.prerequisites
+  await ws.updateStack(props.project.id, { ...stack.value, prerequisites: next })
+  const undo = () => void ws.updateStack(props.project.id, { ...stack.value, prerequisites: before })
+  ui.toast(message(describeChanges(before, next)), 'success', { label: m.undo, run: undo }, 9000)
+}
+const applyFixes = () => savePrerequisites(applyPrerequisiteFixes(stack.value, prereqFixes.value).prerequisites, m.ruleCorrected)
+
 // --- importazione dello stack da un altro progetto (admin): si controlla e si salva ---
 const importMenu = computed(() =>
   ws.visibleProjects
@@ -632,6 +700,26 @@ async function checkProjectFolder() {
   }
 }
 watch(() => [folderPath.value, props.project.name], checkProjectFolder, { immediate: true })
+// Con la cartella valida su questo PC i file dicono quali prerequisiti servono davvero: all'apertura
+// si confrontano con quelli salvati e si correggono da soli (una volta per sessione, si può annullare)
+watch(
+  () => [folder.value?.ok, editing.value, canEdit.value, folderPath.value] as const,
+  async ([ok, ed, can, dir]) => {
+    const k = `${props.project.id}|${dir}`
+    if (!ok || ed || !can || !dir || detecting.value || autoReviewed.has(k)) return
+    autoReviewed.add(k)
+    try {
+      const det = await detectStack(dir)
+      if (editing.value) return
+      const { stack: fixed, corrected } = correctPrerequisites(stack.value, det)
+      if (corrected) await savePrerequisites(fixed.prerequisites, m.autoCorrected)
+    } catch {
+      // Cartella non leggibile adesso: resta «Rileva dai file del progetto»
+    }
+  },
+  { immediate: true },
+)
+
 useEventListener(window, 'focus', () => void (folder.value && !folder.value.ok && checkProjectFolder()))
 /** Progetto da clonare: la cartella non c'è ancora e la crea proprio la configurazione (primo passo git clone). */
 const clones = (s: Stack) => s.steps.some((x) => x.kind === 'command' && /^\s*git clone\s/m.test(x.command))
@@ -916,6 +1004,70 @@ async function runAuto() {
     ui.toast(m.autoFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
   }
 }
+// --- installazione automatica dei prerequisiti mancanti (Windows, winget) -----------------
+/** Pacchetti trovati dall'IA locale per i prerequisiti che l'app non sa installare. */
+const aiPlans = ref<Record<string, InstallPlan>>({})
+/** Prerequisiti già passati dall'installazione automatica (se mancano ancora, non si ripropone uguale). */
+const attempted = ref(new Set<string>())
+const aiTried = ref(new Set<string>())
+const aiSearching = ref(false)
+const planFor = (p: Prerequisite) => aiPlans.value[p.id] ?? catalogPlan(p)
+const missingPrereqs = computed(() => (checks.os !== 'windows' || checks.busy.value ? [] : view.value.prerequisites.filter((p) => needsAction(statusOf(p.id)))))
+const installable = computed(() => missingPrereqs.value.filter((p) => planFor(p) && !attempted.value.has(p.id)))
+const installFailed = computed(() => missingPrereqs.value.filter((p) => attempted.value.has(p.id)))
+const noPackage = computed(() => missingPrereqs.value.filter((p) => !planFor(p)))
+/** Per questi serve l'IA (pacchetto sconosciuto, o installazione automatica non riuscita). */
+const needAi = computed(() => [...noPackage.value, ...installFailed.value].filter((p) => !aiTried.value.has(p.id)))
+const names = (list: Prerequisite[]) => list.map((p) => p.name).join(', ')
+
+/** Scarica e installa i prerequisiti mancanti con winget, in una finestra del prompt dei comandi. */
+async function installMissing() {
+  const list = installable.value
+  if (!list.length) return
+  if (!isTauri) return ui.toast(m.installDesktopOnly, 'info', undefined, 6000)
+  try {
+    const fs = await getFs()
+    const dir = await fs.join(await fs.appDataDir(), 'scripts')
+    await fs.mkdir(dir)
+    const path = await fs.join(dir, `install-${slugify(props.project.name)}.cmd`)
+    await fs.writeTextAtomic(path, installScript(props.project.name, list.map((p) => planFor(p)!)))
+    await fs.openExternal(path, 'file')
+    attempted.value = new Set([...attempted.value, ...list.map((p) => p.id)])
+    ui.toast(m.installStarted, 'success', undefined, 8000)
+  } catch (e) {
+    ui.toast(m.autoFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
+  }
+}
+
+/** Con l'IA locale: il pacchetto winget dei prerequisiti che l'app non sa installare (verificato con winget). */
+async function findWithAi() {
+  const list = needAi.value
+  if (!list.length || aiSearching.value) return
+  aiSearching.value = true
+  const verify = async (id: string) => {
+    const out = await (await getFs()).runCheck(wingetShowCommand(id), 60_000).catch(() => null)
+    return !!out && out.code === 0 && wingetShowFound(out.stdout)
+  }
+  const found: Prerequisite[] = []
+  try {
+    for (const p of list) {
+      const plan = await withAi((cfg) => aiInstallPlan(cfg, p, verify))
+      aiTried.value = new Set(aiTried.value).add(p.id)
+      if (!plan || plan.id === planFor(p)?.id) continue
+      aiPlans.value = { ...aiPlans.value, [p.id]: plan }
+      const next = new Set(attempted.value)
+      next.delete(p.id)
+      attempted.value = next
+      found.push(p)
+    }
+  } finally {
+    aiSearching.value = false
+  }
+  const missed = list.filter((p) => !found.includes(p))
+  if (found.length) ui.toast(m.aiFound(names(found)), 'success', undefined, 6000)
+  if (missed.length) ui.toast(m.aiNotFound(names(missed)), 'info', undefined, 8000)
+}
+
 async function downloadScript() {
   if (autoBlocked.value) return
   const fs = await getFs()
@@ -976,6 +1128,19 @@ async function ghSync() {
       <FolderSearch :size="15" class="shrink-0 text-accent" />
       <span class="flex-1">{{ m.detectEmpty }}</span>
       <BaseButton size="sm" variant="primary" :disabled="detecting" @click="detectFromFolder">{{ m.detect }}</BaseButton>
+    </div>
+
+    <!-- Prerequisiti salvati che le regole note correggono (es. .NET SDK o Visual Studio 2022 per un progetto .NET Framework) -->
+    <div v-if="!editing && prereqFixes.length" class="!mt-3 rounded-md border border-p-alta/40 bg-p-alta/5 px-3 py-2 text-[13px]" data-prereq-review>
+      <p class="flex items-center gap-1.5 font-semibold"><AlertTriangle :size="14" class="shrink-0 text-p-alta" /> {{ m.reviewTitle }}</p>
+      <p class="mt-0.5 text-[12.5px] text-ink-2">{{ m.reviewLead }}</p>
+      <ul class="mt-1 list-disc pl-5 text-[12.5px] text-ink-2">
+        <li v-for="f in prereqFixes" :key="f.name">{{ fixText(f) }}</li>
+      </ul>
+      <div class="mt-2">
+        <BaseButton v-if="canEdit" size="sm" variant="primary" data-prereq-fix @click="applyFixes">{{ m.reviewFix }}</BaseButton>
+        <span v-else class="text-[12px] text-ink-3">{{ m.reviewAskAdmin }}</span>
+      </div>
     </div>
 
     <!-- Repository GitHub collegato (o collegabile) -->
@@ -1225,6 +1390,28 @@ async function ghSync() {
             <BaseButton size="sm" variant="primary" :title="m.scriptHint" @click="openAuto"><Play :size="14" /> {{ m.genScript }}</BaseButton>
           </div>
           <div class="mt-3 h-1.5 rounded-full bg-surface-2"><div class="h-full rounded-full bg-ok transition-[width]" :style="{ width: (totalSteps ? (doneCount / totalSteps) * 100 : 0) + '%' }" /></div>
+
+          <!-- Programmi mancanti: installazione automatica con winget; per quelli sconosciuti, l'IA locale -->
+          <div v-if="installable.length || noPackage.length || installFailed.length" class="mt-3 space-y-2" data-auto-install>
+            <div v-if="installable.length" class="flex flex-wrap items-center gap-2 rounded-md border border-accent/40 bg-accent-soft/40 px-3 py-2 text-[13px]" data-installable>
+              <Download :size="15" class="shrink-0 text-accent" />
+              <span class="min-w-0 flex-1">{{ m.canInstall(names(installable)) }}</span>
+              <BaseButton size="sm" variant="primary" data-install-missing @click="installMissing"><Download :size="13" /> {{ m.installMissing }}</BaseButton>
+            </div>
+            <div v-if="noPackage.length || installFailed.length" class="space-y-1.5 rounded-md border border-line bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2" data-install-manual>
+              <p v-if="installFailed.length">{{ m.installFailedSome(names(installFailed)) }}</p>
+              <p v-if="noPackage.length">{{ m.cannotInstall(names(noPackage)) }}</p>
+              <template v-if="needAi.length">
+                <BaseButton v-if="ai.active" size="sm" :disabled="aiSearching" data-install-ai @click="findWithAi">
+                  <Loader2 v-if="aiSearching" :size="13" class="animate-spin" /><Wand2 v-else :size="13" /> {{ aiSearching ? m.findingWithAi : m.findWithAi }}
+                </BaseButton>
+                <div v-else class="flex flex-wrap items-center gap-2" data-install-enable-ai>
+                  <span class="min-w-0 flex-1">{{ m.enableAiHint }}</span>
+                  <BaseButton size="sm" @click="ui.openSettings('ai')"><Wand2 :size="13" /> {{ m.enableAi }}</BaseButton>
+                </div>
+              </template>
+            </div>
+          </div>
 
           <ol class="mt-4 space-y-2">
             <li v-for="p in view.prerequisites" :key="p.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-surface-2" :class="{ 'opacity-60': prereqDone(p.id) }" :data-prereq="p.name" :data-status="statusOf(p.id) ?? 'checking'">
