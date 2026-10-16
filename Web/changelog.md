@@ -2,6 +2,11 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.2.30 — 16 ottobre 2026
+
+- Stack: «Apri nell'editor» è l'operazione conclusiva, con un pulsante che apre il progetto nell'editor indicato (es. la soluzione in Visual Studio), non più un passo da spuntare. «Gestisci configurazione automatica» compare solo se ci sono passi da fare; tolto «Ricomincia».
+- Prerequisiti: il .NET Framework si richiede anche senza i file del progetto (es. progetti Visual Basic Express 2010); Git anche quando un passo usa git; i prerequisiti mancanti si propongono da aggiungere. Nuove verifiche per Visual FoxPro 9 e PowerBuilder; Java, Go e CMake si trovano anche fuori dal PATH.
+
 ## 0.2.29 — 16 ottobre 2026
 
 - GitHub nei workspace di rete: il token lo imposta solo un amministratore; cleaner e membri non vedono il pulsante e trovano già gli Stack sincronizzati.

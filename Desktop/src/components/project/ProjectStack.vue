@@ -29,7 +29,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { getFs, isTauri } from '@/services/fs'
 import { applyPrerequisiteFixes, autofillPrerequisite, KNOWN_PREREQUISITES, lookupPrerequisite, reviewPrerequisites, suggestPrerequisites, type PrerequisiteFix } from '@/services/prerequisites'
-import { mergeImportedStack, mergeStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
+import { isEditorStep, mergeImportedStack, mergeStack, parseStackMarkdown, type ImportCounts } from '@/services/stackDoc'
 import { newId } from '@/services/ids'
 import { setupScriptWindows } from '@/services/analytics'
 import { aiInstallPlan, catalogPlan, installScript, wingetShowCommand, wingetShowFound, type InstallPlan } from '@/services/autoInstall'
@@ -111,9 +111,15 @@ const m = defineMessages({
     gitOff: 'Chiusura dei task dai commit disattivata',
     gitAutoCloseHint: 'La cartella del progetto è un repository git: un commit con «chiude TODO-12» nel messaggio completa il task TODO-12. Il codice e la frase da copiare sono nel dettaglio di ogni task.',
     setupLead: (done: number, total: number) => `Segui i passi nell’ordine e spunta quelli fatti: il progresso è tuo, non si vede agli altri. ${done} di ${total} completati.`,
-    restart: 'Ricomincia',
     scriptHint: 'Esegue sul tuo PC, in sequenza, le verifiche dei prerequisiti e i comandi dei passi',
     genScript: 'Gestisci configurazione automatica',
+    editorLead: 'Operazione conclusiva, a configurazione finita: apre il progetto nell’editor indicato.',
+    openEditor: (editor: string) => `Apri in ${editor}`,
+    openFolderOnly: 'Apri la cartella',
+    editorNoFolder: 'La cartella del progetto non c’è ancora su questo PC: completa prima la configurazione.',
+    editorDesktopOnly: 'L’apertura nell’editor è disponibile nell’app desktop.',
+    vscodeMissing: 'Visual Studio Code non risponde al comando «code»: ho aperto la cartella del progetto.',
+    fileMissing: (f: string) => `${f} non si trova nella cartella del progetto: ho aperto la cartella.`,
     autoTitle: (n: string) => `Configurazione automatica di ${n}`,
     autoLead: 'Lo script esegue sul tuo PC, in una finestra del prompt dei comandi, le verifiche e i comandi elencati qui sotto, uno dopo l’altro; si ferma al primo errore e sui passi da fare a mano.',
     autoWorkdir: 'Cartella in cui si eseguono i comandi',
@@ -163,7 +169,12 @@ const m = defineMessages({
     enableAiHint: 'Attiva l’IA locale: trova come installare anche questi programmi e completa la configurazione in automatico.',
     enableAi: 'Attiva l’IA locale',
     reviewTitle: 'Prerequisiti da rivedere',
-    reviewLead: 'Lo stack è stato salvato prima del riconoscimento preciso: per un progetto .NET Framework questi prerequisiti non sono corretti.',
+    reviewLead: 'Secondo linguaggi, framework e passi dello stack, i prerequisiti indicati non sono completi o corretti (es. stack creato prima del riconoscimento preciso):',
+    fixAdd: (n: string, v: string, why: string) => `${n}${v ? ` ${v}` : ''}: da aggiungere${why === 'git' ? ' (un passo usa git)' : why ? ` (serve per ${why})` : ''}`,
+    reviewIgnore: 'Ignora',
+    fixRemoved: (n: string) => `${n} tolto (non serve)`,
+    fixAdded: (n: string, v: string) => `${n}${v ? ` ${v}` : ''} aggiunto`,
+    reviewIgnoreHint: 'Non mostrare più queste proposte per questo progetto su questo PC',
     reviewFix: 'Correggi',
     reviewAskAdmin: 'Un amministratore può correggerli da qui.',
     fixRemove: (n: string) => `${n}: non serve (progetto .NET Framework, si compila con Visual Studio)`,
@@ -318,9 +329,15 @@ const m = defineMessages({
     gitOff: 'Closing tasks from commits is off',
     gitAutoCloseHint: 'The project folder is a git repository: a commit with “closes TODO-12” in its message completes task TODO-12. The code and the phrase to copy are in the details of each task.',
     setupLead: (done: number, total: number) => `Follow the steps in order and tick the ones you have done: your progress is yours only, others cannot see it. ${done} of ${total} completed.`,
-    restart: 'Start over',
     scriptHint: 'Runs the prerequisite checks and step commands on your PC, in sequence',
     genScript: 'Manage automatic setup',
+    editorLead: 'Final operation, once the setup is done: opens the project in the chosen editor.',
+    openEditor: (editor: string) => `Open in ${editor}`,
+    openFolderOnly: 'Open the folder',
+    editorNoFolder: 'The project folder is not on this PC yet: complete the setup first.',
+    editorDesktopOnly: 'Opening in the editor is available in the desktop app.',
+    vscodeMissing: 'Visual Studio Code does not answer the “code” command: the project folder was opened instead.',
+    fileMissing: (f: string) => `${f} is not in the project folder: the folder was opened instead.`,
     autoTitle: (n: string) => `Automatic setup of ${n}`,
     autoLead: 'The script runs on your PC, in a command prompt window, the checks and commands listed below, one after the other; it stops at the first error and at the manual steps.',
     autoWorkdir: 'Folder where the commands run',
@@ -370,7 +387,12 @@ const m = defineMessages({
     enableAiHint: 'Turn on local AI: it finds how to install these programs too and completes the setup automatically.',
     enableAi: 'Turn on local AI',
     reviewTitle: 'Prerequisites to review',
-    reviewLead: 'The stack was saved before the precise recognition: for a .NET Framework project these prerequisites are not right.',
+    reviewLead: 'According to the stack languages, frameworks and steps, the listed prerequisites are not complete or right (e.g. a stack created before the precise recognition):',
+    fixAdd: (n: string, v: string, why: string) => `${n}${v ? ` ${v}` : ''}: to add${why === 'git' ? ' (a step uses git)' : why ? ` (needed by ${why})` : ''}`,
+    reviewIgnore: 'Ignore',
+    fixRemoved: (n: string) => `${n} removed (not needed)`,
+    fixAdded: (n: string, v: string) => `${n}${v ? ` ${v}` : ''} added`,
+    reviewIgnoreHint: 'Do not show these suggestions for this project on this PC again',
     reviewFix: 'Fix',
     reviewAskAdmin: 'An administrator can fix them from here.',
     fixRemove: (n: string) => `${n}: not needed (.NET Framework project, built with Visual Studio)`,
@@ -634,16 +656,41 @@ async function detectFromFolder() {
 
 // --- prerequisiti da rivedere -------------------------------------------------------
 /** Correzioni dalle regole note, anche senza la cartella (stack salvato prima del riconoscimento preciso). */
-const prereqFixes = computed(() => reviewPrerequisites(stack.value))
-const fixText = (f: PrerequisiteFix) => (f.to === null ? m.fixRemove(f.name) : f.to ? m.fixVersion(f.name, f.from, f.to) : m.fixAnyVersion(f.name, f.from))
+const fixKey = (f: PrerequisiteFix) => `${f.reason}:${f.name}:${f.to ?? '-'}`
+const ignoredKey = computed(() => `pgm:prereqReviewIgnored:${props.project.id}`)
+const ignoredFixes = ref(new Set<string>())
+watch(
+  ignoredKey,
+  (k) => {
+    try {
+      ignoredFixes.value = new Set(JSON.parse(localStorage.getItem(k) ?? '[]') as string[])
+    } catch {
+      ignoredFixes.value = new Set()
+    }
+  },
+  { immediate: true },
+)
+const prereqFixes = computed(() => reviewPrerequisites(stack.value).filter((f) => !ignoredFixes.value.has(fixKey(f))))
+/** Le proposte ignorate non ricompaiono su questo PC (quelle nuove sì). */
+function ignoreFixes() {
+  ignoredFixes.value = new Set([...ignoredFixes.value, ...prereqFixes.value.map(fixKey)])
+  try {
+    localStorage.setItem(ignoredKey.value, JSON.stringify([...ignoredFixes.value]))
+  } catch {
+    /* solo comodità locale */
+  }
+}
+const fixText = (f: PrerequisiteFix) =>
+  f.reason === 'missing' ? m.fixAdd(f.name, f.to ?? '', f.because ?? '') : f.to === null ? m.fixRemove(f.name) : f.to ? m.fixVersion(f.name, f.from, f.to) : m.fixAnyVersion(f.name, f.from)
 /** Cosa è cambiato tra due elenchi di prerequisiti (per l'avviso). */
 function describeChanges(before: Prerequisite[], after: Prerequisite[]): string {
   const out: string[] = []
   for (const p of before) {
     const a = after.find((x) => x.id === p.id)
-    if (!a) out.push(m.fixRemove(p.name))
+    if (!a) out.push(m.fixRemoved(p.name))
     else if (a.version !== p.version) out.push(a.version ? m.fixVersion(p.name, p.version, a.version) : m.fixAnyVersion(p.name, p.version))
   }
+  for (const a of after) if (!before.some((x) => x.id === a.id)) out.push(m.fixAdded(a.name, a.version))
   return out.join('; ')
 }
 /** Salva i prerequisiti corretti, con «Annulla» nell'avviso. */
@@ -869,7 +916,12 @@ function toggleDone(id: string) {
     /* solo comodità locale */
   }
 }
-const totalSteps = computed(() => stack.value.prerequisites.length + stack.value.steps.length)
+/** Passi della configurazione: senza l'apertura nell'editor, che è l'operazione conclusiva (con il suo pulsante). */
+const setupSteps = computed(() => view.value.steps.filter((x) => !isEditorStep(x)))
+const editorStepOf = computed(() => view.value.steps.find(isEditorStep) ?? null)
+const totalSteps = computed(() => stack.value.prerequisites.length + setupSteps.value.length)
+/** Passi ancora da fare: solo allora serve la configurazione automatica. */
+const pendingSteps = computed(() => setupSteps.value.filter((x) => !done.value.has(x.id)).length)
 
 // --- verifica automatica dei prerequisiti sul PC -------------------------------------
 const checks = usePrereqChecks(computed(() => view.value.prerequisites))
@@ -952,15 +1004,7 @@ async function runCustomCheck(p: Prerequisite) {
   if (await confirm({ title: m.runCheckTitle, message: m.runCheckMessage(command), confirmLabel: m.runCheckConfirm, danger: true })) await checks.confirmAndCheck(p)
 }
 
-const doneCount = computed(() => view.value.prerequisites.filter((p) => prereqDone(p.id)).length + stack.value.steps.filter((x) => done.value.has(x.id)).length)
-function resetProgress() {
-  done.value = new Set()
-  try {
-    localStorage.removeItem(progressKey.value)
-  } catch {
-    /* ignora */
-  }
-}
+const doneCount = computed(() => view.value.prerequisites.filter((p) => prereqDone(p.id)).length + setupSteps.value.filter((x) => done.value.has(x.id)).length)
 
 async function copy(text: string, what = m.copied) {
   try {
@@ -1004,6 +1048,46 @@ async function runAuto() {
     ui.toast(m.autoFailed(e instanceof Error ? e.message : String(e)), 'error', undefined, 6000)
   }
 }
+// --- apertura del progetto nell'editor (operazione conclusiva) -----------------------------
+/**
+ * Cosa apre il passo dell'editor: un file di progetto indicato nel passo (es.
+ * App.sln → Visual Studio, Progetto.vbp → Visual Basic 6.0, con il programma
+ * associato), Visual Studio Code (comando «code»), altrimenti la cartella.
+ */
+const editorTarget = computed((): { kind: 'file' | 'vscode' | 'folder'; file: string; label: string } => {
+  const st = editorStepOf.value
+  const text = st ? `${st.title} ${st.command} ${st.notes}` : ''
+  const file = /([\w.\\/-]+\.(sln|vbp|vbproj|csproj|fsproj|vcxproj|code-workspace|dproj|lpi|pro|xcodeproj|accdb|mdb|pjx))\b/i.exec(text)?.[1] ?? ''
+  if (file) {
+    const ext = file.split('.').pop()!.toLowerCase()
+    const label = ext === 'vbp' ? 'Visual Basic 6.0' : ext === 'code-workspace' ? 'Visual Studio Code' : ext === 'xcodeproj' ? 'Xcode' : ['accdb', 'mdb'].includes(ext) ? 'Access' : ext === 'dproj' ? 'Delphi' : ext === 'lpi' ? 'Lazarus' : ext === 'pro' ? 'Qt Creator' : ext === 'pjx' ? 'Visual FoxPro' : 'Visual Studio'
+    return { kind: 'file', file, label }
+  }
+  if (!st || /\bcode\b|vs ?code|visual studio code|\beditor\b/i.test(text)) return { kind: 'vscode', file: '', label: 'Visual Studio Code' }
+  return { kind: 'folder', file: '', label: '' }
+})
+async function openInEditor() {
+  if (!isTauri) return ui.toast(m.editorDesktopOnly, 'info', undefined, 5000)
+  const dir = folderPath.value
+  const fs = await getFs()
+  if (!dir || !(await fs.exists(dir).catch(() => false))) return ui.toast(m.editorNoFolder, 'warning', undefined, 6000)
+  const t = editorTarget.value
+  try {
+    if (t.kind === 'file') {
+      const path = await fs.join(dir, t.file.replace(/^[.\\/]+/, ''))
+      if (await fs.exists(path)) return await fs.openExternal(path, 'file')
+      ui.toast(m.fileMissing(t.file), 'info', undefined, 6000)
+    } else if (t.kind === 'vscode') {
+      const out = await fs.runCheck(`code "${dir.replace(/"/g, '')}"`, 30_000).catch(() => null)
+      if (out && out.code === 0 && !out.spawnError) return
+      ui.toast(m.vscodeMissing, 'info', undefined, 6000)
+    }
+    await fs.openExternal(dir, 'file')
+  } catch (e) {
+    ui.toast(m.cannotOpen(e instanceof Error ? e.message : String(e)), 'error')
+  }
+}
+
 // --- installazione automatica dei prerequisiti mancanti (Windows, winget) -----------------
 /** Pacchetti trovati dall'IA locale per i prerequisiti che l'app non sa installare. */
 const aiPlans = ref<Record<string, InstallPlan>>({})
@@ -1137,9 +1221,10 @@ async function ghSync() {
       <ul class="mt-1 list-disc pl-5 text-[12.5px] text-ink-2">
         <li v-for="f in prereqFixes" :key="f.name">{{ fixText(f) }}</li>
       </ul>
-      <div class="mt-2">
+      <div class="mt-2 flex items-center gap-2">
         <BaseButton v-if="canEdit" size="sm" variant="primary" data-prereq-fix @click="applyFixes">{{ m.reviewFix }}</BaseButton>
         <span v-else class="text-[12px] text-ink-3">{{ m.reviewAskAdmin }}</span>
+        <BaseButton size="sm" variant="ghost" :title="m.reviewIgnoreHint" data-prereq-ignore @click="ignoreFixes">{{ m.reviewIgnore }}</BaseButton>
       </div>
     </div>
 
@@ -1354,7 +1439,7 @@ async function ghSync() {
 
         <!-- Cartella del progetto da trovare: finché non è valida la configurazione sul PC non compare -->
         <section
-          v-if="(totalSteps || view.envVars.length || view.files.length) && !folderOk"
+          v-if="(totalSteps || editorStepOf || view.envVars.length || view.files.length) && !folderOk"
           class="rounded-lg border border-dashed border-p-alta/60 bg-surface p-5"
           data-folder-check
           :data-problem="checkingFolder ? 'checking' : (folder?.problem ?? '')"
@@ -1374,7 +1459,7 @@ async function ghSync() {
         </section>
 
         <!-- Procedura guidata -->
-        <section v-if="(totalSteps || view.envVars.length || view.files.length) && folderOk" class="rounded-lg border border-line bg-surface p-5">
+        <section v-if="(totalSteps || editorStepOf || view.envVars.length || view.files.length) && folderOk" class="rounded-lg border border-line bg-surface p-5">
           <div class="flex flex-wrap items-center gap-3">
             <div class="min-w-0 flex-1">
               <h3 class="text-[15px] font-bold">{{ m.setupTitle }}</h3>
@@ -1386,8 +1471,7 @@ async function ghSync() {
             <BaseButton v-if="view.prerequisites.length" size="sm" variant="ghost" :disabled="checks.busy.value" :title="m.recheckHint" @click="checks.checkAll(true)">
               <RefreshCw :size="13" :class="{ 'animate-spin': checks.busy.value }" /> {{ m.recheck }}
             </BaseButton>
-            <BaseButton v-if="doneCount" size="sm" variant="ghost" @click="resetProgress">{{ m.restart }}</BaseButton>
-            <BaseButton size="sm" variant="primary" :title="m.scriptHint" @click="openAuto"><Play :size="14" /> {{ m.genScript }}</BaseButton>
+            <BaseButton v-if="pendingSteps" size="sm" variant="primary" :title="m.scriptHint" data-auto-setup @click="openAuto"><Play :size="14" /> {{ m.genScript }}</BaseButton>
           </div>
           <div class="mt-3 h-1.5 rounded-full bg-surface-2"><div class="h-full rounded-full bg-ok transition-[width]" :style="{ width: (totalSteps ? (doneCount / totalSteps) * 100 : 0) + '%' }" /></div>
 
@@ -1450,7 +1534,7 @@ async function ghSync() {
                 </details>
               </div>
             </li>
-            <li v-for="(st, i) in view.steps" :key="st.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-surface-2" :class="{ 'opacity-60': done.has(st.id) }">
+            <li v-for="(st, i) in setupSteps" :key="st.id" class="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-surface-2" :class="{ 'opacity-60': done.has(st.id) }">
               <button class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors" :class="done.has(st.id) ? 'border-ok bg-ok text-white' : 'border-line-strong text-transparent hover:border-ok hover:text-ok'" :aria-pressed="done.has(st.id)" :title="done.has(st.id) ? m.markTodo : m.markDone" @click="toggleDone(st.id)"><Check :size="12" stroke-width="3" /></button>
               <div class="min-w-0 flex-1">
                 <div class="text-[13.5px] font-semibold">{{ i + 1 }}. {{ st.title }} <span class="ml-1 rounded-full bg-surface-2 px-1.5 text-[11px] font-medium text-ink-2">{{ SETUP_STEP_LABEL[st.kind] }}</span></div>
@@ -1463,6 +1547,18 @@ async function ghSync() {
               </div>
             </li>
           </ol>
+
+          <!-- Operazione conclusiva, estranea alla configurazione: aprire il progetto nell'editor -->
+          <div v-if="editorStepOf" class="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-line px-3 py-2.5" data-editor-step>
+            <FileCode :size="16" class="shrink-0 text-accent" />
+            <div class="min-w-0 flex-1">
+              <p class="text-[13.5px] font-semibold">{{ editorStepOf.title }}</p>
+              <p class="text-[12px] text-ink-3">{{ m.editorLead }}</p>
+            </div>
+            <BaseButton size="sm" variant="primary" data-open-editor @click="openInEditor">
+              <ExternalLink :size="13" /> {{ editorTarget.kind === 'folder' ? m.openFolderOnly : m.openEditor(editorTarget.label) }}
+            </BaseButton>
+          </div>
 
           <div v-if="view.envVars.length" class="mt-5">
             <h4 class="text-[13px] font-semibold text-ink-2">{{ m.envVars }}</h4>

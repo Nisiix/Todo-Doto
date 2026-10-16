@@ -7,6 +7,7 @@
  *    (es. TypeScript o Vue → Node.js; Tauri → Node.js, Rust, Build Tools).
  */
 import type { Prerequisite, Stack } from '@/types'
+import { newId } from './ids'
 
 export interface KnownPrerequisite {
   name: string
@@ -100,7 +101,8 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     version: '4.8',
     url: 'https://dotnet.microsoft.com/download/dotnet-framework',
     check: '',
-    neededBy: [],
+    // Anche senza i file del progetto: un progetto .NET Framework (es. Visual Basic Express 2010) richiede il framework
+    neededBy: ['.NET Framework', '.NET 4.0'],
     os: ['windows'],
     probe: { command: 'reg query "HKLM\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full" /v Version' },
   },
@@ -121,6 +123,7 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     url: 'https://cmake.org/download/',
     check: 'cmake --version',
     neededBy: ['CMake'],
+    fallback: '"%ProgramFiles%\\CMake\\bin\\cmake.exe" --version',
   },
   {
     name: 'Qt',
@@ -180,11 +183,29 @@ export const KNOWN_PREREQUISITES: KnownPrerequisite[] = [
     os: ['windows'],
     probe: { command: 'reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\MSACCESS.EXE" /ve' },
   },
-  { name: 'Visual FoxPro 9', aliases: ['foxpro', 'visual foxpro', 'vfp'], version: '9', url: '', check: '', neededBy: ['Visual FoxPro'], os: ['windows'] },
-  { name: 'PowerBuilder', aliases: ['appeon powerbuilder'], version: '', url: 'https://www.appeon.com/products/powerbuilder', check: '', neededBy: ['PowerBuilder'], os: ['windows'] },
+  {
+    name: 'Visual FoxPro 9',
+    aliases: ['foxpro', 'visual foxpro', 'vfp'],
+    version: '9',
+    url: '',
+    check: '',
+    neededBy: ['Visual FoxPro'],
+    os: ['windows'],
+    probe: { command: 'dir /b "%ProgramFiles(x86)%\\Microsoft Visual FoxPro 9\\vfp9.exe" 2>nul || reg query "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\VisualFoxPro\\9.0" 2>nul' },
+  },
+  {
+    name: 'PowerBuilder',
+    aliases: ['appeon powerbuilder'],
+    version: '',
+    url: 'https://www.appeon.com/products/powerbuilder',
+    check: '',
+    neededBy: ['PowerBuilder'],
+    os: ['windows'],
+    probe: { command: 'reg query "HKLM\\SOFTWARE\\WOW6432Node\\Appeon\\PowerBuilder" 2>nul || reg query "HKLM\\SOFTWARE\\WOW6432Node\\Sybase\\PowerBuilder" 2>nul' },
+  },
   { name: 'Python', aliases: ['python3', 'py'], version: '3.11+', url: 'https://www.python.org/downloads/', check: 'python --version', neededBy: ['Python', 'Django', 'Flask', 'FastAPI'], fallback: 'py --version' },
-  { name: 'Java JDK', aliases: ['java', 'jdk', 'openjdk', 'temurin'], version: '17+', url: 'https://adoptium.net', check: 'java -version', neededBy: ['Java', 'Kotlin', 'Spring', 'Spring Boot', 'Android'] },
-  { name: 'Go', aliases: ['golang'], version: '', url: 'https://go.dev/dl/', check: 'go version', neededBy: ['Go'] },
+  { name: 'Java JDK', aliases: ['java', 'jdk', 'openjdk', 'temurin'], version: '17+', url: 'https://adoptium.net', check: 'java -version', neededBy: ['Java', 'Kotlin', 'Spring', 'Spring Boot', 'Android'], fallback: '"%JAVA_HOME%\\bin\\java.exe" -version' },
+  { name: 'Go', aliases: ['golang'], version: '', url: 'https://go.dev/dl/', check: 'go version', neededBy: ['Go'], fallback: '"%ProgramFiles%\\Go\\bin\\go.exe" version' },
   { name: 'PHP', aliases: ['php8'], version: '8.2+', url: 'https://www.php.net/downloads', check: 'php -v', neededBy: ['PHP', 'Laravel', 'Symfony', 'WordPress'] },
   { name: 'Composer', aliases: ['php composer'], version: '', url: 'https://getcomposer.org/download/', check: 'composer --version', neededBy: ['Laravel', 'Symfony'] },
   { name: 'Ruby', aliases: ['rbenv'], version: '', url: 'https://www.ruby-lang.org/en/downloads/', check: 'ruby -v', neededBy: ['Ruby', 'Rails', 'Ruby on Rails'] },
@@ -266,26 +287,38 @@ export function vsForNetFramework(version: string): number | null {
 
 export interface PrerequisiteFix {
   name: string
-  /** Versione di prima. */
+  /** Versione di prima ('' per uno da aggiungere). */
   from: string
   /** Nuova versione; null = da togliere. */
   to: string | null
-  reason: 'classic-dotnet' | 'default-version'
+  /** classic-dotnet: non serve; default-version: versione predefinita non dichiarata; missing: da aggiungere. */
+  reason: 'classic-dotnet' | 'default-version' | 'missing'
+  /** Per "missing": linguaggio o framework che lo richiede. */
+  because?: string
 }
 
 /**
  * Revisione dei prerequisiti già salvati, anche senza la cartella del progetto
- * (es. stack creato prima del riconoscimento preciso): il .NET SDK in un
- * progetto solo .NET Framework non serve; Visual Studio "2022" (il vecchio
- * valore predefinito, non dichiarato dai file) in un progetto .NET Framework
- * diventa la versione minima per il suo framework, o nessuna versione.
+ * (es. stack creato prima del riconoscimento preciso):
+ *  - mancano quelli che linguaggi, framework e passi richiedono (es. il .NET
+ *    Framework in un progetto .NET Framework, Git con un passo "git clone");
+ *  - in un progetto solo .NET Framework il .NET SDK non serve, e Visual Studio
+ *    "2022" (il vecchio valore predefinito) diventa la versione minima per il
+ *    .NET Framework dichiarato dai file (es. "4.0+" → 2010+), o nessuna versione.
  */
-export function reviewPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks' | 'prerequisites'>): PrerequisiteFix[] {
-  const tech = new Set([...stack.languages, ...stack.frameworks].map(key))
-  if (!isClassicDotnet(tech)) return []
+export function reviewPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks' | 'repoUrl' | 'prerequisites'> & { steps?: Stack['steps'] }): PrerequisiteFix[] {
+  const tech = [...stack.languages, ...stack.frameworks]
+  const fixes: PrerequisiteFix[] = suggestPrerequisites(stack).map((k) => ({
+    name: k.name,
+    from: '',
+    to: k.version,
+    reason: 'missing',
+    because: k.name === 'Git' ? 'git' : tech.find((t) => k.neededBy.some((n) => key(n) === key(t))),
+  }))
+  if (!isClassicDotnet(new Set(tech.map(key)))) return fixes
   const canon = (n: string) => lookupPrerequisite(n)?.name ?? n
-  const fx = stack.prerequisites.find((p) => canon(p.name) === '.NET Framework')
-  const fixes: PrerequisiteFix[] = []
+  // Solo la versione dichiarata dai file ("4.0+"), non quella proposta dal catalogo
+  const fx = stack.prerequisites.find((p) => canon(p.name) === '.NET Framework' && p.version.includes('+'))
   for (const p of stack.prerequisites) {
     const name = canon(p.name)
     if (name === '.NET SDK') fixes.push({ name: p.name, from: p.version, to: null, reason: 'classic-dotnet' })
@@ -297,15 +330,19 @@ export function reviewPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks
   return fixes
 }
 
-/** Applica le correzioni della revisione. */
+/** Applica le correzioni della revisione (quelli da aggiungere con link e verifica del catalogo). */
 export function applyPrerequisiteFixes<T extends Pick<Stack, 'prerequisites'>>(stack: T, fixes: PrerequisiteFix[]): T {
-  const byName = new Map(fixes.map((f) => [f.name, f]))
+  const byName = new Map(fixes.filter((f) => f.reason !== 'missing').map((f) => [f.name, f]))
   const prerequisites = stack.prerequisites
     .filter((p) => byName.get(p.name)?.to !== null)
     .map((p) => {
       const f = byName.get(p.name)
       return f && f.to !== null ? { ...p, version: f.to } : p
     })
+  for (const f of fixes.filter((x) => x.reason === 'missing')) {
+    const k = lookupPrerequisite(f.name)
+    prerequisites.push({ id: newId('pre'), name: k?.name ?? f.name, version: f.to ?? '', url: k?.url ?? '', check: k?.check ?? '' })
+  }
   return { ...stack, prerequisites }
 }
 
@@ -313,10 +350,15 @@ export function applyPrerequisiteFixes<T extends Pick<Stack, 'prerequisites'>>(s
  * Prerequisiti deducibili dallo stack (linguaggi, framework, repository git)
  * che non sono ancora nell'elenco, nell'ordine del catalogo.
  */
-export function suggestPrerequisites(stack: Pick<Stack, 'languages' | 'frameworks' | 'repoUrl' | 'prerequisites'>, exclude: string[] = []): KnownPrerequisite[] {
+export function suggestPrerequisites(
+  stack: Pick<Stack, 'languages' | 'frameworks' | 'repoUrl' | 'prerequisites'> & { steps?: Stack['steps'] },
+  exclude: string[] = [],
+): KnownPrerequisite[] {
   const tech = new Set([...stack.languages, ...stack.frameworks].map(key))
   const present = new Set(stack.prerequisites.map((p) => lookupPrerequisite(p.name)?.name ?? p.name).map(key))
-  const usesGit = /git|\.git$|github|gitlab|bitbucket|azure\s*devops/i.test(stack.repoUrl)
+  // Git: repository git indicato, o un passo che usa git (es. "git clone")
+  const usesGit =
+    /git|\.git$|github|gitlab|bitbucket|azure\s*devops/i.test(stack.repoUrl) || !!stack.steps?.some((x) => x.kind === 'command' && /(^|[\s&|;])git\s+\w/m.test(x.command))
   const classic = isClassicDotnet(tech)
   return KNOWN_PREREQUISITES.filter((k) => {
     if (present.has(key(k.name)) || exclude.includes(k.name)) return false

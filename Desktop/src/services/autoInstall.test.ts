@@ -69,19 +69,27 @@ describe('prerequisiti di un progetto .NET Framework (es. Visual Basic Express 2
     expect(suggestPrerequisites(stack([], ['.NET Framework', 'ASP.NET Core'])).map((k) => k.name)).toContain('.NET SDK')
   })
 
-  it('lo stack salvato prima del riconoscimento preciso si corregge anche senza la cartella', () => {
-    const saved = stack([pre('.NET SDK', '8+'), pre('Visual Studio', '2022')])
+  it('lo stack salvato prima del riconoscimento preciso si corregge anche senza la cartella (come ApriProgettoVB6)', () => {
+    const saved = { ...stack([pre('.NET SDK', '8+'), pre('Visual Studio', '2022')]), steps: [] }
     const fixes = reviewPrerequisites(saved)
     expect(fixes).toEqual([
+      { name: '.NET Framework', from: '', to: '4.8', reason: 'missing', because: '.NET Framework' },
       { name: '.NET SDK', from: '8+', to: null, reason: 'classic-dotnet' },
       { name: 'Visual Studio', from: '2022', to: '', reason: 'default-version' },
     ])
-    expect(applyPrerequisiteFixes(saved, fixes).prerequisites).toEqual([pre('Visual Studio', '')])
-    // Con il .NET Framework dichiarato: la versione minima di Visual Studio per quel framework
+    const fixed = applyPrerequisiteFixes(saved, fixes).prerequisites
+    expect(fixed.map((p) => [p.name, p.version])).toEqual([['Visual Studio', ''], ['.NET Framework', '4.8']])
+    expect(fixed[1]!.url).toContain('dotnet-framework')
+    // Con il .NET Framework dichiarato dai file ("4.0+"): la versione minima di Visual Studio per quel framework
     expect(reviewPrerequisites(stack([pre('Visual Studio', '2022'), pre('.NET Framework', '4.0+')]))[0]!.to).toBe('2010+')
+    // Il 4.8 proposto dal catalogo non è una dichiarazione: Visual Studio resta senza versione
+    expect(reviewPrerequisites(stack([pre('Visual Studio', '2022'), pre('.NET Framework', '4.8')]))[0]!.to).toBe('')
     // Versione dichiarata dai file (2010+): non si tocca; progetto .NET moderno: nessuna correzione
-    expect(reviewPrerequisites(stack([pre('Visual Studio', '2010+')]))).toEqual([])
+    expect(reviewPrerequisites(stack([pre('Visual Studio', '2010+'), pre('.NET Framework', '4.0+')]))).toEqual([])
     expect(reviewPrerequisites(stack([pre('.NET SDK', '8+'), pre('Visual Studio', '2022')], ['.NET']))).toEqual([])
+    // Git: anche quando lo usa un passo (es. git clone), non solo con il repository
+    const withClone = { ...stack([], [], ['TypeScript']), prerequisites: [pre('Node.js', '20+')], steps: [{ id: 's', title: 'Clona', kind: 'command' as const, command: 'git clone https://example.com/x.git', cwd: '', url: '', notes: '' }] }
+    expect(reviewPrerequisites(withClone)).toEqual([{ name: 'Git', from: '', to: '', reason: 'missing', because: 'git' }])
     expect(vsForNetFramework('4.7.2')).toBe(2017)
     expect(vsForNetFramework('3.5')).toBe(2008)
   })

@@ -569,17 +569,20 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await page.getByRole('button', { name: 'Passo', exact: true }).click()
   await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').fill('Installa le dipendenze')
   await page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)').fill('npm install')
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').last().fill('Prepara il database')
+  await page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)').last().fill('npm run db:init')
   await page.getByRole('button', { name: 'Salva' }).click()
   await expect(page.getByText('Stack salvato')).toBeVisible()
   await expect(page.getByText('TypeScript', { exact: true })).toBeVisible()
-  await expect(page.getByText('0 di 2 completati')).toBeVisible()
+  await expect(page.getByText('0 di 3 completati')).toBeVisible()
   // Verifica automatica: Node.js manca → segnalato, la configurazione automatica è bloccata
   const node = page.locator('[data-prereq="Node.js"]')
   await expect(node).toHaveAttribute('data-status', 'missing')
   await expect(node).toContainText('Non trovato su questo PC: va installato')
   await expect(page.locator('[data-prereq-summary]')).toHaveText('1 da installare o aggiornare')
-  await page.getByTitle('Segna come fatto').first().click() // il passo
-  await expect(page.getByText('1 di 2 completati')).toBeVisible()
+  await page.getByTitle('Segna come fatto').first().click() // il primo passo
+  await expect(page.getByText('1 di 3 completati')).toBeVisible()
   await page.getByRole('button', { name: 'Gestisci configurazione automatica' }).click()
   await expect(dialog(page)).toContainText('Configurazione automatica di Stack test')
   await expect(dialog(page)).toContainText('npm install')
@@ -595,19 +598,19 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await expect(node).toContainText('Verifica non riuscita: controlla a mano')
   await expect(page.locator('[data-prereq-summary]')).toHaveText('1 da verificare a mano')
   await page.getByTitle('Confermo che è installato e va bene').click()
-  await expect(page.getByText('2 di 2 completati')).toBeVisible()
+  await expect(page.getByText('2 di 3 completati')).toBeVisible()
 
   // Versione vecchia: va aggiornato, la conferma a mano non basta
   await fakeChecks(page, { 'node -v': { code: 0, stdout: 'v18.19.0' } })
   await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
   await expect(node).toContainText('Installata la 18.19.0, serve 20+: va aggiornato')
-  await expect(page.getByText('1 di 2 completati')).toBeVisible()
+  await expect(page.getByText('1 di 3 completati')).toBeVisible()
 
   // Versione giusta: verificato e spuntato da solo
   await fakeChecks(page, { 'node -v': { code: 0, stdout: 'v20.11.0' } })
   await page.getByRole('button', { name: 'Ricontrolla', exact: true }).click()
   await expect(node).toContainText('Installato · 20.11.0')
-  await expect(page.getByText('2 di 2 completati')).toBeVisible()
+  await expect(page.getByText('2 di 3 completati')).toBeVisible()
   await expect(page.locator('[data-prereq-summary]')).toHaveText('1 installato')
 
   // Configurazione automatica: nessun blocco, avvio (nel browser: solo app desktop)
@@ -1398,7 +1401,7 @@ test('stack .NET Framework: niente .NET SDK né Visual Studio 2022; i programmi 
   // .NET Framework: si aggiunge Visual Studio senza versione imposta, il .NET SDK no
   await page.getByPlaceholder('Es. Vue 3, Tauri, .NET 4.0').fill('.NET Framework')
   await page.keyboard.press('Enter')
-  await expect(page.getByText('Prerequisiti aggiunti in automatico: Visual Studio')).toBeVisible()
+  await expect(page.getByText('Prerequisiti aggiunti in automatico: Visual Studio, .NET Framework')).toBeVisible()
   const names = page.getByPlaceholder('Nome, es. Node.js')
   const versions = page.getByPlaceholder('Versione', { exact: true })
   await expect(versions.first()).toHaveValue('')
@@ -1407,17 +1410,23 @@ test('stack .NET Framework: niente .NET SDK né Visual Studio 2022; i programmi 
   await page.getByRole('button', { name: 'Prerequisito', exact: true }).click()
   await names.last().fill('.NET SDK')
   await names.last().blur()
+  // ...e senza il .NET Framework (come ApriProgettoVB6)
+  await expect(names.nth(1)).toHaveValue('.NET Framework')
+  await page.locator('form').getByRole('button', { name: 'Rimuovi' }).nth(1).click()
+  await expect(names).toHaveCount(2)
   await page.getByRole('button', { name: 'Salva', exact: true }).click()
   await expect(page.getByText('Stack salvato')).toBeVisible()
 
   // Le regole note lo correggono anche senza i file del progetto
   const review = page.locator('[data-prereq-review]')
+  await expect(review).toContainText('.NET Framework 4.8: da aggiungere (serve per .NET Framework)')
   await expect(review).toContainText('.NET SDK: non serve')
   await expect(review).toContainText('Visual Studio: qualsiasi versione invece di 2022')
   await review.locator('[data-prereq-fix]').click()
-  await expect(page.getByText(/Prerequisiti corretti: .*\.NET SDK: non serve/)).toBeVisible()
+  await expect(page.getByText(/Prerequisiti corretti: .*\.NET SDK tolto.*\.NET Framework 4\.8 aggiunto/)).toBeVisible()
   await expect(review).toHaveCount(0)
   await expect(page.getByText('Prerequisito: .NET SDK')).toHaveCount(0)
+  await expect(page.getByText('Prerequisito: .NET Framework')).toBeVisible()
 
   // Programmi mancanti su questo PC: quelli noti si installano con winget, gli altri con l'IA locale
   await page.getByRole('button', { name: 'Modifica', exact: true }).click()
@@ -1443,6 +1452,38 @@ test('stack .NET Framework: niente .NET SDK né Visual Studio 2022; i programmi 
   // Nel browser l'installazione non parte (solo nell'app desktop)
   await page.locator('[data-install-missing]').click()
   await expect(page.getByText('L’installazione automatica è disponibile nell’app desktop.')).toBeVisible()
+})
+
+test('stack: l’apertura nell’editor è l’operazione conclusiva, con il suo pulsante; configurazione automatica solo con passi da fare', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Editor')
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').fill('Apri Gestionale.sln in Visual Studio')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.getByText('Stack salvato')).toBeVisible()
+  // Solo l'apertura nell'editor: niente da configurare, niente configurazione automatica né «Ricomincia»
+  const editor = page.locator('[data-editor-step]')
+  await expect(editor).toContainText('Apri Gestionale.sln in Visual Studio')
+  await expect(editor.getByRole('button', { name: 'Apri in Visual Studio' })).toBeVisible()
+  await expect(editor.getByTitle('Segna come fatto')).toHaveCount(0)
+  await expect(page.locator('[data-auto-setup]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Ricomincia' })).toHaveCount(0)
+  await editor.getByRole('button', { name: 'Apri in Visual Studio' }).click()
+  await expect(page.getByText('L’apertura nell’editor è disponibile nell’app desktop.')).toBeVisible()
+
+  // Con un passo da fare compare la configurazione automatica; fatto il passo, sparisce
+  await page.getByRole('button', { name: 'Modifica', exact: true }).click()
+  await page.getByRole('button', { name: 'Passo', exact: true }).click()
+  await page.getByPlaceholder('Titolo del passo, es. Installa le dipendenze').last().fill('Ripristina i pacchetti')
+  await page.getByPlaceholder('Uno o più comandi, uno per riga (es. npm install)').last().fill('nuget restore')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.locator('[data-auto-setup]')).toBeVisible()
+  await expect(page.getByText('0 di 1 completati')).toBeVisible()
+  await page.getByTitle('Segna come fatto').click()
+  await expect(page.locator('[data-auto-setup]')).toHaveCount(0)
+  await expect(editor).toBeVisible()
 })
 
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {

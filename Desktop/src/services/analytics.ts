@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import { PRIORITIES, STATUSES, type Bucket, type Priority, type Project, type Stack, type Status } from '@/types'
 import { compareText } from '@/i18n'
 import { common } from '@/i18n/common'
+import { isEditorStep } from './stackDoc'
 
 export interface UserLoad {
   userId: string | null // null = non assegnato
@@ -142,7 +143,8 @@ export function setupScriptWindows(projectName: string, stack: ScriptStack, opts
     L.push('echo.')
   }
 
-  stack.steps.forEach((st, idx) => {
+  // Aprire il progetto nell'editor è l'operazione conclusiva, fuori dalla configurazione: lo fa l'app
+  stack.steps.filter((st) => !isEditorStep(st)).forEach((st, idx) => {
     const n = idx + 1
     L.push(`echo --- ${S.step(n, st.title)} ---`)
     if (st.notes.trim()) L.push(`echo ${st.notes.trim()}`)

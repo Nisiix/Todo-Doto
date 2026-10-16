@@ -10,6 +10,7 @@ import { defineMessages } from '@/i18n'
 import { newId } from './ids'
 import { getFs } from './fs'
 import { setupScriptWindows } from './analytics'
+import { isEditorStep } from './stackDoc'
 import { PLATFORM_LABEL, SETUP_STEP_LABEL, type Stack } from '@/types'
 
 export interface ProjectVars {
@@ -142,7 +143,7 @@ export function scaffoldFiles(projectName: string, description: string, stack: S
   const v = varsFor(projectName)
   const s = resolveStack(stack, v)
   const scriptName = `setup-${v.slug}.cmd`
-  const hasScript = s.prerequisites.length > 0 || s.steps.length > 0
+  const hasScript = s.prerequisites.length > 0 || s.steps.some((x) => !isEditorStep(x))
   const L: string[] = [`# ${v.name}`, '']
   if (description.trim()) L.push(description.trim(), '')
 
