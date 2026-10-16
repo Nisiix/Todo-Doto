@@ -2,6 +2,14 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.2.26 — 16 ottobre 2026
+
+- IA locale, gratuita e tutta sul PC (Ollama con Qwen 3 4B, o un server compatibile OpenAI come LM Studio): l'app comunica solo con il motore installato sul PC, mai con servizi esterni.
+- Impostazioni › IA locale: prova di connessione e download dei modelli con barra di avanzamento. Nell'installer per Windows, opzione facoltativa per installare anche l'IA.
+- Stack: "Rileva dai file del progetto" con l'IA attiva propone anche prerequisiti, passi, variabili e note che i file non dicono esplicitamente, da scegliere prima di aggiungerli.
+- Funzioni assistite: "Come risolvere" per i prerequisiti, task da un testo, avviso dei task simili, ricerca per significato, commit che potrebbero completare un task, riepilogo della settimana, AGENTS.md/CLAUDE.md dallo Stack.
+- Un banner in alto invita ad attivare l'IA locale; chiuso, non ricompare.
+
 ## 0.2.25 — 16 ottobre 2026
 
 - Nella barra laterale le sezioni del progetto sono ora nell'ordine Stack, Todo, Gantt, Allegati.

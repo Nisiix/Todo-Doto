@@ -1030,6 +1030,27 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return closed.map((c) => c.item)
   }
 
+  /**
+   * Completa un task con un commit scelto dall'utente (suggerimento confermato):
+   * come "chiude TODO-n", ma deciso a mano. Il commit vale una volta sola.
+   */
+  async function closeItemByCommit(projectId: string, itemId: string, commit: GitCommit) {
+    let done: Item | null = null
+    const r = await mutateProject(projectId, (p) => {
+      const item = p.items.find((i) => i.id === itemId)
+      if (!item || item.bucket !== 'todo') return false
+      item.bucket = 'done'
+      item.completedAt = nowIso()
+      item.trashedAt = null
+      item.closedByCommit = { hash: commit.hash, author: commit.author, date: commit.date, subject: subjectOf(commit.message) }
+      if (!p.git.handled.includes(commit.hash)) p.git = { ...p.git, handled: [...p.git.handled, commit.hash].slice(-MAX_HANDLED) }
+      done = item
+    })
+    const fresh = r && done ? r.items.find((i) => i.id === itemId) : null
+    if (r && fresh) await record('item_completed', r, fresh)
+    return fresh ?? null
+  }
+
   /** Attiva o disattiva la chiusura dei task dai commit (amministratori). */
   const setGitAutoClose = (projectId: string, on: boolean) =>
     isAdmin.value ? mutateProject(projectId, (p) => void (p.git = { ...p.git, autoClose: on })) : Promise.resolve(undefined)
@@ -1220,6 +1241,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     readBackup,
     restoreBackup,
     applyGitCommits,
+    closeItemByCommit,
     setGitAutoClose,
     writeMyReadiness,
     currentUser,

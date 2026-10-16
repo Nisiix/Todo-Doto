@@ -56,7 +56,6 @@ const m = defineMessages({
 const ws = useWorkspaceStore()
 const ui = useUiStore()
 const router = useRouter()
-const showSettings = ref(false)
 const showLabels = ref(false)
 const showShortcuts = ref(false)
 
@@ -71,7 +70,7 @@ const backupLine = computed(() => {
 })
 
 const menu = computed(() => [
-  { label: m.settings, icon: Settings, onSelect: () => (showSettings.value = true) },
+  { label: m.settings, icon: Settings, onSelect: () => ui.openSettings() },
   { label: m.labels, icon: Tag, onSelect: () => (showLabels.value = true) },
   { label: m.members, icon: Users, onSelect: () => router.push({ name: 'members' }) },
   ...(ws.isAdmin
@@ -81,7 +80,7 @@ const menu = computed(() => [
       ]
     : []),
   { sep: true, label: '' },
-  ...(backupLine.value ? [{ ...backupLine.value, onSelect: () => (showSettings.value = true) }] : []),
+  ...(backupLine.value ? [{ ...backupLine.value, onSelect: () => ui.openSettings(ws.isAdmin ? 'backup' : 'general') }] : []),
   { label: m.shortcuts, icon: Keyboard, onSelect: () => (showShortcuts.value = true) },
   { sep: true, label: '' },
   {
@@ -158,7 +157,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
       <Moon v-else :size="16" />
     </button>
 
-    <SettingsDialog v-model:open="showSettings" />
+    <SettingsDialog v-model:open="ui.settingsOpen" />
     <LabelsDialog v-model:open="showLabels" />
     <ShortcutsDialog v-model:open="showShortcuts" />
   </header>

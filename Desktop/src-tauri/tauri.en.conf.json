@@ -11,7 +11,8 @@
       "nsis": {
         "languages": [
           "English"
-        ]
+        ],
+        "installerHooks": "windows/hooks.en.nsh"
       }
     }
   }

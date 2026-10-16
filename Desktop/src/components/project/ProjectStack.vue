@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { AlertTriangle, ArrowDown, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
+import { AlertTriangle, ArrowDown, LifeBuoy, GitCommitHorizontal, ArrowUp, Check, CheckCircle2, Copy, ExternalLink, FileCode, FileDown, FileText, FileUp, FolderOpen, FolderSearch, Import, Loader2, MinusCircle, Pencil, Play, Plus, RefreshCw, Save, Trash2, Wand2, XCircle } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -8,6 +8,8 @@ import ChipsInput from '@/components/ui/ChipsInput.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
 import ReadinessBanner from './ReadinessBanner.vue'
+import StackSuggestionsDialog from './StackSuggestionsDialog.vue'
+import CheckHelpDialog from '@/components/ai/CheckHelpDialog.vue'
 import { useGitStore } from '@/stores/git'
 import { useReadinessStore } from '@/stores/readiness'
 import { useConfirm } from '@/composables/useConfirm'
@@ -15,7 +17,10 @@ import { usePrereqChecks } from '@/composables/usePrereqChecks'
 import { blocksAutoSetup, isSatisfied, needsAction, planCheck, type CheckStatus } from '@/services/prereqCheck'
 import { parseGitHubRepo } from '@/services/github'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
-import { correctPrerequisites, detectStack } from '@/services/projectScan'
+import { correctPrerequisites, detectStack, newScanTrace } from '@/services/projectScan'
+import { analyzeStack, applyProposals, readEnvExamples, type StackProposal } from '@/services/aiStack'
+import { useAiStore, withAi } from '@/stores/ai'
+import type { CheckHelpInput } from '@/services/aiAssist'
 import { folderName, getLocalProjectPath, sameName, setLocalProjectPath, validateProjectFolder, type FolderCheck } from '@/services/projectFolder'
 import { validateStackFields } from '@/services/stackValidation'
 import { useGitHubStore } from '@/stores/github'
@@ -145,6 +150,7 @@ const m = defineMessages({
     corrected: (n: number) => `${n} ${plural(n, 'prerequisito corretto', 'prerequisiti corretti')}`,
     detectedNothing: 'Nessun dato nuovo dai file del progetto: lo stack era già completo, o la cartella non contiene file di progetto riconoscibili.',
     detectFailed: (err: string) => `Non riesco a leggere la cartella del progetto: ${err}`,
+    suggestionsAdded: (parts: string) => `Aggiunti allo stack: ${parts}`,
     detectEmpty: 'Linguaggi, framework e prerequisiti non sono ancora indicati: puoi ricavarli dai file della cartella del progetto.',
     pickMd: 'Scegli il documento di architettura (.md)',
     mdImported: (file: string, parts: string) => (parts ? `Da «${file}»: ${parts}. Controlla e salva.` : `«${file}» memorizzato; nessun dato nuovo da aggiungere. Controlla e salva.`),
@@ -198,6 +204,7 @@ const m = defineMessages({
     runCheckMessage: (cmd: string) => `«${cmd}» non è una semplice richiesta di versione e verrà eseguito sul tuo PC. Eseguilo solo se sai cosa fa.`,
     runCheckConfirm: 'Esegui',
     details: 'Dettagli',
+    howToFix: 'Come risolvere',
     confirmInstalled: 'Confermo che è installato e va bene',
     autoDetected: 'Verificato automaticamente',
     installFirst: 'Installalo o aggiornalo, poi ricontrolla',
@@ -328,6 +335,7 @@ const m = defineMessages({
     corrected: (n: number) => `${n} ${plural(n, 'prerequisite', 'prerequisites')} corrected`,
     detectedNothing: 'Nothing new from the project files: the stack was already complete, or the folder has no recognizable project files.',
     detectFailed: (err: string) => `Cannot read the project folder: ${err}`,
+    suggestionsAdded: (parts: string) => `Added to the stack: ${parts}`,
     detectEmpty: 'Languages, frameworks and prerequisites are not set yet: you can derive them from the files in the project folder.',
     pickMd: 'Choose the architecture document (.md)',
     mdImported: (file: string, parts: string) => (parts ? `From “${file}”: ${parts}. Review and save.` : `“${file}” stored; nothing new to add. Review and save.`),
@@ -381,6 +389,7 @@ const m = defineMessages({
     runCheckMessage: (cmd: string) => `“${cmd}” is not a simple version query and will run on your PC. Run it only if you know what it does.`,
     runCheckConfirm: 'Run',
     details: 'Details',
+    howToFix: 'How to fix',
     confirmInstalled: 'I confirm it is installed and fine',
     autoDetected: 'Checked automatically',
     installFirst: 'Install or update it, then check again',
@@ -535,6 +544,15 @@ const detecting = ref(false)
 /** Niente di tecnico nello stack, ma c'è la cartella: si propone di ricavarlo dai file. */
 /** Lo stack non ha ancora tecnologie e la cartella del progetto è valida su questo PC: si propone di leggerla. */
 const needsDetect = computed(() => !!folder.value?.ok && !stack.value.languages.length && !stack.value.frameworks.length && !stack.value.prerequisites.length)
+const stackSuggestions = ref<StackProposal[]>([])
+const showSuggestions = ref(false)
+async function applySuggestions(selected: StackProposal[]) {
+  if (!selected.length) return
+  const { stack: next, added } = applyProposals(stack.value, selected)
+  await ws.updateStack(props.project.id, next)
+  const parts = m.mdParts(added)
+  if (parts) ui.toast(m.suggestionsAdded(parts), 'success', undefined, 5000)
+}
 async function detectFromFolder() {
   const dir = folderPath.value
   if (!dir || detecting.value) return
@@ -542,15 +560,26 @@ async function detectFromFolder() {
   try {
     const problem = await checkFolder(await getFs(), dir)
     if (problem) return ui.toast(m.detectFailed(problem), 'error', undefined, 8000)
-    const det = await detectStack(dir)
+    const trace = newScanTrace()
+    const det = await detectStack(dir, trace)
     // Prima si correggono i prerequisiti esistenti (versioni dichiarate, quelli che non servono), poi si aggiunge il nuovo
     const { stack: fixed, corrected } = correctPrerequisites(stack.value, det)
     const { stack: merged, added } = mergeStack(fixed, det.stack)
     const parts = [m.mdParts(added), corrected ? m.corrected(corrected) : ''].filter(Boolean).join(', ')
-    if (!parts) return ui.toast(m.detectedNothing, 'info', undefined, 6000)
-    await ws.updateStack(props.project.id, { ...merged, sourcePath: stack.value.sourcePath })
-    if (!props.project.description.trim() && det.description) await ws.updateProject(props.project.id, { description: det.description })
-    ui.toast(m.detected(parts), 'success', undefined, 6000)
+    // Ciò che i file dicono con certezza si salva subito
+    if (parts) await ws.updateStack(props.project.id, { ...merged, sourcePath: stack.value.sourcePath })
+    if (parts && !props.project.description.trim() && det.description) await ws.updateProject(props.project.id, { description: det.description })
+    // Nello stesso passaggio, se su questo PC c'è l'IA locale: analisi approfondita di quanto letto,
+    // che propone solo ciò che manca (da confermare). Senza IA, o se non risponde, non cambia nulla.
+    const rootFiles = (trace.listings.get('') ?? []).filter((e) => !e.isDir).map((e) => e.name)
+    const proposals =
+      (await withAi(async (cfg) => analyzeStack(cfg, { current: merged, trace, envExamples: await readEnvExamples(dir, rootFiles), excluded: det.excluded }))) ?? []
+    if (!parts && !proposals.length) return ui.toast(m.detectedNothing, 'info', undefined, 6000)
+    if (parts) ui.toast(m.detected(parts), 'success', undefined, 6000)
+    if (proposals.length) {
+      stackSuggestions.value = proposals
+      showSuggestions.value = true
+    }
   } catch (e) {
     ui.toast(m.detectFailed(explainFsError(e, dir)), 'error', undefined, 8000)
   } finally {
@@ -756,6 +785,16 @@ const totalSteps = computed(() => stack.value.prerequisites.length + stack.value
 
 // --- verifica automatica dei prerequisiti sul PC -------------------------------------
 const checks = usePrereqChecks(computed(() => view.value.prerequisites))
+// Verifica non riuscita: con l'IA locale attiva, spiegazione e passi per sistemarla
+const ai = useAiStore()
+const helpInput = ref<CheckHelpInput | null>(null)
+const showHelp = ref(false)
+function explain(p: Prerequisite) {
+  const r = checks.results.value[p.id]
+  if (!r) return
+  helpInput.value = { name: p.name, required: p.version, command: r.command, output: r.output, status: r.status, note: r.note, os: checks.os }
+  showHelp.value = true
+}
 // A verifica finita, l'esito di questo PC viene condiviso (e notificato se manca qualcosa)
 const readiness = useReadinessStore()
 const git = useGitStore()
@@ -962,6 +1001,8 @@ async function ghSync() {
       <BaseButton size="sm" variant="ghost" @click="showDoc = true">{{ m.viewDoc }}</BaseButton>
       <BaseButton v-if="editing" size="icon-sm" variant="ghost" :title="m.removeDoc" @click="draft.doc = null"><Trash2 :size="14" /></BaseButton>
     </div>
+    <CheckHelpDialog v-model:open="showHelp" :input="helpInput" />
+    <StackSuggestionsDialog v-model:open="showSuggestions" :proposals="stackSuggestions" @apply="applySuggestions" />
     <BaseDialog v-model:open="showDoc" :title="(editing ? draft.doc : stack.doc)?.fileName ?? ''" :description="m.doc" width="lg">
       <pre class="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-surface-2 p-4 font-mono text-[12.5px] leading-relaxed">{{ (editing ? draft.doc : stack.doc)?.content }}</pre>
       <template #footer>
@@ -1215,6 +1256,7 @@ async function ghSync() {
                   <BaseButton v-if="p.check" size="sm" variant="ghost" @click="copy(p.check, m.cmdCopied)"><Copy :size="12" /> {{ m.copyCheck }}</BaseButton>
                   <BaseButton v-if="p.url" size="sm" :variant="needsAction(statusOf(p.id)) ? 'primary' : 'ghost'" @click="open(p.url, 'link')"><ExternalLink :size="12" /> {{ m.download }}</BaseButton>
                 </div>
+                <BaseButton v-if="ai.active && statusOf(p.id) && !isSatisfied(statusOf(p.id)) && statusOf(p.id) !== 'confirm' && checks.results.value[p.id]?.command" size="sm" variant="ghost" class="mt-1" data-check-help-button @click="explain(p)"><LifeBuoy :size="12" /> {{ m.howToFix }}</BaseButton>
                 <details v-if="checks.results.value[p.id]?.output && !isSatisfied(statusOf(p.id))" class="mt-1 text-[12px] text-ink-3">
                   <summary class="cursor-pointer select-none">{{ m.details }}</summary>
                   <pre class="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface-2 px-2 py-1.5 font-mono text-[11.5px]">{{ checks.results.value[p.id]!.command }}&#10;{{ checks.results.value[p.id]!.output }}</pre>

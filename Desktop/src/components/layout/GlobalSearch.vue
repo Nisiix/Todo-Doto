@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Paperclip, Search } from 'lucide-vue-next'
-import { useEventListener } from '@vueuse/core'
+import { Loader2, Paperclip, Search, Sparkles } from 'lucide-vue-next'
+import { useEventListener, watchDebounced } from '@vueuse/core'
+import { useAiStore, withAi } from '@/stores/ai'
+import { itemText, nearest, SEARCH_THRESHOLD } from '@/services/aiAssist'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { firstLine, searchAll, type SearchHit } from '@/services/items'
@@ -16,6 +18,7 @@ const m = defineMessages({
     noResults: (q: string) => `Nessun risultato per «${q}».`,
     inTrash: 'nel cestino',
     attachment: 'allegato',
+    meaning: 'Per significato',
   },
   en: {
     placeholder: 'Search all projects',
@@ -23,6 +26,7 @@ const m = defineMessages({
     noResults: (q: string) => `No results for “${q}”.`,
     inTrash: 'in the trash',
     attachment: 'attachment',
+    meaning: 'By meaning',
   },
 })
 
@@ -41,15 +45,46 @@ const focused = ref(false)
 const active = ref(0)
 
 const hits = computed<SearchHit[]>(() => searchAll([...ws.visibleProjects, ...ws.trashedProjects], ui.search))
+/**
+ * Con l'IA locale attiva: anche i task vicini per significato (es. «login» trova
+ * «pagina di accesso»), dopo i risultati per testo e senza ripeterli.
+ */
+const ai = useAiStore()
+const semantic = ref<{ project: Project; item: Item }[]>([])
+const semanticBusy = ref(false)
+let semanticRun = 0
+watchDebounced(
+  () => ui.search,
+  async (q) => {
+    const run = ++semanticRun
+    if (!ai.active || q.trim().length < 3) {
+      semanticBusy.value = false
+      semantic.value = []
+      return
+    }
+    semanticBusy.value = true
+    const shown = new Set(hits.value.flatMap((h) => h.items.map((i) => i.id)))
+    const candidates = ws.visibleProjects
+      .flatMap((project) => project.items.filter((item) => item.bucket !== 'trash' && !shown.has(item.id)).map((item) => ({ value: { project, item }, text: itemText(item) })))
+      .slice(0, 1500)
+    const found = await withAi((cfg) => nearest(cfg, q.trim(), candidates, { mode: 'search', threshold: SEARCH_THRESHOLD, max: 6 }))
+    if (run !== semanticRun) return
+    semanticBusy.value = false
+    semantic.value = (found ?? []).map((f) => f.value)
+  },
+  { debounce: 450 },
+)
+
 /** Lista piatta delle voci selezionabili, nell'ordine in cui sono mostrate. */
 type Entry = { key: string; project: Project; item?: Item; attachment?: Attachment }
-const entries = computed<Entry[]>(() =>
-  hits.value.flatMap((h) => [
+const entries = computed<Entry[]>(() => [
+  ...hits.value.flatMap((h) => [
     ...(h.nameMatch ? [{ key: h.project.id, project: h.project }] : []),
     ...h.items.map((item) => ({ key: item.id, project: h.project, item })),
     ...h.attachments.map((attachment) => ({ key: attachment.id, project: h.project, attachment })),
   ]),
-)
+  ...semantic.value.map(({ project, item }) => ({ key: `s:${item.id}`, project, item })),
+])
 const show = computed(() => focused.value && ui.search.trim().length > 0)
 watch(entries, () => (active.value = 0))
 
@@ -119,7 +154,7 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
       :aria-label="m.results"
       @mousedown.prevent
     >
-      <p v-if="!hits.length" class="px-3 py-3 text-[13px] text-ink-3">{{ m.noResults(ui.search.trim()) }}</p>
+      <p v-if="!hits.length && !semantic.length && !semanticBusy" class="px-3 py-3 text-[13px] text-ink-3">{{ m.noResults(ui.search.trim()) }}</p>
       <section v-for="h in hits" :key="h.project.id" class="py-1">
         <button
           class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] font-semibold text-ink-2"
@@ -157,6 +192,25 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
           <Paperclip :size="12" class="shrink-0 text-ink-3" />
           <span class="min-w-0 flex-1 truncate">{{ a.name }}</span>
           <span class="shrink-0 text-[11px] text-ink-3">{{ m.attachment }}</span>
+        </button>
+      </section>
+      <!-- Per significato (IA locale) -->
+      <section v-if="ai.active && (semantic.length || semanticBusy)" class="border-t border-line py-1" data-semantic-results>
+        <p class="flex items-center gap-1.5 px-2 py-1 text-[12px] font-semibold text-ink-2">
+          <Loader2 v-if="semanticBusy" :size="12" class="animate-spin" /><Sparkles v-else :size="12" class="text-accent" /> {{ m.meaning }}
+        </p>
+        <button
+          v-for="s in semantic"
+          :key="s.item.id"
+          class="flex w-full items-center gap-2 rounded-md py-1 pl-5 pr-2 text-left text-[13px] hover:bg-surface-2"
+          :class="{ 'bg-accent-soft': entryIndex(`s:${s.item.id}`) === active }"
+          role="option"
+          :aria-selected="entryIndex(`s:${s.item.id}`) === active"
+          @click="open({ key: `s:${s.item.id}`, project: s.project, item: s.item })"
+        >
+          <span class="h-2 w-2 shrink-0 rounded-full" :class="`bg-p-${s.item.priority}`" />
+          <span class="min-w-0 flex-1 truncate" :class="{ 'text-ink-3 line-through': s.item.bucket === 'done' }">{{ firstLine(s.item.title) }}</span>
+          <span class="shrink-0 truncate text-[11px] text-ink-3">{{ s.project.name }}</span>
         </button>
       </section>
     </div>

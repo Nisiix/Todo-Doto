@@ -1,5 +1,12 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { watchDebounced } from '@vueuse/core'
+import { Copy as CopyIcon } from 'lucide-vue-next'
+import { useAiStore, withAi } from '@/stores/ai'
+import { itemText, nearest, SIMILAR_THRESHOLD } from '@/services/aiAssist'
+import { firstLine } from '@/services/items'
+import { taskCode } from '@/services/gitLink'
+import { BUCKET_LABEL, type Item } from '@/types'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ItemFields from '@/components/board/ItemFields.vue'
@@ -21,6 +28,7 @@ const m = defineMessages({
     notesPlaceholder: 'Cosa va fatto, decisioni, riferimenti… (facoltativa)',
     details: 'Dettagli',
     ctrlEnter: 'Ctrl+Invio',
+    similar: 'Task simili già presenti: controlla che non sia un doppione.',
   },
   en: {
     errTitle: 'Give the item a title.',
@@ -33,6 +41,7 @@ const m = defineMessages({
     notesPlaceholder: 'What needs doing, decisions, references… (optional)',
     details: 'Details',
     ctrlEnter: 'Ctrl+Enter',
+    similar: 'Similar tasks already exist: check it is not a duplicate.',
   },
 })
 
@@ -62,6 +71,23 @@ const labelId = ref<string | null>(null)
 const assigneeId = ref<string | null>(null)
 const error = ref('')
 
+// Task simili già presenti (IA locale, per significato): solo un avviso, non blocca nulla
+const ai = useAiStore()
+const similar = ref<Item[]>([])
+let similarRun = 0
+watchDebounced(
+  [title, notes, open],
+  async () => {
+    const run = ++similarRun
+    const text = `${title.value}\n${notes.value}`.trim()
+    if (!open.value || !ai.active || title.value.trim().length < 6) return void (similar.value = [])
+    const items = (ws.projects[props.projectId]?.items ?? []).filter((i) => i.bucket !== 'trash')
+    const found = await withAi((cfg) => nearest(cfg, text, items.map((i) => ({ value: i, text: itemText(i) })), { mode: 'similar', threshold: SIMILAR_THRESHOLD, max: 3 }))
+    if (run === similarRun) similar.value = (found ?? []).map((f) => f.value)
+  },
+  { debounce: 700 },
+)
+
 
 watch(open, (o) => {
   if (!o) return
@@ -79,6 +105,7 @@ watch(open, (o) => {
   labelId.value = null
   assigneeId.value = null
   error.value = ''
+  similar.value = []
 })
 
 async function submit() {
@@ -104,6 +131,12 @@ async function submit() {
       <div>
         <label class="label" for="i-title">{{ m.titleLabel }}</label>
         <input id="i-title" v-model="title" class="field text-[14.5px] font-semibold" :placeholder="m.titlePlaceholder" data-autofocus @keydown.ctrl.enter.prevent="submit()" />
+        <div v-if="similar.length" class="mt-1.5 rounded-md bg-surface-2 px-2.5 py-1.5 text-[12.5px]" data-similar-tasks>
+          <p class="flex items-center gap-1.5 font-medium text-p-alta"><CopyIcon :size="12" /> {{ m.similar }}</p>
+          <p v-for="s in similar" :key="s.id" class="truncate text-ink-2">
+            <span v-if="s.seq" class="font-mono text-[11.5px] text-ink-3">{{ taskCode(s.seq) }}</span> {{ firstLine(s.title) }} <span class="text-ink-3">· {{ BUCKET_LABEL[s.bucket] }}</span>
+          </p>
+        </div>
       </div>
       <div>
         <label class="label" for="i-notes">{{ m.notes }}</label>

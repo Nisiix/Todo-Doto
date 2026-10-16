@@ -8,9 +8,14 @@ import { expect, test, type Page } from '@playwright/test'
 
 // Qualsiasi errore JavaScript nella pagina fa fallire il test, anche se l'interfaccia sembra a posto
 let pageErrors: string[] = []
-test.beforeEach(({ page }) => {
+test.beforeEach(async ({ page }) => {
   pageErrors = []
   page.on('pageerror', (e) => pageErrors.push(e.message))
+  // "PC" su cui il banner dell'IA locale è già stato chiuso: non copre i pulsanti negli altri test
+  // (i test dell'IA locale ripartono da una configurazione vuota con fakeOllama)
+  await page.addInitScript(() => {
+    Object.assign(window, { __pgmSeedFiles: { '/appdata/config.json': JSON.stringify({ ai: { bannerDismissed: true, autoDetectDone: true } }) } })
+  })
 })
 test.afterEach(() => expect(pageErrors).toEqual([]))
 
@@ -1348,7 +1353,7 @@ test('stack: indirizzi, percorsi e nomi di variabile non validi impediscono il s
 test('impostazioni in schede: Generali (con la password), Notifiche, Backup', async ({ page }) => {
   await createLocalWorkspace(page)
   await openSettings(page)
-  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Dati utente', 'Notifiche', 'Backup'])
+  await expect(page.locator('[data-settings-tab]')).toHaveText(['Generali', 'Dati utente', 'Notifiche', 'IA locale', 'Backup'])
   await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
   await expect(page.locator('#s-projects')).toBeVisible()
   await expect(page.locator('#s-me')).toBeHidden()
@@ -1356,7 +1361,7 @@ test('impostazioni in schede: Generali (con la password), Notifiche, Backup', as
   const size = async () => (await page.getByRole('dialog').boundingBox())!
   await page.waitForTimeout(400) // fine dell'animazione di apertura
   const before = await size()
-  for (const t of ['user', 'notifications', 'backup', 'general']) {
+  for (const t of ['user', 'notifications', 'ai', 'backup', 'general']) {
     await page.locator(`[data-settings-tab="${t}"]`).click()
     const now = await size()
     expect([Math.round(now.width), Math.round(now.height)]).toEqual([Math.round(before.width), Math.round(before.height)])
@@ -1377,4 +1382,240 @@ test('impostazioni in schede: Generali (con la password), Notifiche, Backup', as
   await page.keyboard.press('Escape')
   await openSettings(page)
   await expect(page.locator('[data-settings-panel="general"]')).toBeVisible()
+})
+
+/**
+ * IA locale simulata (Ollama su 127.0.0.1): modelli installati, risposte del
+ * modello (scelte da un pezzo del messaggio di sistema) ed embedding per parole
+ * chiave. Riparte da una configurazione vuota di questo "PC" (banner visibile).
+ * Va chiamata prima di aprire la pagina.
+ */
+async function fakeOllama(page: Page, opts: { models: string[]; stackAnswer?: object; answers?: [string, object][] }) {
+  await page.addInitScript((o) => {
+    const w = window as unknown as Record<string, unknown>
+    w.__pgmSeedFiles = {}
+    const models = [...o.models]
+    const chats: string[] = []
+    w.__pgmAiChats = chats
+    const answers: [string, object][] = [...(o.answers ?? []), ...(o.stackAnswer ? [['scheda «Stack»', o.stackAnswer] as [string, object]] : [])]
+    // Embedding finti: una dimensione per gruppo di parole con lo stesso significato
+    const groups = [/accesso|login|autenticazione/i, /export|xbrl/i, /fattur/i]
+    const vec = (t: string) => [...groups.map((g) => (g.test(t.replace(/^search_(query|document): /, '')) ? 1 : 0)), 0.05]
+    w.__pgmAi = {
+      request(req: { url: string; body?: string }) {
+        const path = new URL(req.url).pathname
+        if (path === '/api/tags') return { status: 200, body: JSON.stringify({ models: models.map((name) => ({ name })) }) }
+        if (path === '/api/version') return { status: 200, body: '{"version":"0.12.6"}' }
+        if (path === '/api/embed') return { status: 200, body: JSON.stringify({ embeddings: (JSON.parse(req.body ?? '{}').input as string[]).map(vec) }) }
+        if (path === '/api/chat') {
+          chats.push(req.body ?? '')
+          const system = (JSON.parse(req.body ?? '{}').messages as { content: string }[])[0]!.content
+          const a = answers.find(([k]) => system.includes(k))
+          return { status: 200, body: JSON.stringify({ message: { content: JSON.stringify(a ? a[1] : {}) } }) }
+        }
+        return { status: 404, body: '{"error":"not found"}' }
+      },
+      stream(req: { body?: string }) {
+        const model = (JSON.parse(req.body ?? '{}') as { model: string }).model
+        models.push(model.includes(':') ? model : `${model}:latest`)
+        return ['{"status":"pulling manifest"}', '{"status":"pulling","completed":1200000000,"total":2500000000}', '{"status":"success"}']
+      },
+    }
+  }, opts)
+}
+
+test('IA locale: banner per tutti, impostazioni con prova e download dei modelli, analisi dello Stack con suggerimenti', async ({ page }) => {
+  await fakeOllama(page, {
+    models: [],
+    stackAnswer: {
+      languages: [],
+      frameworks: [],
+      prerequisites: [
+        { name: 'Redis', version: '7', check: 'redis-server --version', reason: 'README.md' },
+        { name: 'Node.js', version: '', check: 'node -v', reason: 'package.json' }, // già rilevato dai file: scartato
+      ],
+      steps: [
+        { title: 'Copia il file di configurazione', kind: 'command', command: 'copy .env.example .env', cwd: '', notes: '' },
+        { title: 'Avvia in sviluppo', kind: 'command', command: 'npm run dev', cwd: '', notes: '' }, // non è preparazione: scartato
+      ],
+      envVars: [{ key: 'DATABASE_URL', notes: 'Connessione al database' }],
+      notes: '',
+    },
+  })
+  await createLocalWorkspace(page)
+  // Banner in alto, uguale in tutte le sezioni (Ollama c'è ma senza il modello: l'IA non si attiva da sola)
+  const banner = page.locator('[data-ai-banner]')
+  await expect(banner).toContainText('Attiva l’IA locale per potenziare Todo Doto')
+  await createProject(page, 'Gestionale')
+  await openSection(page, 'Stack')
+  await expect(banner).toBeVisible()
+  // «Apri Impostazioni» porta alla scheda IA locale
+  await banner.getByRole('button', { name: 'Apri Impostazioni' }).click()
+  await expect(page.locator('[data-settings-panel="ai"]')).toBeVisible()
+  await page.locator('[data-ai-test]').click()
+  await expect(page.locator('[data-ai-status]')).toContainText('Ollama risponde: 0 modelli installati.')
+  await expect(page.locator('[data-ai-status]')).toContainText('«qwen3:4b» non è installato.')
+  // Indirizzo esterno: rifiutato
+  await page.fill('#ai-url', 'https://api.example.com')
+  await expect(page.getByText(/Indirizzo non consentito/).first()).toBeVisible()
+  await page.fill('#ai-url', '')
+  // Download dei modelli mancanti (lo fa Ollama), poi tutto pronto
+  await page.locator('[data-ai-download]').click()
+  await expect(page.locator('[data-ai-pull-msg]')).toHaveText('Modelli scaricati: l’IA locale è pronta.')
+  await expect(page.locator('[data-ai-status]')).toContainText('«qwen3:4b» pronto.')
+  await expect(page.locator('[data-ai-status]')).toContainText('«nomic-embed-text» pronto.')
+  await page.locator('[data-ai-enabled]').check()
+  await dialog(page).getByRole('button', { name: 'Salva' }).click()
+  await expect(dialog(page)).toBeHidden()
+  await expect(banner).toHaveCount(0)
+
+  // File del progetto: un .env con un segreto (mai inviato), un .env.example (solo i nomi)
+  const dir = (await page.locator('code', { hasText: /Gestionale$/ }).textContent())!.trim()
+  await page.evaluate(async (d) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic(`${d}/package.json`, JSON.stringify({ dependencies: { vue: '^3.5.0' }, devDependencies: { typescript: '^5' } }))
+    await fs.writeTextAtomic(`${d}/README.md`, '# Gestionale\n\nPer la cache serve Redis 7 in locale.')
+    await fs.writeTextAtomic(`${d}/.env`, 'DATABASE_URL=postgres://admin:SEGRETISSIMA@db/prod')
+    await fs.writeTextAtomic(`${d}/.env.example`, 'DATABASE_URL=postgres://user:pass@localhost/app')
+  }, dir)
+  // Un solo pulsante, come senza IA
+  await page.locator('[data-detect-hint]').getByRole('button', { name: 'Rileva dai file del progetto' }).click()
+  await expect(page.getByText(/Dai file del progetto:/)).toBeVisible()
+  const sugg = page.locator('[data-stack-suggestions]')
+  await expect(dialog(page)).toContainText('Altri elementi da aggiungere?')
+  await expect(sugg.locator('[data-suggestion]')).toHaveCount(3)
+  await expect(sugg).toContainText('Redis')
+  await expect(sugg).toContainText('Da: README.md')
+  await expect(sugg).not.toContainText('npm run dev')
+  // Si sceglie cosa aggiungere: tutto tranne la variabile
+  await sugg.locator('[data-suggestion="envVar"] input').uncheck()
+  await page.locator('[data-apply-suggestions]').click()
+  await expect(page.getByText(/Aggiunti allo stack:/)).toBeVisible()
+  await expect(page.getByText('Prerequisito: Redis')).toBeVisible()
+  await expect(dialog(page)).toBeHidden()
+  // Il passo si aggiunge prima di quello che apre l'editor
+  await expect(page.getByText('2. Copia il file di configurazione')).toBeVisible()
+  // Al modello è arrivato quanto letto, ripulito: mai il .env, dei file di esempio solo i nomi
+  const sent = await page.evaluate(() => (window as unknown as { __pgmAiChats: string[] }).__pgmAiChats.join('\n'))
+  expect(sent).toContain('Redis 7')
+  expect(sent).toContain('DATABASE_URL=')
+  expect(sent).not.toContain('SEGRETISSIMA')
+  expect(sent).not.toContain('user:pass')
+})
+
+test('IA locale: il banner chiuso con la X non ricompare; con il modello già installato si attiva da sola', async ({ page }) => {
+  await fakeOllama(page, { models: [] })
+  await createLocalWorkspace(page)
+  const banner = page.locator('[data-ai-banner]')
+  await banner.getByRole('button', { name: 'Non mostrare più' }).click()
+  await expect(banner).toHaveCount(0)
+  await createProject(page, 'Alfa')
+  await expect(banner).toHaveCount(0)
+  const saved = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()
+    return JSON.parse(await fs.readText('/appdata/config.json')).ai
+  })
+  expect(saved).toMatchObject({ bannerDismissed: true, enabled: false })
+})
+
+test('IA locale: installata dall’installer (Ollama con il modello), si attiva da sola senza banner', async ({ page }) => {
+  await fakeOllama(page, { models: ['qwen3:4b', 'nomic-embed-text:latest'] })
+  await createLocalWorkspace(page)
+  await expect(page.getByText(/IA locale attivata: qwen3:4b è già installato/)).toBeVisible()
+  await expect(page.locator('[data-ai-banner]')).toHaveCount(0)
+  await openSettings(page)
+  await page.locator('[data-settings-tab="ai"]').click()
+  await expect(page.locator('[data-ai-enabled]')).toBeChecked()
+})
+
+test('IA locale: task da un testo, task simili, ricerca per significato, riepilogo, commit, «Come risolvere», AGENTS.md', async ({ page }) => {
+  await fakeOllama(page, {
+    models: ['qwen3:4b', 'nomic-embed-text:latest'],
+    answers: [
+      ['ricavi le cose da fare', { tasks: [{ title: 'Pagina di accesso', notes: 'Con verifica email', priority: 'alta' }, { title: 'Export XBRL', notes: '', priority: 'media' }, { title: 'Fattura elettronica', notes: '', priority: 'bassa' }] }],
+      ['Confronti i commit', { matches: [{ commit: 'f1f1f1f1f1', task: 'TODO-2', reason: 'Il commit sistema l’export XBRL' }] }],
+      ['riepilogo della settimana', { summary: 'Settimana dedicata all’avvio del Gestionale.', highlights: ['Creati i primi task'] }],
+      ['tecnico che aiuta', { summary: 'Node.js non è installato su questo PC.', steps: ['Installa Node.js LTS'], commands: ['winget install OpenJS.NodeJS.LTS', 'rm -rf /'] }],
+      ['file AGENTS.md', { markdown: '# Gestionale\n\nProgetto Vue 3 in TypeScript.' }],
+    ],
+  })
+  await createLocalWorkspace(page)
+  // Modello già installato: l'IA si attiva da sola (niente banner)
+  await expect(page.getByText(/IA locale attivata/)).toBeVisible()
+  await createProject(page, 'Gestionale')
+
+  // Task da un testo: si scelgono quelli da creare
+  await page.locator('[data-from-text]').click()
+  await page.fill('[data-text-source]', 'Riunione: pagina di accesso con verifica email, export XBRL, fattura elettronica.')
+  await page.locator('[data-extract-tasks]').click()
+  await expect(page.locator('[data-proposed-task]')).toHaveCount(3)
+  await page.locator('[data-proposed-task]').nth(2).locator('input[type=checkbox]').uncheck()
+  await page.locator('[data-create-tasks]').click()
+  await expect(page.getByText('2 task creati')).toBeVisible()
+  await expect(rows(page)).toHaveCount(2)
+
+  // Nuovo task simile a uno esistente: avviso (non blocca)
+  await newItemButton(page).click()
+  await page.fill('#i-title', 'Login degli utenti')
+  await expect(page.locator('[data-similar-tasks]')).toContainText('Pagina di accesso')
+  await page.keyboard.press('Escape')
+
+  // Ricerca per significato: «autenticazione» trova «Pagina di accesso»
+  await page.getByRole('combobox', { name: 'Cerca in tutti i progetti' }).fill('autenticazione')
+  await expect(page.locator('[data-semantic-results]')).toContainText('Pagina di accesso')
+  await page.keyboard.press('Escape')
+
+  // Commit che non cita il task: proposta da confermare (la regola «chiude TODO-n» resta com'è)
+  await openSection(page, 'Stack')
+  const dir = (await page.locator('code', { hasText: /Gestionale$/ }).textContent())!.trim()
+  await page.evaluate(async (d) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic(`${d}/.git/HEAD`, 'ref: refs/heads/main')
+    await fs.writeTextAtomic(`${d}/package.json`, JSON.stringify({ dependencies: { vue: '^3.5.0' }, devDependencies: { typescript: '^5' } }))
+    const now = new Date().toISOString()
+    ;(window as unknown as { __pgmGit: Record<string, unknown[]> }).__pgmGit = {
+      [d]: [{ hash: 'f1f1f1f1f1f1', author: 'Anna', date: now, message: 'Sistemato l’export per la tassonomia 2025' }],
+    }
+  }, dir)
+  await openSection(page, 'Todo')
+  const sugg = page.locator('[data-commit-suggestions]')
+  await expect(sugg).toContainText('Un commit recente potrebbe completare un task')
+  await expect(sugg).toContainText('TODO-2 Export XBRL')
+  await expect(sugg).toContainText('Il commit sistema l’export XBRL')
+  await sugg.getByRole('button', { name: 'Completa' }).click()
+  await expect(sugg).toHaveCount(0)
+  await expect(rows(page)).toHaveCount(1)
+  await page.getByRole('button', { name: /^Completati/ }).click()
+  await rows(page).first().getByText('Export XBRL').click()
+  await expect(page.locator('[data-closed-by-commit]')).toContainText('Completato dal commit f1f1f1f di Anna')
+  await page.keyboard.press('Escape')
+
+  // Verifica di un prerequisito non riuscita: «Come risolvere» (i comandi pericolosi non compaiono)
+  await fakeChecks(page, { 'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" } })
+  await openSection(page, 'Stack')
+  await page.getByRole('button', { name: 'Rileva dai file del progetto' }).click()
+  await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'missing')
+  await page.locator('[data-prereq="Node.js"] [data-check-help-button]').click()
+  const help = page.locator('[data-check-help]')
+  await expect(help).toContainText('Node.js non è installato su questo PC.')
+  await expect(help).toContainText('winget install OpenJS.NodeJS.LTS')
+  await expect(help).not.toContainText('rm -rf')
+  await dialog(page).getByRole('button', { name: 'Chiudi' }).last().click()
+
+  // AGENTS.md scritto dallo Stack: si rilegge e si salva nella cartella del progetto solo con «Salva»
+  await page.locator('[data-agents-doc-button]').click()
+  await page.locator('[data-agents-generate]').click()
+  await expect(page.locator('[data-agents-text]')).toHaveValue(/# Gestionale/)
+  await page.locator('[data-agents-save]').click()
+  await expect(page.getByText('AGENTS.md salvato nella cartella del progetto')).toBeVisible()
+  const saved = await page.evaluate(async (d) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()
+    return fs.readText(`${d}/AGENTS.md`)
+  }, dir)
+  expect(saved).toContain('Progetto Vue 3 in TypeScript.')
+
+  // Riepilogo della settimana nella home del workspace
+  await page.evaluate(() => (location.hash = '#/w'))
+  await page.locator('[data-weekly-generate]').click()
+  await expect(page.locator('[data-weekly-text]')).toContainText('Settimana dedicata all’avvio del Gestionale.')
 })

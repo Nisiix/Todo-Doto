@@ -1,6 +1,6 @@
 [package]
 name = "todo-doto"
-version = "0.2.25"
+version = "0.2.26"
 description = "Roadmap e todo di progetto, in locale o su cartella di rete"
 authors = ["nisos"]
 edition = "2021"
@@ -23,6 +23,10 @@ tauri-plugin-window-state = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 whoami = "1"
+# IA locale: richieste solo verso 127.0.0.1 (stesso reqwest del plugin http)
+reqwest = { version = "0.12", default-features = false }
+url = "2"
+tokio = { version = "1", features = ["time"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"

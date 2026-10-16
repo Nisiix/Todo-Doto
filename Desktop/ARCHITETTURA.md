@@ -57,13 +57,17 @@ src/
     projectScan.ts         progetti già esistenti in una cartella: riconoscimento e Stack ricavato dai loro file
     drive.ts               client Google Drive: PKCE, token, elenco ricorsivo, download/esportazione
     http.ts                fetch per API esterne (plugin http in Tauri, window.fetch altrove)
+    localAi.ts             IA locale: trasporto solo verso 127.0.0.1 (comando Rust ai_request/ai_stream), stato del motore, download dei modelli, risposte JSON vincolate e validate (zod), embedding
+    aiStack.ts             analisi approfondita dello Stack: contesto ripulito (file sensibili esclusi, segreti tolti), prompt, suggerimenti verificati e loro applicazione
+    aiAssist.ts            altre funzioni assistite: spiegazione delle verifiche, task da un testo, somiglianze, commit → task, riepilogo, AGENTS.md
     ids.ts                 generazione id con prefisso (prj_, itm_, …) e timestamp
   stores/
     session.ts             identità locale (utente@macchina), config per macchina, recenti
     workspace.ts           stato del workspace aperto e TUTTE le mutazioni; aggiornamento live; cronologia
     notifications.ts       notifiche interne (per macchina), preferenze per tipo
     drive.ts               collegamento Google (per macchina) e cartella sincronizzata (per workspace)
-    ui.ts                  tema, toast, elemento selezionato, ricerca, lampeggio righe
+    ui.ts                  tema, toast, elemento selezionato, ricerca, lampeggio righe, apertura delle Impostazioni (anche su una scheda)
+    ai.ts                  IA locale di questo PC: configurazione, stato del motore (ensureReady), attivazione al primo avvio, banner, download; withAi()
   composables/
     useConfirm.ts          dialog di conferma come Promise<boolean>
   components/
@@ -73,6 +77,7 @@ src/
     detail/                pannello elemento: commenti, domande, testo con menzioni
     layout/                TopBar, SideRail (albero), FolderNode, ProjectLink (voce del progetto con cestino e sottomenu Todo/Stack/Allegati), DetailPanel
     dialogs/               form modali: workspace, password, progetto, allegato, nome, impostazioni
+    ai/                    funzioni assistite: CheckHelpDialog, TasksFromTextDialog, CommitSuggestions, WeeklySummary, AgentsDocDialog
   views/                   WelcomeView, WorkspaceView (layout), WorkspaceHomeView, ProjectView, MembersView,
                            DriveView (esplorazione della cartella replicata), AuditView (cronologia, admin),
                            AnalyticsView (riepilogo numerico, admin)
@@ -192,6 +197,19 @@ mutateQuestion(projectId, itemId, qId, (q) => { ... })
 
 **`components/dialogs/`** — ogni form modale è autonomo: riceve `v-model:open` e, se serve, l'entità da modificare; chiama lo store e chiude. `NameDialog` è il form generico "chiedi un nome (e un colore)" usato per cartelle e cartelle di allegati. `ShortcutsDialog` elenca le scorciatoie (tasto `?`). Convenzione sui verbi: **Crea** quando si inserisce, **Salva** quando si modifica, in tutti i dialog.
 
+### 3.6a IA locale
+
+Tutto passa da `stores/ai.ts` e `services/localAi.ts`. Regole:
+
+1. **Solo questo PC.** In Tauri ogni richiesta va al backend (`ai_request`, `ai_stream`, `ai_cancel` in `src-tauri/src/ai.rs`), che accetta solo indirizzi di loopback, risolve `localhost` su 127.0.0.1, ignora i proxy e non segue i redirect; `isLocalUrl` ripete il controllo nel frontend. Il plugin http (Google, GitHub) resta con i suoi permessi, che non includono indirizzi locali.
+2. **Senza IA tutto funziona come prima.** Le funzioni chiamano `withAi(fn)`: se l'IA non è attiva o il motore non risponde restituisce `null` e l'errore non arriva all'utente (solo `console.warn`). Le parti dell'interfaccia assistite compaiono solo con `ai.active`.
+3. **Proposte, mai scritture automatiche.** Ogni risultato è un suggerimento che l'utente conferma; le risposte sono vincolate a uno schema JSON (`format` di Ollama, `response_format` OpenAI) e validate con zod, poi ripulite (doppioni, comandi non sicuri, segreti).
+4. **Il minimo indispensabile al modello**, ripulito con `redactSecrets`; i file sensibili (`isSensitivePath`) non si inviano mai.
+
+Nell'anteprima nel browser e nei test le risposte si simulano con `window.__pgmAi` (`request`, `stream`), come `__pgmChecks` per i comandi e `__pgmGit` per i commit; `window.__pgmSeedFiles` precarica file nel filesystem in memoria (es. la configurazione del PC con il banner già chiuso).
+
+Installer: `src-tauri/windows/hooks.<lingua>.nsh` (testi) + `local-ai.nsh` aggiungono alla pagina di benvenuto NSIS la casella facoltativa (non spuntata) e, a fine installazione, eseguono `install-local-ai.ps1` (risorsa installata con l'app).
+
 ### 3.6b Lingue (italiano e inglese)
 
 La lingua dell'interfaccia è fissata **in fase di build** da `VITE_LOCALE` (`it` predefinito, `en` con `vite --mode en`, che legge `.env.en`): ogni installer contiene l'app in una sola lingua. `src-tauri/tauri.en.conf.json` si sovrappone alla configurazione di base per la build inglese (frontend con `npm run build:en`, installer MSI/NSIS in inglese); `npm run tauri:build:it` / `tauri:build:en` producono le due edizioni.
@@ -205,6 +223,8 @@ I testi stanno vicino al codice che li usa: in ogni componente `const m = define
 ### 3.8 Backend Rust
 
 **Segreti locali** (`src-tauri/src/secrets.rs`): i comandi `protect_secret`/`unprotect_secret` usano Windows DPAPI (`CryptProtectData` con entropia propria dell'app), così la password ricordata si decifra solo dallo stesso account Windows sullo stesso PC; fuori da Windows rispondono "unsupported" e `services/config.ts` ripiega su AES-GCM. Le voci del vecchio formato AES vengono riscritte con DPAPI alla prima lettura riuscita.
+
+**IA locale** (`src-tauri/src/ai.rs`): `ai_request` (richiesta singola, risposta fino a 32 MB), `ai_stream` (risposta NDJSON riga per riga su un `Channel`, es. il download di un modello), `ai_cancel`. Solo indirizzi di loopback, nessun proxy, nessun redirect; test con un server di prova su 127.0.0.1.
 
 `src-tauri/src/lib.rs` registra i plugin (`fs`, `dialog`, `opener`, `os`, `http`, `window-state`) e tre comandi: `get_identity`, `oauth_start` (apre una porta su 127.0.0.1) e `oauth_wait` (attende il redirect di Google e restituisce codice e stato; riceve la lingua dell'interfaccia per la pagina di conferma). Il parser del redirect ha test unitari Rust (`cargo test`). I permessi sono in `capabilities/default.json`: il frontend può leggere/scrivere ovunque (`fs:scope **`, necessario per cartelle di rete scelte dall'utente), aprire URL e file. Aggiungere un comando Rust = funzione `#[tauri::command]` + `generate_handler!` + `invoke()` in `services/fs.ts`.
 
@@ -251,6 +271,7 @@ Tre livelli, tutti senza Rust e senza toccare il disco (filesystem in memoria):
 |---|---|---|---|
 | Unit — servizi | Vitest | `services/*.test.ts` | crittografia (hash/verifica, cifratura locale), storage (read-before-write, versioni, firma, validazione), regole su elementi (ordinamento, scadenze, ricerca, filtri, conteggi), differenze fra versioni di un progetto (notifiche), stack come modello (copia, segnaposto, percorsi sicuri, file e cartella del progetto) |
 | Unit — store | Vitest + Pinia | `stores/workspace.test.ts` | flussi reali: creazione workspace locale/rete con password, progetti, elementi fra i contenitori, cestino di elementi e progetti, etichette, preferiti e recenti, cartelle a cascata, domande/risposte/risoluzione, menzioni, allegati, visibilità per membri (admin e non admin), ruoli e permessi di eliminazione (Cleaner), cronologia, notifiche con preferenze, **aggiornamento da modifiche esterne** |
+| Unit — IA locale | Vitest (motore simulato con `window.__pgmAi`) | `services/localAi.test.ts`, `aiStack.test.ts`, `aiAssist.test.ts`, `stores/ai.test.ts` | solo indirizzi locali, stato del motore e modelli, download con avanzamento e annullamento, risposte vincolate e riprovate, embedding; file sensibili mai inviati, segreti tolti, limiti di dimensione; suggerimenti dello Stack filtrati e applicati senza cambiare nulla; attivazione al primo avvio e banner |
 | Componenti | Vitest + Vue Test Utils + happy-dom | `components/components.test.ts` | `BaseButton`, `SegmentedControl`, `UserAvatar`, `StatusSelect`, `PrioritySelect`, `RichText`, `MentionTextarea` (autocompletamento, Invio/Shift+Invio) |
 | End-to-end | Playwright (Chromium) sulla build Vite | `e2e/app.spec.ts` | schermata iniziale e tema; workspace di rete e scelta dell'accesso ai progetti; sidebar (preferiti, recenti, cestino, cartelle a cascata); elementi via dialog, filtri, ordine dei tab, sola lettura dei completati, Salva nel dettaglio, cestino; etichette; allegati con anteprima interna; ricerca e scorciatoie; cronologia, notifiche e impostazioni; pagina Drive; Stack, Strumenti AI e Analisi; nuovo progetto da uno stack, cartella del progetto e importazione |
 

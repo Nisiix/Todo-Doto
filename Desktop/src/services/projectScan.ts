@@ -240,7 +240,7 @@ export function repoFromGitConfig(config: string): string {
  * passi base (installazione, avvio), prerequisiti necessari e quanto si legge
  * nel README / ARCHITETTURA.md (che resta memorizzato come documento).
  */
-export async function detectStack(path: string): Promise<DetectedStack> {
+export async function detectStack(path: string, trace?: ScanTrace): Promise<DetectedStack> {
   const fs = await getFs()
   const at = async (rel: string) => (rel ? fs.join(path, ...rel.split('/')) : path)
   const source: ProjectSource = {
@@ -249,7 +249,34 @@ export async function detectStack(path: string): Promise<DetectedStack> {
     read: async (name) => fs.readText(await at(name)).catch(() => null),
     gitConfig: async () => fs.readText(await fs.join(path, '.git', 'config')).catch(() => ''),
   }
-  return stackFromSource(source, { sourcePath: path })
+  return stackFromSource(trace ? traced(source, trace) : source, { sourcePath: path })
+}
+
+/**
+ * Cosa ha letto l'analisi: elenchi delle cartelle e file (nell'ordine di
+ * lettura). Serve all'analisi approfondita, che riceve solo questo. La
+ * configurazione git (.git/config) non vi finisce mai.
+ */
+export interface ScanTrace {
+  listings: Map<string, { name: string; isDir: boolean }[]>
+  files: Map<string, string>
+}
+export const newScanTrace = (): ScanTrace => ({ listings: new Map(), files: new Map() })
+
+function traced(src: ProjectSource, trace: ScanTrace): ProjectSource {
+  return {
+    async list(sub = '') {
+      const r = await src.list(sub)
+      if (!trace.listings.has(sub)) trace.listings.set(sub, r)
+      return r
+    },
+    async read(name) {
+      const r = await src.read(name)
+      if (r !== null && !trace.files.has(name)) trace.files.set(name, r)
+      return r
+    },
+    gitConfig: src.gitConfig ? () => src.gitConfig!() : undefined,
+  }
 }
 
 /** Sottocartelle da non esplorare cercando i file di progetto (dipendenze, output di build, strumenti). */

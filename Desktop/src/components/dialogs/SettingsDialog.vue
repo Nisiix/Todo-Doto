@@ -2,9 +2,10 @@
 import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { Archive, ArchiveRestore, Bell, FolderOpen, KeyRound, Lock, SlidersHorizontal, UserRound } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, KeyRound, Lock, SlidersHorizontal, UserRound } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import RestoreDialog from './RestoreDialog.vue'
+import AiSettings from './AiSettings.vue'
 import { getFs } from '@/services/fs'
 import { samePath } from '@/services/projectScan'
 import { checkFolder } from '@/services/fsErrors'
@@ -29,6 +30,7 @@ const m = defineMessages({
     tabUser: 'Dati utente',
     tabNotifications: 'Notifiche',
     tabBackup: 'Backup',
+    tabAi: 'IA locale',
     appearance: 'Aspetto',
     displayName: 'Il tuo nome visibile',
     userOn: (u: string, h: string) => `${u} su ${h}`,
@@ -77,6 +79,7 @@ const m = defineMessages({
     tabUser: 'User data',
     tabNotifications: 'Notifications',
     tabBackup: 'Backup',
+    tabAi: 'Local AI',
     appearance: 'Appearance',
     displayName: 'Your display name',
     userOn: (u: string, h: string) => `${u} on ${h}`,
@@ -157,19 +160,24 @@ async function backupNow() {
 }
 const lastBackup = computed(() => ws.backups[0] ?? null)
 
-/** Schede: Generali, Dati utente (nomi e password), Notifiche, Backup (solo amministratori). */
-type Tab = 'general' | 'user' | 'notifications' | 'backup'
+/** Schede: Generali, Dati utente (nomi e password), Notifiche, IA locale (per questo PC), Backup (solo amministratori). */
+type Tab = 'general' | 'user' | 'notifications' | 'ai' | 'backup'
 const tab = ref<Tab>('general')
 const tabs = computed(() => [
   { id: 'general' as Tab, label: m.tabGeneral, icon: SlidersHorizontal },
   { id: 'user' as Tab, label: m.tabUser, icon: UserRound },
   { id: 'notifications' as Tab, label: m.tabNotifications, icon: Bell },
+  { id: 'ai' as Tab, label: m.tabAi, icon: Cpu },
   ...(ws.isAdmin ? [{ id: 'backup' as Tab, label: m.tabBackup, icon: Archive }] : []),
 ])
+const aiSettings = ref<InstanceType<typeof AiSettings> | null>(null)
 
 watch(open, (o) => {
   if (!o) return
-  tab.value = 'general'
+  // Scheda richiesta da chi apre (es. il banner dell'IA locale), se esiste per questo utente
+  tab.value = tabs.value.some((t) => t.id === ui.settingsTab) ? (ui.settingsTab as Tab) : 'general'
+  ui.settingsTab = 'general'
+  aiSettings.value?.reset()
   wsName.value = ws.meta?.name ?? ''
   // Anche per i workspace che non l'hanno salvata: quella ricavata dalle cartelle dei progetti
   projectsPath.value = ws.projectsRoot
@@ -203,6 +211,7 @@ async function save() {
     session.config.reopenLast = reopenLast.value
     await saveConfig(session.config)
   }
+  if (aiSettings.value && (await aiSettings.value.apply())) return (tab.value = 'ai')
   if (pw1.value || pw2.value) {
     if (pw1.value.length < 6) return ((tab.value = 'user'), (pwMsg.value = common.password.tooShort))
     if (pw1.value !== pw2.value) return ((tab.value = 'user'), (pwMsg.value = common.password.mismatch))
@@ -225,7 +234,7 @@ const themes: { value: Theme; label: string }[] = [
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" :title="m.title">
+  <BaseDialog v-model:open="open" :title="m.title" width="lg">
     <!-- Schede: Generali, Dati utente, Notifiche, Backup -->
     <div class="-mt-1 mb-4 flex gap-1 border-b border-line" role="tablist" :aria-label="m.title">
       <button
@@ -233,7 +242,7 @@ const themes: { value: Theme; label: string }[] = [
         :key="t.id"
         type="button"
         role="tab"
-        class="-mb-px flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1 text-[13.5px] font-semibold transition-colors"
+        class="-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 pb-2 pt-1 text-[13.5px] font-semibold transition-colors"
         :class="tab === t.id ? 'border-accent text-ink' : 'border-transparent text-ink-3 hover:text-ink-2'"
         :aria-selected="tab === t.id"
         :data-settings-tab="t.id"
@@ -319,6 +328,10 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
+    </div>
+
+    <div v-show="tab === 'ai'" role="tabpanel" data-settings-panel="ai">
+      <AiSettings ref="aiSettings" />
     </div>
 
     <div v-if="ws.isAdmin" v-show="tab === 'backup'" class="space-y-5" role="tabpanel" data-settings-panel="backup">

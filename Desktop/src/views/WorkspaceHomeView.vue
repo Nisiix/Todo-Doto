@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { useWorkspaceStore } from '@/stores/workspace'
+import WeeklySummary from '@/components/ai/WeeklySummary.vue'
 import { dueState, spotlight as spotlightOf } from '@/services/items'
 import { DATE, defineMessages, plural } from '@/i18n'
 
@@ -86,6 +87,8 @@ const totals = computed(() => {
         <p v-else class="text-[13.5px] text-ink-3">{{ m.noQuestions }}</p>
       </section>
     </div>
+
+    <WeeklySummary />
 
     <p v-if="!ws.visibleProjects.length" class="mt-10 max-w-md rounded-lg border border-dashed border-line-strong p-5 text-[13.5px] text-ink-2">
       {{ m.empty }}

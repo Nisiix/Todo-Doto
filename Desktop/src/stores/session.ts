@@ -2,12 +2,12 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getFs } from '@/services/fs'
 import { loadConfig, saveConfig } from '@/services/config'
-import type { Identity, LocalConfig, RecentWorkspace } from '@/types'
+import { DEFAULT_AI_CONFIG, type Identity, type LocalConfig, type RecentWorkspace } from '@/types'
 
 /** Identità locale (SO) e configurazione per macchina. */
 export const useSessionStore = defineStore('session', () => {
   const identity = ref<Identity>({ username: '', hostname: '' })
-  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, favorites: {}, mutedNotifications: [] })
+  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, favorites: {}, mutedNotifications: [], ai: { ...DEFAULT_AI_CONFIG } })
   const ready = ref(false)
 
   /** Chiave con cui si cifrano le password memorizzate in locale. */

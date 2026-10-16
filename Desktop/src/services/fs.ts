@@ -258,6 +258,9 @@ async function tauriFs(): Promise<FsApi> {
 
 function memoryFs(): FsApi {
   const files = new Map<string, { text: string; mtimeMs: number; bytes?: Uint8Array }>()
+  // Test end-to-end: file presenti fin dall'avvio (es. la configurazione di questo "PC")
+  const seed = typeof window !== 'undefined' ? (window as unknown as { __pgmSeedFiles?: Record<string, string> }).__pgmSeedFiles : undefined
+  for (const [p, text] of Object.entries(seed ?? {})) files.set(p.replace(/\\/g, '/').replace(/\/+$/, ''), { text, mtimeMs: Date.now() })
   const listeners = new Map<string, Set<() => void>>()
   const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '')
   const notify = (p: string) => {

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { ListPlus, Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -16,6 +16,9 @@ import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
 import ProjectStack from '@/components/project/ProjectStack.vue'
 import GanttChart from '@/components/board/GanttChart.vue'
 import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
+import CommitSuggestions from '@/components/ai/CommitSuggestions.vue'
+import TasksFromTextDialog from '@/components/ai/TasksFromTextDialog.vue'
+import { useAiStore } from '@/stores/ai'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useGitStore } from '@/stores/git'
@@ -49,6 +52,8 @@ const m = defineMessages({
     containers: 'Contenitori',
     newItemKey: 'Nuovo task (N)',
     newItem: 'Nuovo task',
+    fromText: 'Da un testo',
+    fromTextHint: 'Ricava i task da appunti, una mail o un verbale',
     noMatch: 'Nessun elemento corrisponde ai filtri.',
     emptyTodo: 'Lista vuota. Premi «Nuovo task» (o il tasto N) per aggiungere la prima cosa da fare.',
     emptyDone: 'Ancora nessun elemento completato. Spunta il cerchio accanto a un elemento per portarlo qui.',
@@ -76,6 +81,8 @@ const m = defineMessages({
     containers: 'Lists',
     newItemKey: 'New task (N)',
     newItem: 'New task',
+    fromText: 'From a text',
+    fromTextHint: 'Pick out tasks from notes, an email or meeting minutes',
     noMatch: 'No items match the filters.',
     emptyTodo: 'Empty list. Press “New task” (or the N key) to add the first thing to do.',
     emptyDone: 'No completed items yet. Tick the circle next to an item to bring it here.',
@@ -179,6 +186,9 @@ const favorite = computed(() => ws.isFavorite(props.id))
 
 const showLabels = ref(false)
 const showNewItem = ref(false)
+const showFromText = ref(false)
+// IA locale attiva su questo PC: compaiono le funzioni assistite (task da un testo)
+const ai = useAiStore()
 /** Etichette aperte dal nuovo task: alla chiusura si torna al nuovo task (con i dati già inseriti). */
 let backToNewItem = false
 function labelsFromNewItem() {
@@ -295,7 +305,10 @@ const tabs: { id: Bucket; label: string }[] = [
               {{ t.label }}
               <span class="text-[12px] font-medium tabular-nums text-ink-3">{{ counts[t.id] || '' }}</span>
             </button>
-            <BaseButton v-if="tab === 'todo' && !trashed" size="sm" variant="primary" class="mb-1 ml-auto" :title="m.newItemKey" @click="showNewItem = true">
+            <BaseButton v-if="tab === 'todo' && !trashed && ai.active" size="sm" variant="ghost" class="mb-1 ml-auto" :title="m.fromTextHint" data-from-text @click="showFromText = true">
+              <ListPlus :size="14" /> {{ m.fromText }}
+            </BaseButton>
+            <BaseButton v-if="tab === 'todo' && !trashed" size="sm" variant="primary" class="mb-1" :class="{ 'ml-auto': !ai.active }" :title="m.newItemKey" @click="showNewItem = true">
               <Plus :size="14" /> {{ m.newItem }}
             </BaseButton>
             <BaseButton v-if="tab === 'trash' && counts.trash && !trashed && ws.canPurge" size="sm" variant="ghost" class="mb-1 ml-auto text-danger" @click="emptyTrash">
@@ -317,6 +330,7 @@ const tabs: { id: Bucket; label: string }[] = [
           <AttachmentsBoard :project="project" :read-only="trashed" />
         </template>
         <template v-else>
+          <CommitSuggestions v-if="tab === 'todo' && !trashed" :project="project" />
           <div ref="listEl">
             <TransitionGroup name="fade" tag="div" class="space-y-px">
               <ItemRow v-for="it in items" :key="it.id" :item="it" :project-id="project.id" :read-only="trashed" />
@@ -338,5 +352,6 @@ const tabs: { id: Bucket; label: string }[] = [
 
     <LabelsDialog v-model:open="showLabels" />
     <ItemDialog v-model:open="showNewItem" :project-id="project.id" @manage-labels="labelsFromNewItem" />
+    <TasksFromTextDialog v-model:open="showFromText" :project-id="project.id" />
   </template>
 </template>

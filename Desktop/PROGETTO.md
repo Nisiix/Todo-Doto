@@ -170,7 +170,7 @@ JSON compresso (gzip) con workspace, utenti, cartelle ed etichette, Drive, crono
 
 ### Dati locali (per macchina, in `%APPDATA%\com.nisos.projectgoalmanager\`)
 ```
-config.json        tema, workspace recenti, preferiti per workspace, notifiche disattivate
+config.json        tema, workspace recenti, preferiti per workspace, notifiche disattivate, IA locale (motore, indirizzo, modelli, banner chiuso)
 credentials.json   password dei workspace di rete ricordate su scelta dell'utente, cifrate con Windows DPAPI per l'account corrente (prefisso `dpapi:`; altrove AES-GCM)
 drive-auth.json    ID client Google e token OAuth (solo lettura), cifrati con AES-GCM
 ```
@@ -366,6 +366,27 @@ Scopo: far capire in modo semplice come collegare un commit a un task e chiudere
 - **Ogni commit vale una volta sola**: un task riaperto a mano non viene richiuso dallo stesso commit (la nota del commit sparisce alla riapertura). Si chiudono solo i task da fare.
 - **Interruttore** nello Stack per l'admin ("Chiudi i task dai commit git"), attivo di default quando c'è `.git`.
 - Non si scrive mai nulla nel repository: niente hook, niente modifiche.
+
+## 9e. IA locale
+
+Scopo: un'analisi più precisa dei progetti e altre funzioni assistite **senza servizi esterni**: il modello gira sul PC dell'utente (installazione gratuita) e i dati non escono mai dal PC. Funziona anche in una rete interna senza Internet, una volta installato il modello.
+
+- **Motore**: [Ollama](https://ollama.com) (predefinito, `http://127.0.0.1:11434`) oppure un server **compatibile OpenAI** avviato sul PC (LM Studio, Foundry Local…, es. `http://127.0.0.1:1234/v1`). Modello consigliato **Qwen 3 4B** (`qwen3:4b`, Apache 2.0, circa 2,5 GB); per le somiglianze `nomic-embed-text` (circa 270 MB).
+- **Solo questo PC**: l'app comunica soltanto con indirizzi di loopback (`127.0.0.1`, `localhost` risolto sempre su 127.0.0.1, `::1`). Il controllo è nel backend Rust (`ai.rs`): un indirizzo esterno viene rifiutato prima di connettersi, i proxy di sistema sono ignorati e i redirect non si seguono. I permessi verso Internet dell'app non cambiano.
+- **Impostazioni › IA locale** (per PC, per qualunque utente, spenta di default): "Usa l'IA locale su questo PC", motore, indirizzo (solo locale), modello e modello per le somiglianze, **"Prova connessione"** (risponde? quanti modelli? quelli scelti ci sono?), **"Scarica i modelli mancanti"** con barra di avanzamento e Annulla (è Ollama a scaricarli dal suo catalogo; l'app parla solo con Ollama) e "Scarica Ollama" se non risponde.
+- **Installer Windows**: nella pagina di benvenuto la casella facoltativa, **non spuntata**, "Installa anche l'IA locale gratuita (Ollama + modello Qwen 3 4B, circa 4 GB da scaricare)". Se spuntata, a fine installazione `install-local-ai.ps1` scarica Ollama (solo se firmato da Ollama), lo installa per l'utente e gli fa scaricare i modelli. Senza connessione o in caso di errore un avviso spiega che l'app è installata e l'IA si può attivare dopo: l'installazione dell'app non fallisce. Nelle installazioni silenziose, passive e negli aggiornamenti la casella non compare. Con il solo eseguibile, l'IA si configura dalle Impostazioni. Al primo avvio, se l'app trova già Ollama con il modello consigliato (es. installato dall'installer), attiva l'IA da sola, una volta sola, con un avviso.
+- **Banner**: finché l'IA locale non è attiva, in alto e in sovrimpressione, uguale in tutte le sezioni e per tutti gli utenti: "Attiva l'IA locale per potenziare Todo Doto: analisi dei progetti più precisa, configurazione più accurata e altre funzioni assistite. Funziona tutto sul tuo PC, senza connessioni esterne." con **"Apri Impostazioni"** (scheda IA locale) e la **X**: chiuso, non ricompare più su quel PC. Sparisce attivando l'IA.
+- **Stack, "Rileva dai file del progetto"**: un solo pulsante e un solo passaggio, con o senza IA. Prima l'analisi deterministica (ciò che i file dicono con certezza, salvato subito); poi, se l'IA è attiva, un'analisi approfondita di quanto letto che **propone solo ciò che manca** (prerequisiti, passi di preparazione, variabili d'ambiente dai file `.env` di esempio, note). Le proposte compaiono in "Altri elementi da aggiungere?" e l'amministratore sceglie quali aggiungere; nulla di quanto c'è viene cambiato. Senza IA, o se non risponde, il risultato è quello di sempre.
+  - **Cosa riceve il modello**: solo l'elenco delle cartelle e i file che l'analisi ha già letto (6.000 caratteri per file, 20.000 in tutto, lockfile esclusi), ripuliti dai segreti (chiavi private, token noti, password, credenziali negli URL), i **nomi** delle variabili dei file `.env.example`/`.sample`/`.template` e il risultato deterministico. **Mai** `.env`, chiavi e certificati, `.npmrc`, `appsettings*.json`, `web.config`, file "credentials/secret", `.git/config`.
+  - **Verifica della risposta**: vincolata a uno schema JSON e validata; si scartano doppioni, prerequisiti esclusi dai file, passi di avvio/build/test, cartelle fuori dal progetto, comandi di verifica che non siano semplici richieste di versione, link non https. Gli indirizzi di download dei prerequisiti vengono solo dal catalogo.
+- **Altre funzioni** (compaiono solo con l'IA attiva; sono sempre proposte da confermare):
+  - **Come risolvere** (Stack, prerequisito non verificato): spiegazione dell'esito e passi; i comandi suggeriti si copiano, non si eseguono, e quelli pericolosi (cancellazioni, script scaricati, redirezioni) vengono scartati.
+  - **Da un testo** (Todo): da appunti, una mail o un verbale ai task proposti, con titolo e priorità modificabili; si creano solo quelli scelti.
+  - **Task simili** (nuovo task): mentre si scrive, un avviso elenca i task già presenti con lo stesso significato (non blocca).
+  - **Ricerca per significato** (ricerca globale): dopo i risultati per testo, i task vicini per significato (es. "autenticazione" trova "Pagina di accesso").
+  - **Commit senza «chiude TODO-n»** (Todo, progetti con `.git` e chiusura dai commit attiva): per i commit degli ultimi 14 giorni che non citano un task, l'IA propone quale task potrebbero aver completato; "Completa" lo chiude annotando il commit, "Ignora" lo scarta. Ogni commit si esamina una volta su questo PC; la regola "chiude TODO-n" non cambia.
+  - **Riepilogo della settimana** (home del workspace): completati, nuovi, in ritardo e in scadenza dei progetti visibili, scritto a partire solo da questi dati; si copia.
+  - **AGENTS.md / CLAUDE.md** (Strumenti AI, amministratori): istruzioni per gli agenti di programmazione scritte dallo Stack, da rileggere e modificare; si salvano nella cartella del progetto solo con "Salva" (se il file c'è già, dopo conferma).
 
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 

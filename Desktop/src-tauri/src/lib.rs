@@ -1,6 +1,7 @@
 //! Backend Tauri: il più sottile possibile. Tutta la logica applicativa vive nel
 //! frontend; qui esponiamo l'identità locale (utente + macchina), un piccolo
-//! ricevitore per il redirect OAuth di Google (loopback su 127.0.0.1) e i plugin
+//! ricevitore per il redirect OAuth di Google (loopback su 127.0.0.1), le
+//! richieste all'IA locale (solo 127.0.0.1, vedi ai.rs) e i plugin
 //! ufficiali per filesystem, dialog, http, apertura file e stato della finestra.
 
 use std::io::{Read, Write};
@@ -11,6 +12,7 @@ use serde::Serialize;
 
 mod secrets;
 mod git;
+mod ai;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -374,7 +376,10 @@ pub fn run() {
             allow_paths,
             secrets::protect_secret,
             secrets::unprotect_secret,
-            git::git_log
+            git::git_log,
+            ai::ai_request,
+            ai::ai_stream,
+            ai::ai_cancel
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Todo Doto");

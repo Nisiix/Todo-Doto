@@ -4310,8 +4310,9 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "todo-doto"
-version = "0.2.25"
+version = "0.2.26"
 dependencies = [
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "tauri",
@@ -4322,6 +4323,8 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-os",
  "tauri-plugin-window-state",
+ "tokio",
+ "url",
  "whoami",
  "windows-sys 0.61.2",
  "winreg",

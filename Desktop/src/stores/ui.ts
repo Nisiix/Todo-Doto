@@ -63,7 +63,18 @@ export const useUiStore = defineStore('ui', () => {
     }, 1600)
   }
 
+  // --- impostazioni (apribili da qualunque punto, es. dal banner dell'IA locale) ---
+  const settingsOpen = ref(false)
+  const settingsTab = ref('general')
+  function openSettings(tab = 'general') {
+    settingsTab.value = tab
+    settingsOpen.value = true
+  }
+
   return {
+    settingsOpen,
+    settingsTab,
+    openSettings,
     theme,
     isDark,
     setTheme,

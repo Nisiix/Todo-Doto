@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { Copy, Download, ExternalLink, Eye, FileText, Paperclip, Pencil, Plug, Plus, Puzzle, Sparkles, Trash2 } from 'lucide-vue-next'
+import { Bot, Copy, Download, ExternalLink, Eye, FileText, Paperclip, Pencil, Plug, Plus, Puzzle, Sparkles, Trash2 } from 'lucide-vue-next'
+import AgentsDocDialog from '@/components/ai/AgentsDocDialog.vue'
+import { useAiStore } from '@/stores/ai'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -35,6 +37,8 @@ const m = defineMessages({
     title: 'Strumenti AI',
     lead: 'Connettori, plugin e skill usati per lavorare a questo progetto, con le skill allegate pronte da riusare.',
     newTool: 'Nuovo strumento',
+    agentsDoc: 'AGENTS.md / CLAUDE.md',
+    agentsDocHint: 'Scrivi le istruzioni per gli agenti di programmazione a partire dallo Stack',
     emptyMember: 'L’amministratore non ha ancora indicato connettori, plugin o skill per questo progetto.',
     noConnector: 'Nessun connettore (es. GitHub, Google Drive, Supabase, Figma).',
     noPlugin: 'Nessun plugin.',
@@ -72,6 +76,8 @@ const m = defineMessages({
     title: 'AI tools',
     lead: 'Connectors, plugins and skills used to work on this project, with attached skills ready to reuse.',
     newTool: 'New tool',
+    agentsDoc: 'AGENTS.md / CLAUDE.md',
+    agentsDocHint: 'Write the instructions for coding agents from the Stack',
     emptyMember: 'The administrator has not listed any connectors, plugins or skills for this project yet.',
     noConnector: 'No connectors (e.g. GitHub, Google Drive, Supabase, Figma).',
     noPlugin: 'No plugins.',
@@ -103,6 +109,9 @@ const ui = useUiStore()
 const confirm = useConfirm()
 
 const canEdit = computed(() => ws.isAdmin && !props.readOnly)
+// Istruzioni per gli agenti dallo Stack (IA locale attiva su questo PC, amministratori)
+const ai = useAiStore()
+const showAgentsDoc = ref(false)
 const ICON: Record<AiToolKind, unknown> = { connector: Plug, plugin: Puzzle, skill: Sparkles }
 const groups = computed(() => AI_TOOL_KINDS.map((k) => ({ kind: k, items: props.project.aiTools.filter((t) => t.kind === k) })))
 
@@ -209,6 +218,8 @@ const menu = (t: AiTool) => [
         <h2 class="text-[17px] font-bold tracking-tight">{{ m.title }}</h2>
         <p class="mt-0.5 text-[13px] text-ink-2">{{ m.lead }}</p>
       </div>
+      <BaseButton v-if="canEdit && ai.active" size="sm" variant="ghost" :title="m.agentsDocHint" data-agents-doc-button @click="showAgentsDoc = true"><Bot :size="14" /> {{ m.agentsDoc }}</BaseButton>
+      <AgentsDocDialog v-model:open="showAgentsDoc" :project="project" />
       <BaseMenu v-if="canEdit" :items="AI_TOOL_KINDS.map((k) => ({ label: AI_TOOL_LABEL[k], icon: ICON[k] as never, onSelect: () => startAdd(k) }))">
         <BaseButton size="sm" variant="primary"><Plus :size="14" /> {{ m.newTool }}</BaseButton>
       </BaseMenu>

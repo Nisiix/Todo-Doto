@@ -445,6 +445,30 @@ export const RecentWorkspaceSchema = z.object({
 })
 export type RecentWorkspace = z.infer<typeof RecentWorkspaceSchema>
 
+/**
+ * IA locale (per PC): motore installato su questo computer (Ollama o un server
+ * compatibile OpenAI come LM Studio / Foundry Local), raggiunto solo su
+ * 127.0.0.1. Spenta finché l'utente non la attiva (o finché non la si trova
+ * già installata con il modello consigliato, es. dall'installer).
+ */
+export const AI_PROVIDERS = ['ollama', 'openai'] as const
+export type AiProvider = (typeof AI_PROVIDERS)[number]
+export const AiConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  provider: z.enum(AI_PROVIDERS).default('ollama'),
+  /** Indirizzo del motore; vuoto = quello predefinito del motore scelto. */
+  baseUrl: z.string().default(''),
+  model: z.string().default('qwen3:4b'),
+  /** Modello per gli embedding (duplicati, ricerca per significato). */
+  embedModel: z.string().default('nomic-embed-text'),
+  /** Banner "Attiva l'IA locale" chiuso su questo PC: non ricompare più. */
+  bannerDismissed: z.boolean().default(false),
+  /** Ricerca automatica di un motore già installato fatta (una volta sola). */
+  autoDetectDone: z.boolean().default(false),
+})
+export type AiConfig = z.infer<typeof AiConfigSchema>
+export const DEFAULT_AI_CONFIG: AiConfig = AiConfigSchema.parse({})
+
 export const LocalConfigSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).default('system'),
   recent: z.array(RecentWorkspaceSchema).default([]),
@@ -453,6 +477,7 @@ export const LocalConfigSchema = z.object({
   favorites: z.record(z.string(), z.array(z.string())).default({}),
   // tipi di notifica disattivati (tutti attivi se assenti)
   mutedNotifications: z.array(z.enum(NOTIFICATION_TYPES)).default([]),
+  ai: AiConfigSchema.default(DEFAULT_AI_CONFIG),
 })
 
 /** Filtro della lista elementi di un progetto. */
