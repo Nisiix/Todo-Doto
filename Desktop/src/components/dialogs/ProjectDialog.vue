@@ -7,7 +7,7 @@ import { getFs } from '@/services/fs'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ProjectAccessFields, { resolveMembers } from '@/components/project/ProjectAccessFields.vue'
-import type { Visibility } from '@/types'
+import type { ProjectTemplate, Visibility } from '@/types'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { copyStack, hasStack, scaffoldFiles, writeProjectFolderAt } from '@/services/scaffold'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
@@ -44,6 +44,9 @@ const m = defineMessages({
     create: 'Crea progetto',
     importCreate: 'Importa progetto',
     stackFrom: 'Stack e configurazione iniziale',
+    template: 'Modello di progetto',
+    noTemplate: 'Nessuno',
+    templateHint: (t: number, ms: number) => `Aggiunge ${t} task e ${ms} tappe, con le date a partire da oggi, le cartelle degli allegati e lo Stack (se non ne scegli un altro).`,
     emptyStack: 'Vuoto',
     copyFrom: (n: string) => `Copia da «${n}»`,
     stackHint: 'Copia tecnologie, prerequisiti, passi, variabili e file iniziali; il nome del progetto di origine diventa quello nuovo.',
@@ -74,6 +77,9 @@ const m = defineMessages({
     create: 'Create project',
     importCreate: 'Import project',
     stackFrom: 'Stack and initial setup',
+    template: 'Project template',
+    noTemplate: 'None',
+    templateHint: (t: number, ms: number) => `Adds ${t} tasks and ${ms} milestones, with dates starting today, the attachment folders and the Stack (unless you pick another one).`,
     emptyStack: 'Empty',
     copyFrom: (n: string) => `Copy from “${n}”`,
     stackHint: 'Copies technologies, prerequisites, steps, variables and initial files; the source project name becomes the new one.',
@@ -101,6 +107,10 @@ const visibility = ref<Visibility>('public')
 const members = ref<string[]>([])
 const error = ref('')
 const stackSource = ref<string | null>(null)
+/** Modelli di progetto salvati (templates.json): si leggono all'apertura. */
+const projectTemplates = ref<ProjectTemplate[]>([])
+const templateId = ref<string | null>(null)
+const chosenTemplate = computed(() => projectTemplates.value.find((t) => t.id === templateId.value) ?? null)
 /** Progetti con uno stack da usare come modello (solo per gli admin). */
 const templates = computed(() => (ws.isAdmin ? ws.visibleProjects.filter((p) => hasStack(p.stack)) : []))
 
@@ -183,6 +193,8 @@ watch(open, (o) => {
   visibility.value = 'public'
   error.value = ''
   stackSource.value = null
+  templateId.value = null
+  if (o) void ws.readTemplates().then((t) => (projectTemplates.value = t))
   importStructure.value = true
   kind.value = null
   folderProblem.value = ''
@@ -224,6 +236,8 @@ async function submit() {
   const source = !importing && stackSource.value ? ws.projects[stackSource.value] : null
   if (detected) await ws.updateStack(p.id, { ...detected.stack, sourcePath: dir })
   else if (source) await ws.updateStack(p.id, copyStack(source.stack, source.name, p.name))
+  // Modello: tappe e task con le date da oggi, cartelle degli allegati, Stack se il progetto non ne ha
+  if (!importing && chosenTemplate.value) await ws.applyTemplate(p.id, chosenTemplate.value)
   if (dir) {
     if (!detected) await ws.setProjectSourcePath(p.id, dir)
     if (importing && detected) ui.toast(m.imported, 'success', undefined, 3000)
@@ -276,6 +290,14 @@ async function submit() {
         <label class="label" for="p-name">{{ common.name }}</label>
         <input id="p-name" v-model="name" class="field" :placeholder="m.namePlaceholder" />
         <p class="mt-1 text-[12px] text-ink-3" data-name-hint>{{ m.nameHint }}</p>
+      </div>
+      <div v-if="projectTemplates.length && !isImport">
+        <label class="label" for="p-template">{{ m.template }}</label>
+        <select id="p-template" v-model="templateId" class="field" data-project-template>
+          <option :value="null">{{ m.noTemplate }}</option>
+          <option v-for="t in projectTemplates" :key="t.id" :value="t.id">{{ t.name }}</option>
+        </select>
+        <p v-if="chosenTemplate" class="mt-1 text-[12px] text-ink-3">{{ m.templateHint(chosenTemplate.tasks.length, chosenTemplate.milestones.length) }}</p>
       </div>
       <div v-if="templates.length && !isImport">
         <label class="label" for="p-stack">{{ m.stackFrom }}</label>

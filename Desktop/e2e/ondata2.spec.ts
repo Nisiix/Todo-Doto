@@ -333,3 +333,78 @@ test('rapporto di stato e nota di passaggio: periodo, Markdown, pagina; nota al 
   await expect(note).toHaveCount(0)
   await expect(page.locator('aside').last()).toContainText('passaggio di consegne')
 })
+
+test('lista di controllo che si ripete, modelli di progetto, calendari .ics e pulizia guidata', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await addLabels(page, ['Mai usata'])
+  await createProject(page, 'Rilasci')
+  const box = page.getByRole('combobox', { name: 'Cerca in tutti i progetti' })
+
+  // Lista di controllo e ripetizione mensile
+  await addTasks(page, ['Checklist di rilascio entro il 31/10/2030'])
+  await openTask(page, 'Checklist di rilascio')
+  for (const v of ['Test', 'Tag', 'Annuncio']) {
+    await page.locator('[data-checklist-add]').fill(v)
+    await page.locator('[data-checklist-add]').press('Enter')
+  }
+  await page.locator('[data-checklist-item="Test"] input').check()
+  await expect(page.locator('[data-checklist-progress]')).toHaveText('1/3')
+  await page.locator('[data-repeat]').selectOption('month')
+  await page.keyboard.press('Escape')
+  await expect(row(page, 'Checklist di rilascio').locator('[data-row-checklist]')).toContainText('1/3')
+  await row(page, 'Checklist di rilascio').getByTitle('Segna come completato (C)').click()
+  // Nasce la prossima, un mese dopo, con la lista da rifare
+  await expect(row(page, 'Checklist di rilascio')).toHaveCount(1)
+  await expect(row(page, 'Checklist di rilascio').locator('[data-row-checklist]')).toContainText('0/3')
+  await openTask(page, 'Checklist di rilascio')
+  await expect(page.locator('#d-due')).toHaveValue('2030-11-30')
+  await page.keyboard.press('Escape')
+
+  // Modello di progetto: salvato da qui, usato per un progetto nuovo
+  await page.locator('[data-milestones-open]').click()
+  await page.locator('[data-milestone-name]').fill('v1')
+  await page.locator('[data-milestone-save]').click()
+  await page.keyboard.press('Escape')
+  await page.locator('[data-project-more]').click()
+  await page.getByRole('menuitem', { name: 'Salva come modello…' }).click()
+  await page.locator('[data-template-name]').fill('Rilascio mensile')
+  await page.locator('[data-template-save]').click()
+  await expect(page.locator('[data-template="Rilascio mensile"]')).toContainText('1 task · 1 tappa')
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
+  await page.fill('#p-name', 'App mobile')
+  await page.locator('[data-project-template]').selectOption({ label: 'Rilascio mensile' })
+  await page.getByRole('button', { name: 'Crea progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'App mobile' })).toBeVisible()
+  await expect(row(page, 'Checklist di rilascio')).toHaveCount(1) // la riga del progetto precedente finisce di svanire
+  await expect(row(page, 'Checklist di rilascio').locator('[data-row-checklist]')).toContainText('0/3')
+  await expect(page.locator('[data-milestones-open]')).toContainText('1')
+
+  // Calendari: il file personale nella cartella Dati contiene le scadenze
+  await box.fill('>calendari')
+  await box.press('Enter')
+  await page.locator('[data-calendars-toggle]').check()
+  const file = page.locator('[data-calendar-file^="persona-"]')
+  await expect(file).toHaveCount(1)
+  const path = await file.locator('span[title]').getAttribute('title')
+  await expect
+    .poll(async () =>
+      page.evaluate(async (p) => {
+        const fs = await (window as unknown as { __pgmFs: () => Promise<{ exists(p: string): Promise<boolean>; readText(p: string): Promise<string> }> }).__pgmFs()
+        return (await fs.exists(p!)) ? fs.readText(p!) : ''
+      }, path),
+    )
+    .toContain('BEGIN:VCALENDAR')
+  const ics = await page.evaluate(async (p) => (await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()).readText(p!), path)
+  expect(ics).toContain('SUMMARY:[Rilasci] TODO-2 Checklist di rilascio')
+  expect(ics).toContain('DTSTART;VALUE=DATE:20301130')
+  await page.keyboard.press('Escape')
+
+  // Pulizia guidata: l'etichetta mai usata si elimina da lì
+  await box.fill('>pulizia')
+  await box.press('Enter')
+  const item = page.locator('[data-cleanup-item="unused_label"]')
+  await expect(item).toContainText('Etichetta «Mai usata» mai usata')
+  await item.getByRole('button', { name: 'Elimina' }).click()
+  await expect(item).toHaveCount(0)
+})

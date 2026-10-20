@@ -9,6 +9,7 @@ import { useReadinessStore } from '@/stores/readiness'
 import { useOutboxStore } from '@/stores/outbox'
 import { useAiStore } from '@/stores/ai'
 import { useHealthStore } from '@/stores/health'
+import { useCalendarStore } from '@/stores/calendars'
 
 // Progetti collegati a GitHub: lo stack si risincronizza da solo all'apertura (se attivo)
 const github = useGitHubStore()
@@ -23,6 +24,8 @@ onMounted(() => void ai.start().catch(() => undefined))
 // Salute dei progetti: istantanea della settimana (se nessun PC l'ha già scritta) e andamento
 const health = useHealthStore()
 onMounted(() => void health.maybeSnapshot().catch(() => undefined))
+// Calendari .ics delle scadenze (se attivati su questo PC)
+useCalendarStore()
 </script>
 
 <template>

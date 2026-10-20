@@ -27,12 +27,14 @@ import {
   ProjectSchema,
   ReadinessFileSchema,
   HealthWeekSchema,
+  TemplatesFileSchema,
   TreeFileSchema,
   UsersFileSchema,
   WorkspaceMetaSchema,
   type AuditFile,
   type DriveFile,
   type HealthWeek,
+  type TemplatesFile,
   type PresenceFile,
   type Project,
   type ReadinessFile,
@@ -105,6 +107,10 @@ export const FILES = {
   mailDir: 'mail',
   /** Cartella predefinita delle copie di sicurezza (se non se ne sceglie un'altra). */
   backupsDir: 'backups',
+  /** Modelli di progetto condivisi. */
+  templates: 'templates.json',
+  /** Calendari .ics delle scadenze (in chiaro: mai con i dati cifrati). */
+  calendarsDir: 'calendari',
   /** Salute dei progetti, una istantanea per settimana (health/<lunedì>.json). */
   healthDir: 'health',
 } as const
@@ -411,7 +417,18 @@ export class WorkspaceStorage {
       if (!(await this.fs.exists(path))) return
       await this.withLock(path, async () => this.writeJson(path, await this.readJson(path, same)))
     }
-    for (const p of [this.paths.users, this.paths.tree, this.paths.drive, this.paths.audit]) await rewrite(p)
+    for (const p of [this.paths.users, this.paths.tree, this.paths.drive, this.paths.audit, await this.fs.join(this.root, FILES.templates)]) await rewrite(p)
+    const healthDir = await this.fs.join(this.root, FILES.healthDir)
+    for (const name of await this.fs.readDir(healthDir).catch(() => [] as string[])) {
+      if (/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) await rewrite(await this.fs.join(healthDir, name))
+    }
+    // Con i dati cifrati i calendari .ics (in chiaro per forza) non devono restare nella cartella
+    if (this.encryptWrites && this.cipher) {
+      const calDir = await this.fs.join(this.root, FILES.calendarsDir)
+      for (const name of await this.fs.readDir(calDir).catch(() => [] as string[])) {
+        if (name.endsWith('.ics')) await this.fs.remove(await this.fs.join(calDir, name)).catch(() => {})
+      }
+    }
     for (const id of await this.listProjectIds()) await rewrite(await this.projectPath(id))
     for (const name of await this.fs.readDir(this.paths.projectsDir).catch(() => [])) {
       if (CHUNK_RE.test(name)) await rewrite(await this.fs.join(this.paths.projectsDir, name))
@@ -968,6 +985,21 @@ export class WorkspaceStorage {
       fresh.updatedBy = actorId
       await this.writeProjectFiles(fresh, prev, before)
       return fresh
+    })
+  }
+
+  async readTemplates(): Promise<TemplatesFile> {
+    const path = await this.fs.join(this.root, FILES.templates)
+    if (!(await this.fs.exists(path))) return TemplatesFileSchema.parse({})
+    return this.readJson(path, (r) => TemplatesFileSchema.parse(r))
+  }
+  async mutateTemplates(fn: (t: TemplatesFile) => void): Promise<TemplatesFile> {
+    const path = await this.fs.join(this.root, FILES.templates)
+    return this.withLock(path, async () => {
+      const t = await this.readTemplates()
+      fn(t)
+      await this.writeJson(path, t)
+      return t
     })
   }
 

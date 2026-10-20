@@ -225,6 +225,8 @@ export const ItemSchema = z.object({
   estimateHours: z.number().nullable().default(null),
   /** Lista di controllo del task: voci da spuntare (0.6.0). */
   checklist: z.array(z.object({ id: z.string(), text: z.string(), done: z.boolean().default(false) })).default([]),
+  /** Si ripete: completandolo nasce il prossimo, con la lista di controllo da rifare (0.6.0). */
+  repeat: z.enum(['none', 'week', 'month']).default('none'),
   /** Completato in automatico da un commit git ("chiude TODO-12"). */
   closedByCommit: z
     .object({ hash: z.string(), author: z.string().default(''), date: z.string().default(''), subject: z.string().default('') })
@@ -523,6 +525,40 @@ export const PresenceFileSchema = z.object({
 export type PresenceFile = z.infer<typeof PresenceFileSchema>
 
 // ---------------------------------------------------------------------------
+// Modelli di progetto (templates.json nella cartella Dati, condivisi): Stack,
+// cartelle degli allegati, tappe e task con le date relative all'inizio
+// ---------------------------------------------------------------------------
+
+export const TemplateTaskSchema = z.object({
+  title: z.string(),
+  notes: z.string().default(''),
+  priority: z.enum(PRIORITIES).default('media'),
+  status: z.enum(STATUSES).default('da_valutare'),
+  labelId: z.string().nullable().default(null),
+  estimateHours: z.number().nullable().default(null),
+  checklist: z.array(z.string()).default([]),
+  repeat: z.enum(['none', 'week', 'month']).default('none'),
+  /** Giorni dall'inizio del progetto alla scadenza (null = senza scadenza). */
+  dueOffset: z.number().nullable().default(null),
+  /** Posizione della tappa nell'elenco del modello. */
+  milestone: z.number().nullable().default(null),
+})
+export const ProjectTemplateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().default(''),
+  createdAt: iso,
+  createdBy: z.string(),
+  stack: StackSchema.default(EMPTY_STACK),
+  attachmentFolders: z.array(z.string()).default([]),
+  milestones: z.array(z.object({ name: z.string(), notes: z.string().default(''), dueOffset: z.number().nullable().default(null) })).default([]),
+  tasks: z.array(TemplateTaskSchema).default([]),
+})
+export type ProjectTemplate = z.infer<typeof ProjectTemplateSchema>
+export const TemplatesFileSchema = z.object({ templates: z.array(ProjectTemplateSchema).default([]) })
+export type TemplatesFile = z.infer<typeof TemplatesFileSchema>
+
+// ---------------------------------------------------------------------------
 // Salute dei progetti: istantanea settimanale (health/<lunedì>.json), una per
 // settimana, scritta dal primo PC che apre il workspace in quella settimana
 // ---------------------------------------------------------------------------
@@ -626,6 +662,8 @@ export const LocalConfigSchema = z.object({
    * scadenza condivisa). workspaceId → id del task → giorno in cui ricompare (YYYY-MM-DD).
    */
   snoozed: z.record(z.string(), z.record(z.string(), z.string())).default({}),
+  /** Calendari .ics delle scadenze tenuti aggiornati da questo PC, per workspace (0.6.0). */
+  calendars: z.record(z.string(), z.boolean()).default({}),
 })
 
 /** Filtro della lista elementi di un progetto. */

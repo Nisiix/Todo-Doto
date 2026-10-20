@@ -52,7 +52,7 @@ const ITEM_GROUPS: { field: string; keys: (keyof Item)[] }[] = [
   { field: 'blockedBy', keys: ['blockedBy'] },
   { field: 'milestone', keys: ['milestoneId'] },
   { field: 'estimate', keys: ['estimateHours'] },
-  { field: 'checklist', keys: ['checklist'] },
+  { field: 'checklist', keys: ['checklist', 'repeat'] },
 ]
 /** Campi del progetto che non si uniscono (li gestisce il salvataggio) o che hanno regole proprie. */
 const PROJECT_SKIP = new Set(['items', 'version', 'updatedAt', 'updatedBy', 'nextSeq', 'attachments', 'attachmentFolders', 'aiTools', 'milestones', 'schema', 'id'])

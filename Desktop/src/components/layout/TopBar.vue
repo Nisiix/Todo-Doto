@@ -2,13 +2,15 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
-import { AlertTriangle, Archive, BarChart3, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
+import { AlertTriangle, Archive, BarChart3, Brush, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import SettingsDialog from '@/components/dialogs/SettingsDialog.vue'
 import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
+import CalendarsDialog from '@/components/dialogs/CalendarsDialog.vue'
+import CleanupDialog from '@/components/dialogs/CleanupDialog.vue'
 import ShortcutsDialog from '@/components/dialogs/ShortcutsDialog.vue'
 import NotificationsPanel from './NotificationsPanel.vue'
 import GlobalSearch from './GlobalSearch.vue'
@@ -22,6 +24,8 @@ const m = defineMessages({
     settings: 'Impostazioni',
     labels: 'Etichette',
     members: 'Membri',
+    calendars: 'Calendari delle scadenze',
+    cleanup: 'Pulizia guidata',
     analytics: 'Analisi',
     audit: 'Cronologia operazioni',
     shortcuts: 'Scorciatoie da tastiera',
@@ -44,6 +48,8 @@ const m = defineMessages({
     settings: 'Settings',
     labels: 'Labels',
     members: 'Members',
+    calendars: 'Due-date calendars',
+    cleanup: 'Guided cleanup',
     analytics: 'Analytics',
     audit: 'Activity log',
     shortcuts: 'Keyboard shortcuts',
@@ -93,10 +99,12 @@ const menu = computed(() => [
   { label: m.settings, icon: Settings, onSelect: () => ui.openSettings() },
   { label: m.labels, icon: Tag, onSelect: () => (showLabels.value = true) },
   { label: m.members, icon: Users, onSelect: () => router.push({ name: 'members' }) },
+  { label: m.calendars, icon: CalendarDays, onSelect: () => (ui.calendarsOpen = true) },
   ...(ws.isAdmin
     ? [
         { label: m.analytics, icon: BarChart3, onSelect: () => router.push({ name: 'analytics' }) },
         { label: m.audit, icon: History, onSelect: () => router.push({ name: 'audit' }) },
+        { label: m.cleanup, icon: Brush, onSelect: () => (ui.cleanupOpen = true) },
       ]
     : []),
   { sep: true, label: '' },
@@ -199,6 +207,8 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 
     <SettingsDialog v-model:open="ui.settingsOpen" />
     <LabelsDialog v-model:open="showLabels" />
+    <CalendarsDialog v-model:open="ui.calendarsOpen" />
+    <CleanupDialog v-model:open="ui.cleanupOpen" />
     <ShortcutsDialog v-model:open="showShortcuts" />
   </header>
 </template>

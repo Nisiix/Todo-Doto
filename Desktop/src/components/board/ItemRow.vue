@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { Check, CircleHelp, Flag, GitBranch, Lock, MessageSquare } from 'lucide-vue-next'
+import { Check, CircleHelp, Flag, GitBranch, ListChecks, Lock, MessageSquare, Repeat } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import PrioritySelect from './PrioritySelect.vue'
 import StatusSelect from './StatusSelect.vue'
@@ -133,6 +133,10 @@ function onKeydown(e: KeyboardEvent) {
     </span>
     <!-- Chi ci sta lavorando (workspace di rete): pastiglia di altezza fissa, la riga non si sposta -->
     <WorkingBadge v-if="item.bucket === 'todo'" :item-id="item.id" />
+    <span v-if="item.checklist.length" class="flex h-5 shrink-0 items-center gap-0.5 rounded-full border border-line px-1.5 text-[11px] tabular-nums text-ink-2" data-row-checklist>
+      <ListChecks :size="11" /> {{ item.checklist.filter((c) => c.done).length }}/{{ item.checklist.length }}
+    </span>
+    <Repeat v-if="item.repeat !== 'none'" :size="12" class="shrink-0 text-ink-3" />
     <span v-if="milestone" class="flex h-5 max-w-24 shrink-0 items-center gap-0.5 truncate rounded-full border border-line px-1.5 text-[11px] text-ink-2" :title="milestone.name" data-row-milestone><Flag :size="10" class="shrink-0" /> <span class="truncate">{{ milestone.name }}</span></span>
     <span v-if="blockers.length" class="flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-p-alta/10 px-1.5 text-[11px] font-medium text-p-alta" :title="m.blockedBy(blockersText)" data-row-blocked><Lock :size="11" /> {{ blockers.length }}</span>
     <span v-if="git.isActive(projectId, item)" class="flex h-5 shrink-0 items-center rounded-full bg-ok/10 px-1.5 text-ok" :title="m.gitActive" data-git-active><GitBranch :size="12" /></span>

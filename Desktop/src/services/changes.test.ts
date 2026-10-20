@@ -4,7 +4,7 @@ import type { Item, Project } from '@/types'
 
 const item = (over: Partial<Item>): Item => ({
   id: 'i1', title: 'Export XBRL\nriga 2', notes: '', priority: 'media', status: 'da_valutare', dueDate: null, labelId: null, assigneeId: null,
-  bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], confirmedAt: null, ...over,
+  bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], repeat: 'none', confirmedAt: null, ...over,
 })
 const project = (items: Item[], updatedBy = 'u2'): Project =>
   ({ id: 'p', name: 'P', items, updatedBy, members: [], attachments: [], attachmentFolders: [] }) as unknown as Project

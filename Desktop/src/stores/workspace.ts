@@ -13,10 +13,12 @@ import { useOutboxStore } from './outbox'
 import { mailOutlook, mailSmtp, type MailMessage } from '@/services/office'
 import { openSecret, sealSecret } from '@/services/mail'
 import { diffProjects } from '@/services/changes'
-import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Milestone, type Stack, type Visibility } from '@/types'
+import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Milestone, type ProjectTemplate, type Stack, type Visibility } from '@/types'
 import { applyStatusRules, firstLine } from '@/services/items'
 import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
 import { pruneBlockers, wouldCycle } from '@/services/dependencies'
+import { nextOccurrence } from '@/services/repeat'
+import { materializeTemplate, templateFromProject } from '@/services/templates'
 import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
@@ -1190,7 +1192,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   // --- elementi ---------------------------------------------------------------------
-  async function addItem(projectId: string, data: Partial<Item> & { title: string }) {
+  /** Un task nuovo con i valori predefiniti (numero e scadenza si sistemano al salvataggio). */
+  function newItem(data: Partial<Item> & { title: string }): Item {
     const me = currentUser.value?.id ?? 'unknown'
     const item: Item = {
       id: newId('itm'),
@@ -1215,9 +1218,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       milestoneId: data.milestoneId ?? null,
       estimateHours: data.estimateHours ?? null,
       checklist: data.checklist ?? [],
+      repeat: data.repeat ?? 'none',
     }
-    // Scadenza solo se Confermato; data di conferma per il Gantt
     applyStatusRules(item, item.createdAt)
+    return item
+  }
+
+  async function addItem(projectId: string, data: Partial<Item> & { title: string }) {
+    const item = newItem(data)
     // Numero progressivo del progetto (codice TODO-<n>), assegnato sotto lock sul file aggiornato
     const r = await mutateProject(projectId, (p) => {
       normalizeSeq(p)
@@ -1283,6 +1291,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const action: AuditAction =
         bucket === 'done' ? 'item_completed' : bucket === 'trash' ? 'item_trashed' : from === 'trash' ? 'item_restored' : 'item_reopened'
       await record(action, r, it)
+      // Task che si ripete: completandolo nasce il prossimo, con la lista di controllo da rifare
+      const next = bucket === 'done' && from === 'todo' ? nextOccurrence(it) : null
+      if (next) await addItem(projectId, next)
     }
     return r
   }
@@ -1385,6 +1396,49 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   const deleteQuestion = (projectId: string, itemId: string, questionId: string) =>
     mutateItem(projectId, itemId, (it) => void (it.questions = it.questions.filter((q) => q.id !== questionId)))
+
+  // --- modelli di progetto (templates.json, condivisi) ---------------------------------
+  const readTemplates = async (): Promise<ProjectTemplate[]> => (await storage.value?.readTemplates().catch(() => null))?.templates ?? []
+
+  /** Salva il progetto come modello (amministratori: i modelli sono di tutto il workspace). */
+  async function saveAsTemplate(projectId: string, name: string, description = '') {
+    const p = projects.value[projectId]
+    const s = storage.value
+    if (!p || !s || !isAdmin.value || !name.trim()) return null
+    const t = templateFromProject(p, { name, description, by: currentUser.value?.id ?? 'unknown', now: nowIso() })
+    await guard(() => s.mutateTemplates((f) => void f.templates.push(t)))
+    return t
+  }
+
+  async function deleteTemplate(templateId: string) {
+    const s = storage.value
+    if (!s || !isAdmin.value) return
+    await guard(() => s.mutateTemplates((f) => void (f.templates = f.templates.filter((t) => t.id !== templateId))))
+  }
+
+  /**
+   * Applica un modello a un progetto (di solito appena creato): Stack se il
+   * progetto non ne ha uno, cartelle degli allegati mancanti, tappe e task con
+   * le date spostate a partire da oggi.
+   */
+  async function applyTemplate(projectId: string, t: ProjectTemplate) {
+    const now = nowIso()
+    const mat = materializeTemplate(t, now.slice(0, 10), now)
+    const items = mat.tasks.map(newItem)
+    const r = await mutateProject(projectId, (p) => {
+      const empty = !p.stack.languages.length && !p.stack.frameworks.length && !p.stack.prerequisites.length && !p.stack.steps.length
+      if (empty) p.stack = { ...mat.stack, sourcePath: p.stack.sourcePath || mat.stack.sourcePath, repoUrl: p.stack.repoUrl || mat.stack.repoUrl }
+      for (const name of mat.attachmentFolders) if (!p.attachmentFolders.some((f) => f.name === name)) p.attachmentFolders.push({ id: newId('afd'), name })
+      p.milestones.push(...mat.milestones)
+      normalizeSeq(p)
+      for (const it of items) {
+        it.seq = p.nextSeq++
+        p.items.push(it)
+      }
+    })
+    if (r) for (const it of items) await record('item_created', r, it)
+    return r
+  }
 
   // --- tappe (versioni, rilasci) ------------------------------------------------------
   const addMilestone = (projectId: string, data: Pick<Milestone, 'name' | 'dueDate' | 'notes'>) =>
@@ -2016,6 +2070,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     addItem,
     setBlockers,
     addMilestone,
+    readTemplates,
+    saveAsTemplate,
+    deleteTemplate,
+    applyTemplate,
     updateMilestone,
     removeMilestone,
     updateItem,

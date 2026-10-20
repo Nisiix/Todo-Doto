@@ -67,6 +67,7 @@ const ITEM: Item = {
   milestoneId: null,
   estimateHours: null,
   checklist: [],
+  repeat: 'none',
   confirmedAt: null,
 }
 

@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Activity,
   BarChart3,
+  Brush,
+  CalendarDays,
   ChevronRight,
   CornerDownLeft,
   Gavel,
@@ -61,6 +63,8 @@ const m = defineMessages({
       audit: 'Apri Cronologia',
       members: 'Apri Membri',
       settings: 'Apri Impostazioni',
+      calendars: 'Calendari delle scadenze (.ics)',
+      cleanup: 'Pulizia guidata',
       theme: 'Cambia tema (chiaro o scuro)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Allegati' } as Record<ProjectSection, string>,
@@ -91,6 +95,8 @@ const m = defineMessages({
       audit: 'Open History',
       members: 'Open Members',
       settings: 'Open Settings',
+      calendars: 'Due-date calendars (.ics)',
+      cleanup: 'Guided cleanup',
       theme: 'Switch theme (light or dark)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Attachments' } as Record<ProjectSection, string>,
@@ -140,7 +146,9 @@ const commands = computed<Command[]>(() => {
       : []),
     ws.isAdmin && { id: 'analytics', label: m.cmd.analytics, keywords: ['analisi', 'analytics', 'carico', 'statistiche'], icon: BarChart3, run: () => void router.push({ name: 'analytics' }) },
     ws.isAdmin && { id: 'audit', label: m.cmd.audit, keywords: ['cronologia', 'audit', 'history', 'storico'], icon: History, run: () => void router.push({ name: 'audit' }) },
+    ws.isAdmin && { id: 'cleanup', label: m.cmd.cleanup, keywords: ['pulizia', 'pulisci', 'ordine', 'cleanup', 'tidy'], icon: Brush, run: () => (ui.cleanupOpen = true) },
     ws.isNetwork && { id: 'members', label: m.cmd.members, keywords: ['membri', 'utenti', 'members', 'users'], icon: Users, run: () => void router.push({ name: 'members' }) },
+    { id: 'calendars', label: m.cmd.calendars, keywords: ['calendario', 'calendari', 'outlook', 'ics', 'calendar'], icon: CalendarDays, run: () => (ui.calendarsOpen = true) },
     { id: 'settings', label: m.cmd.settings, keywords: ['impostazioni', 'settings', 'preferenze', 'opzioni'], icon: Settings, run: () => ui.openSettings() },
     { id: 'theme', label: m.cmd.theme, keywords: ['tema', 'scuro', 'chiaro', 'dark', 'light', 'theme'], icon: Moon, run: () => ui.toggleTheme() },
   ]
@@ -226,7 +234,9 @@ function open(entry: Entry) {
   inputEl.value?.blur()
   if (entry.command) {
     ui.search = ''
-    entry.command.run()
+    // Dopo l'evento della tastiera: una finestra aperta durante l'Invio si richiuderebbe subito
+    const run = entry.command.run
+    setTimeout(run, 0)
     return
   }
   if (!entry.project) return

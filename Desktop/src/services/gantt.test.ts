@@ -7,7 +7,7 @@ import type { Item, Label } from '@/types'
 const item = (over: Partial<Item>): Item => ({
   id: Math.random().toString(36).slice(2), title: 'x', notes: '', priority: 'media', status: 'confermato', dueDate: '2026-10-20', labelId: null,
   assigneeId: null, bucket: 'todo', createdAt: '2026-10-01T09:00:00Z', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [],
-  seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], confirmedAt: '2026-10-10T09:00:00Z', ...over,
+  seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], repeat: 'none', confirmedAt: '2026-10-10T09:00:00Z', ...over,
 })
 const labels: Label[] = [
   { id: 'l_bug', name: 'Bug', color: '#e5484d' },

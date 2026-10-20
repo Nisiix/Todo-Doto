@@ -65,6 +65,10 @@ export const useUiStore = defineStore('ui', () => {
 
   // --- impostazioni (apribili da qualunque punto, es. dal banner dell'IA locale) ---
   const settingsOpen = ref(false)
+  /** Calendari delle scadenze (dal menu del workspace o dalla palette). */
+  const calendarsOpen = ref(false)
+  /** Pulizia guidata (amministratori). */
+  const cleanupOpen = ref(false)
   const settingsTab = ref('general')
   function openSettings(tab = 'general') {
     settingsTab.value = tab
@@ -77,6 +81,8 @@ export const useUiStore = defineStore('ui', () => {
   const requestProject = (action: ProjectAction, projectId: string) => (projectRequest.value = { action, projectId, at: Date.now() })
 
   return {
+    calendarsOpen,
+    cleanupOpen,
     projectRequest,
     requestProject,
     settingsOpen,

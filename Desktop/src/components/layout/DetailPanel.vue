@@ -13,6 +13,7 @@ import GitTaskActivity from '@/components/detail/GitTaskActivity.vue'
 import ItemDependencies from '@/components/detail/ItemDependencies.vue'
 import ItemPlanning from '@/components/detail/ItemPlanning.vue'
 import HandoffNote from '@/components/detail/HandoffNote.vue'
+import ItemChecklist from '@/components/detail/ItemChecklist.vue'
 import WorkingOn from '@/components/detail/WorkingOn.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
@@ -256,6 +257,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
         </div>
       </div>
 
+      <ItemChecklist :item="item" :project="project" :read-only="locked" />
       <ItemPlanning :item="item" :project="project" :read-only="locked" />
       <ItemDependencies :item="item" :project="project" :read-only="locked" />
       <ItemQuestions :item="item" :project-id="project.id" :read-only="locked" />

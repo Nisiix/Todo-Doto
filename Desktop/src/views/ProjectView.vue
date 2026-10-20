@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Activity, Archive, ClipboardList, Flag, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Activity, Archive, ClipboardList, Flag, Gavel, LayoutTemplate, MoreHorizontal, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -13,6 +13,7 @@ import RoadmapDialog from '@/components/dialogs/RoadmapDialog.vue'
 import DecisionsDialog from '@/components/dialogs/DecisionsDialog.vue'
 import MilestonesDialog from '@/components/dialogs/MilestonesDialog.vue'
 import StatusReportDialog from '@/components/dialogs/StatusReportDialog.vue'
+import TemplatesDialog from '@/components/dialogs/TemplatesDialog.vue'
 import { projectDecisions } from '@/services/decisions'
 import StackDriftBanner from '@/components/project/StackDriftBanner.vue'
 import ProjectTeams from '@/components/project/ProjectTeams.vue'
@@ -68,6 +69,8 @@ const m = defineMessages({
     fromText: 'Da un testo',
     roadmap: 'Roadmap per il cliente',
     roadmapHint: 'Una pagina con cosa è fatto e cosa arriva, da mandare al cliente o stampare in PDF',
+    more: 'Altro',
+    saveTemplate: 'Salva come modello…',
     report: 'Rapporto',
     reportHint: 'Rapporto di stato interno per un periodo: da copiare, salvare in PDF o mandare per email',
     milestones: 'Tappe',
@@ -111,6 +114,8 @@ const m = defineMessages({
     fromText: 'From a text',
     roadmap: 'Client roadmap',
     roadmapHint: 'A page with what is done and what is coming, to send to the client or print to PDF',
+    more: 'More',
+    saveTemplate: 'Save as template…',
     report: 'Report',
     reportHint: 'Internal status report for a period: copy it, save it as PDF or send it by email',
     milestones: 'Milestones',
@@ -243,6 +248,8 @@ const showRoadmap = ref(false)
 const showDecisions = ref(false)
 const showMilestones = ref(false)
 const showReport = ref(false)
+const showTemplates = ref(false)
+const moreMenu = computed(() => (ws.isAdmin && !trashed.value ? [{ label: m.saveTemplate, icon: LayoutTemplate, onSelect: () => (showTemplates.value = true) }] : []))
 const openMilestones = computed(() => project.value?.milestones.filter((x) => !x.closedAt).length ?? 0)
 /** «Mostra i task» di una tappa: lista Da fare filtrata per quella tappa. */
 function showMilestoneTasks(id: string) {
@@ -396,6 +403,9 @@ const tabs: { id: Bucket; label: string }[] = [
           <BaseButton v-if="!trashed" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.roadmapHint" data-roadmap-open @click="showRoadmap = true">
             <MapIcon :size="14" /> {{ m.roadmap }}
           </BaseButton>
+          <BaseMenu v-if="moreMenu.length" :items="moreMenu">
+            <BaseButton size="icon-sm" variant="ghost" class="mt-1 shrink-0" :title="m.more" :aria-label="m.more" data-project-more><MoreHorizontal :size="15" /></BaseButton>
+          </BaseMenu>
         </div>
         <StackDriftBanner v-if="!trashed" :project="project" />
 
@@ -492,6 +502,7 @@ const tabs: { id: Bucket; label: string }[] = [
     <RoadmapDialog v-model:open="showRoadmap" :project="project" />
     <DecisionsDialog v-model:open="showDecisions" :project="project" />
     <StatusReportDialog v-model:open="showReport" :project="project" />
+    <TemplatesDialog v-model:open="showTemplates" :project="project" />
     <MilestonesDialog v-model:open="showMilestones" :project="project" :read-only="trashed" @show-tasks="showMilestoneTasks" />
   </template>
 </template>

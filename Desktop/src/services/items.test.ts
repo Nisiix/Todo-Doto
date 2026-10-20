@@ -25,6 +25,7 @@ const base: Item = {
   milestoneId: null,
   estimateHours: null,
   checklist: [],
+  repeat: 'none',
   confirmedAt: null,
 }
 const item = (over: Partial<Item>): Item => ({ ...base, ...over })
