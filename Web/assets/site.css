@@ -322,3 +322,11 @@ img[data-shot] { cursor: zoom-in; }
 .lightbox__close { position: fixed; top: 1rem; right: 1rem; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .14); color: #fff; font: 600 28px/1 system-ui, sans-serif; cursor: pointer; opacity: 0; transition: opacity .2s ease, background .15s; }
 .lightbox__close:hover { background: rgb(255 255 255 / .26); }
 .lightbox.is-open .lightbox__cap, .lightbox.is-open .lightbox__close { opacity: 1; }
+
+/* --- donazioni ------------------------------------------------------------ */
+#sostieni { padding-top: 0; }
+.donate { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; padding: 1.4rem 1.6rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.donate > svg { color: var(--p-immediata); flex: none; }
+.donate > div { flex: 1 1 20rem; }
+.donate .sec__title { font-size: 1.3rem; }
+.donate .sec__lead { margin: 0; }

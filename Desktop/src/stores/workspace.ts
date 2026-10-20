@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
 import { WorkspaceStorage, type Signature } from '@/services/storage'
 import { hashPassword, verifyPassword } from '@/services/crypto'
+import { createEncryption, unwrapKey, wrapKey, type DataCipher } from '@/services/vault'
 import { forgetPassword, hasRememberedPassword, recallPassword, rememberPassword } from '@/services/config'
 import { newId, nowIso } from '@/services/ids'
 import { useSessionStore } from './session'
@@ -66,6 +67,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const lastError = ref<string | null>(null)
   /** La password del workspace di rete è ricordata (cifrata) su questo PC per questo utente. */
   const passwordRemembered = ref(false)
+
+  /**
+   * Password del workspace di rete usata in questa sessione (solo in memoria):
+   * serve ad aprire la chiave dati se un amministratore attiva la cifratura
+   * mentre il workspace è aperto. Si dimentica alla chiusura.
+   */
+  let sessionPassword: string | null = null
+  /** Chiave dati del workspace (cifratura sul disco), se attiva o usata in passato. */
+  let cipher: DataCipher | null = null
 
   let signature: Signature = {}
   let pollTimer: number | null = null
@@ -171,14 +181,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       storage.value = s
       meta.value = await s.readMeta()
-      users.value = (await s.readUsers()).users
 
       if (meta.value.mode === 'network' && meta.value.auth) {
         const candidate = opts.password ?? (await recallPassword(meta.value.id, session.localSecret))
-        if (!candidate || !(await verifyPassword(candidate, meta.value.auth))) {
+        if (!candidate || !(await verifyPassword(candidate, meta.value.auth)) || !(await applyKey(candidate))) {
           status.value = 'locked'
           return { ok: false, needsPassword: true }
         }
+      } else if (!(await applyKey(null))) {
+        throw new Error(common.ws.keyLost)
       }
       await finishOpen()
       return { ok: true }
@@ -193,6 +204,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   async function unlock(password: string, remember = true): Promise<OpenResult> {
     if (!storage.value || !meta.value?.auth) return { ok: false, error: common.ws.nothingToUnlock }
     if (!(await verifyPassword(password, meta.value.auth))) return { ok: false, error: common.ws.wrongPassword }
+    if (!(await applyKey(password))) return { ok: false, error: common.ws.keyLost }
     // Ricordata solo se l'utente lo sceglie; altrimenti si toglie anche una
     // eventuale copia vecchia (non più valida, visto che è stata richiesta).
     if (remember) await rememberPassword(meta.value.id, password, session.localSecret)
@@ -201,8 +213,31 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return { ok: true }
   }
 
+  /**
+   * Prepara la chiave dati per la cifratura sul disco: se il workspace è
+   * cifrato la apre con la password (false se non ci riesce), altrimenti
+   * niente. Ricorda la password della sessione.
+   */
+  async function applyKey(password: string | null): Promise<boolean> {
+    const s = storage.value
+    const info = meta.value?.encryption ?? null
+    if (password) sessionPassword = password
+    if (!s) return false
+    if (!info) {
+      cipher = null
+      s.setCipher(null, false)
+      return true
+    }
+    const c = password ? await unwrapKey(info, password) : null
+    if (!c) return false
+    cipher = c
+    s.setCipher(c, info.enabled)
+    return true
+  }
+
   async function finishOpen() {
     const s = storage.value!
+    users.value = (await s.readUsers()).users
     await ensureCurrentUser()
     passwordRemembered.value = meta.value?.mode === 'network' && !!meta.value.auth && (await hasRememberedPassword(meta.value.id))
     tree.value = await s.readTree()
@@ -246,6 +281,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   async function close() {
     stopWatching()
     storage.value = null
+    sessionPassword = null
+    cipher = null
     meta.value = null
     passwordRemembered.value = false
     users.value = []
@@ -287,6 +324,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         auth: opts.mode === 'network' && opts.password ? await hashPassword(opts.password) : null,
         projectsPath: opts.projectsPath?.trim() ?? '',
         backup: { enabled: true, dir: '' },
+        encryption: null,
       }
       await s.create(m, { users: [admin] })
       if (m.auth && opts.password && opts.rememberPassword !== false) await rememberPassword(m.id, opts.password, session.localSecret)
@@ -340,7 +378,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   async function refreshOnce() {
     const s = storage.value
-    if (!s || status.value === 'closed' || status.value === 'locked') return
+    // Solo a workspace aperto (non durante l'apertura: la chiave dati potrebbe non essere ancora pronta)
+    if (!s || (status.value !== 'open' && status.value !== 'unreachable')) return
     try {
       // Le scritture locali successive a questa lettura rendono superata la firma:
       // un file appena creato qui sembrerebbe "cancellato" (vedi stale() sotto).
@@ -369,7 +408,16 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         if (key === 'workspace.json') {
           const v = await s.readMeta()
           if (stale()) continue
+          const before = meta.value?.encryption ?? null
           meta.value = v
+          // Cifratura attivata, disattivata o chiave riavvolta da un amministratore
+          if (JSON.stringify(before) !== JSON.stringify(v.encryption)) {
+            const ok = v.encryption && cipher ? (s.setCipher(cipher, v.encryption.enabled), true) : await applyKey(sessionPassword)
+            if (!ok) {
+              if (storage.value === s) await lockOut()
+              return
+            }
+          }
         } else if (key === 'users.json') {
           const v = (await s.readUsers()).users
           if (stale()) continue
@@ -425,11 +473,62 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         ui.toast(common.ws.updatedBy(names), 'info')
       }
     } catch (e) {
+      // File cifrati che questa sessione non sa più leggere: si chiede di nuovo la password
+      // (un errore nato mentre questa sessione attivava la cifratura, o in uno storage già chiuso, si ignora: si riprova al prossimo giro)
+      if (e instanceof Error && e.message === 'encrypted') {
+        if (storage.value === s && !s.hasCipher) await lockOut()
+        return
+      }
       if (status.value === 'open') {
         status.value = 'unreachable'
         lastError.value = describe(e)
       }
     }
+  }
+
+  /** La chiave dati non è più valida (password cambiata altrove): si chiude e si chiede di riaprire. */
+  async function lockOut() {
+    await close()
+    ui.toast(common.ws.keyLost, 'warning', undefined, 10000)
+    const { router } = await import('@/router')
+    await router.replace({ name: 'welcome' })
+  }
+
+  /**
+   * Cifratura dei dati sul disco (solo amministratori, workspace di rete):
+   * attivandola si crea la chiave dati (o si riusa quella di prima), la si
+   * salva avvolta dalla password in workspace.json e si riscrivono cifrati
+   * tutti i file; disattivandola si riscrivono in chiaro (la chiave resta, per
+   * le copie di sicurezza cifrate). Gli altri PC aperti se ne accorgono da soli.
+   */
+  async function setEncryption(enabled: boolean): Promise<boolean> {
+    const s = storage.value
+    if (!s || !meta.value || !isAdmin.value) return false
+    if (!isNetwork.value || !meta.value.auth || !sessionPassword) {
+      ui.toast(common.ws.encryptOnlyNetwork, 'warning', undefined, 6000)
+      return false
+    }
+    const password = sessionPassword
+    const r = await guard(async () => {
+      let info = meta.value!.encryption
+      let c = cipher
+      if (!info || !c) {
+        const created = await createEncryption(password)
+        info = created.info
+        c = created.cipher
+      }
+      const next = { ...info, enabled }
+      // Prima la chiave (così chi legge sa decifrare), poi i file nel nuovo formato
+      meta.value = await s.mutateMeta((x) => void (x.encryption = next))
+      cipher = c
+      s.setCipher(c, enabled)
+      writeGen++
+      await s.rewriteAll()
+      // Anche le copie di sicurezza che si faranno da ora
+      signature = await s.signature()
+      return true
+    })
+    return !!r
   }
 
   function diffItems(a: Project, b: Project): string[] {
@@ -974,8 +1073,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!s || !meta.value || !isNetwork.value || !isAdmin.value) return
     await guard(async () => {
       const auth = await hashPassword(newPassword)
-      const m = await s.mutateMeta((x) => void (x.auth = auth))
+      // Dati cifrati: la stessa chiave dati, avvolta con la nuova password (i file non cambiano)
+      const wrapped = cipher && meta.value?.encryption ? await wrapKey(cipher.raw, newPassword, meta.value.encryption.enabled) : null
+      const m = await s.mutateMeta((x) => {
+        x.auth = auth
+        if (wrapped) x.encryption = wrapped
+      })
       meta.value = m
+      sessionPassword = newPassword
       // La copia locale si aggiorna solo se l'admin aveva scelto di ricordarla.
       if (passwordRemembered.value) await rememberPassword(m.id, newPassword, session.localSecret)
       markLocalWrite('workspace.json')
@@ -1140,7 +1245,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       await reloadFromDisk()
       await record('project_restored', p)
     } else {
-      await s.restoreAll({ ...b, projects: b.projects.map(bump) }, { auth: meta.value.auth, backup: meta.value.backup })
+      await s.restoreAll({ ...b, projects: b.projects.map(bump) }, { auth: meta.value.auth, backup: meta.value.backup, encryption: meta.value.encryption })
       await reloadFromDisk()
     }
     return true
@@ -1229,6 +1334,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     projects,
     lastError,
     passwordRemembered,
+    setEncryption,
     readiness,
     canUserSee,
     backups,

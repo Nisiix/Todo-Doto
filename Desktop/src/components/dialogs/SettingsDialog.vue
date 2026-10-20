@@ -2,11 +2,13 @@
 import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, KeyRound, Lock, SlidersHorizontal, UserRound } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, Heart, KeyRound, Lock, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-vue-next'
+import { useConfirm } from '@/composables/useConfirm'
+import { getFs } from '@/services/fs'
+import { DONATE_URL } from '@/services/branding'
 import dayjs from 'dayjs'
 import RestoreDialog from './RestoreDialog.vue'
 import AiSettings from './AiSettings.vue'
-import { getFs } from '@/services/fs'
 import { samePath } from '@/services/projectScan'
 import { checkFolder } from '@/services/fsErrors'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
@@ -68,6 +70,20 @@ const m = defineMessages({
     newPw: 'Nuova password',
     repeat: 'Ripeti',
     leaveEmpty: 'Lascia vuoto per non cambiarla.',
+    encTitle: 'Cifratura dei dati sul disco',
+    encOn: 'Dati cifrati (AES-256): i file nella cartella Dati sono illeggibili senza la password del workspace, anche per chi accede alla cartella con altri programmi.',
+    encOff: 'I file nella cartella Dati sono in chiaro: chi accede alla cartella con altri programmi può leggerli.',
+    encEnable: 'Cifra i dati',
+    encDisable: 'Togli la cifratura',
+    encEnableTitle: 'Cifrare i dati del workspace?',
+    encEnableMsg: 'Tutti i file della cartella Dati e le prossime copie di sicurezza verranno cifrati con una chiave protetta dalla password del workspace. Gli altri utenti continuano a entrare con la stessa password. Senza la password i dati non si possono recuperare: conservala in un posto sicuro.',
+    encDisableTitle: 'Togliere la cifratura?',
+    encDisableMsg: 'I file verranno riscritti in chiaro. Le copie di sicurezza già cifrate restano leggibili dall’app.',
+    encDone: (on: boolean): string => (on ? 'Dati cifrati' : 'Cifratura tolta'),
+    encMember: 'Solo un amministratore può cambiarla.',
+    donateTitle: 'Sostieni il progetto',
+    donateText: 'Todo Doto è gratuito. Una donazione è ben accetta e supporterà lo sviluppo del progetto.',
+    donate: 'Dona con PayPal',
   },
   en: {
     pwUpdated: 'Password updated. Other users will have to enter it again on their next access.',
@@ -117,6 +133,20 @@ const m = defineMessages({
     newPw: 'New password',
     repeat: 'Repeat',
     leaveEmpty: 'Leave empty to keep it.',
+    encTitle: 'Data encryption on disk',
+    encOn: 'Data encrypted (AES-256): the files in the data folder cannot be read without the workspace password, even by whoever opens the folder with other programs.',
+    encOff: 'The files in the data folder are not encrypted: whoever opens the folder with other programs can read them.',
+    encEnable: 'Encrypt the data',
+    encDisable: 'Remove encryption',
+    encEnableTitle: 'Encrypt the workspace data?',
+    encEnableMsg: 'All the files in the data folder and the next backups will be encrypted with a key protected by the workspace password. The other users keep signing in with the same password. Without the password the data cannot be recovered: keep it somewhere safe.',
+    encDisableTitle: 'Remove encryption?',
+    encDisableMsg: 'The files will be rewritten unencrypted. Backups that are already encrypted remain readable by the app.',
+    encDone: (on: boolean): string => (on ? 'Data encrypted' : 'Encryption removed'),
+    encMember: 'Only an administrator can change it.',
+    donateTitle: 'Support the project',
+    donateText: 'Todo Doto is free. Donations are welcome and will support the development of the project.',
+    donate: 'Donate with PayPal',
   },
 })
 
@@ -226,6 +256,23 @@ async function forgetPw() {
   ui.toast(m.pwForgotten, 'info', undefined, 4000)
 }
 
+// --- cifratura dei dati (workspace di rete, amministratori) ---------------------------
+const confirm = useConfirm()
+const encBusy = ref(false)
+const encrypted = computed(() => !!ws.meta?.encryption?.enabled)
+async function toggleEncryption() {
+  const on = !encrypted.value
+  const ok = await confirm({ title: on ? m.encEnableTitle : m.encDisableTitle, message: on ? m.encEnableMsg : m.encDisableMsg, confirmLabel: on ? m.encEnable : m.encDisable, danger: !on })
+  if (!ok) return
+  encBusy.value = true
+  try {
+    if (await ws.setEncryption(on)) ui.toast(m.encDone(on), 'success', undefined, 3000)
+  } finally {
+    encBusy.value = false
+  }
+}
+const donate = async () => (await getFs()).openExternal(DONATE_URL, 'link')
+
 const themes: { value: Theme; label: string }[] = [
   { value: 'light', label: m.light },
   { value: 'dark', label: m.dark },
@@ -281,6 +328,15 @@ const themes: { value: Theme; label: string }[] = [
         {{ m.reopenLast }}
       </label>
 
+      <section class="flex items-start gap-3 rounded-md border border-line px-3 py-2.5" aria-labelledby="s-donate-title" data-donate>
+        <Heart :size="16" class="mt-0.5 shrink-0 text-p-immediata" />
+        <div class="min-w-0 flex-1">
+          <p id="s-donate-title" class="text-[13.5px] font-semibold">{{ m.donateTitle }}</p>
+          <p class="text-[12.5px] leading-snug text-ink-2">{{ m.donateText }}</p>
+        </div>
+        <BaseButton size="sm" variant="primary" class="shrink-0" data-donate-button @click="donate">{{ m.donate }}</BaseButton>
+      </section>
+
     </div>
 
     <div v-show="tab === 'user'" class="space-y-5" role="tabpanel" data-settings-panel="user">
@@ -313,6 +369,15 @@ const themes: { value: Theme; label: string }[] = [
           <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
           <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }} {{ m.changePwHint }}</p>
         </template>
+      </section>
+
+      <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-enc-title" data-encryption>
+        <span id="s-enc-title" class="label">{{ m.encTitle }}</span>
+        <div class="flex items-start gap-3 rounded-md bg-surface-2 px-3 py-2">
+          <component :is="encrypted ? ShieldCheck : Lock" :size="15" class="mt-0.5 shrink-0" :class="encrypted ? 'text-ok' : 'text-ink-3'" />
+          <p class="flex-1 text-[12.5px] leading-snug text-ink-2" data-encryption-state>{{ encrypted ? m.encOn : m.encOff }} <span v-if="!ws.isAdmin" class="text-ink-3">{{ m.encMember }}</span></p>
+          <BaseButton v-if="ws.isAdmin" size="sm" :variant="encrypted ? 'ghost' : 'primary'" :disabled="encBusy" data-encryption-toggle @click="toggleEncryption">{{ encrypted ? m.encDisable : m.encEnable }}</BaseButton>
+        </div>
       </section>
     </div>
 

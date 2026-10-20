@@ -13,6 +13,7 @@ const meta: WorkspaceMeta = {
   auth: null,
   projectsPath: '',
   backup: { enabled: true, dir: '' },
+  encryption: null,
 }
 const users: UsersFile = {
   users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt }],

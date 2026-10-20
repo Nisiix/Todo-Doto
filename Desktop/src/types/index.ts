@@ -42,6 +42,20 @@ export type User = z.infer<typeof UserSchema>
 export const UsersFileSchema = z.object({ users: z.array(UserSchema).default([]) })
 export type UsersFile = z.infer<typeof UsersFileSchema>
 
+/**
+ * Cifratura dei dati sul disco (workspace di rete, vedi services/vault.ts): la
+ * chiave dati avvolta con la password. `enabled` falso: i file si scrivono in
+ * chiaro, la chiave resta per leggere le copie di sicurezza cifrate.
+ */
+export const EncryptionInfoSchema = z.object({
+  v: z.literal(1).default(1),
+  enabled: z.boolean().default(true),
+  salt: z.string(),
+  iterations: z.number(),
+  wrapped: z.string(),
+})
+export type EncryptionInfo = z.infer<typeof EncryptionInfoSchema>
+
 export const WorkspaceMetaSchema = z.object({
   schema: z.number().default(1),
   id: z.string(),
@@ -61,6 +75,7 @@ export const WorkspaceMetaSchema = z.object({
    * `backups` dentro la cartella Dati.
    */
   backup: z.object({ enabled: z.boolean().default(true), dir: z.string().default('') }).default({ enabled: true, dir: '' }),
+  encryption: EncryptionInfoSchema.nullable().default(null),
 })
 export type WorkspaceMeta = z.infer<typeof WorkspaceMetaSchema>
 

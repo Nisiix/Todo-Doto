@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title data-i18n="meta.title">Todo Doto — la roadmap condivisa del tuo ufficio, in una cartella di rete</title>
-  <meta name="description" data-i18n-content="meta.description" content="App desktop per Windows per la roadmap dei progetti di un ufficio: task con priorità, scadenze e assegnatari, Gantt, domande e commenti, allegati, stack tecnologico con configurazione guidata. Dati in una cartella di rete: nessun server, nessun account, nessun cloud. Gratis per uso personale, piani Team e Business a prezzo fisso." />
+  <meta name="description" data-i18n-content="meta.description" content="App desktop per Windows per la roadmap dei progetti di un ufficio: task con priorità, scadenze e assegnatari, Gantt, domande e commenti, allegati, stack tecnologico con configurazione guidata. Dati in una cartella di rete: nessun server, nessun account, nessun cloud. Gratuita." />
   <link rel="canonical" href="https://projectgoalmanager.app/" />
   <link rel="alternate" hreflang="it" href="?lang=it" />
   <link rel="alternate" hreflang="en" href="?lang=en" />
@@ -40,12 +40,17 @@
     "description": "Roadmap condivisa dei progetti di un ufficio, salvata in una cartella di rete: task, Gantt, stack tecnologico con configurazione guidata. Nessun server, nessun account, nessun cloud.",
     "url": "https://projectgoalmanager.app/",
     "offers": [
+      { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR" }
+    ]
+  }
+  </script>
+  <!-- Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. Offerte JSON-LD sospese:
+    "offers": [
       { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "EUR" },
       { "@type": "Offer", "name": "Team", "price": "49.90", "priceCurrency": "EUR", "description": "per workspace all'anno (o 5,90 € al mese), fino a 10 utenti" },
       { "@type": "Offer", "name": "Business", "price": "149.90", "priceCurrency": "EUR", "description": "per workspace all'anno (o 14,90 € al mese), utenti illimitati" }
     ]
-  }
-  </script>
+  -->
 </head>
 <body>
   <header class="top">
@@ -61,7 +66,7 @@
         <a href="#perche" data-i18n="nav.why">Intro</a>
         <a href="#tutorial" data-i18n="nav.tutorial">Tutorial</a>
         <a href="#funzionalita" data-i18n="nav.features">Funzionalità</a>
-        <a href="#prezzi" data-i18n="nav.pricing">Prezzi</a>
+        <!-- <a href="#prezzi" data-i18n="nav.pricing">Prezzi</a> Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. -->
         <a href="#faq" data-i18n="nav.faq">FAQ</a>
         <a href="guida.html" data-i18n="nav.guide" data-i18n-href="link.guide">Guida</a>
         <a class="btn btn--primary btn--sm" href="#download" data-i18n="nav.download">Scarica</a>
@@ -84,9 +89,10 @@
           <p data-i18n="hero.lead">Task con priorità, scadenze e assegnatari, Gantt, domande e allegati. E per ogni progetto lo stack tecnologico, con la configurazione guidata del PC. Sul server che avete già, anche senza internet: nessun server da installare, nessun account, nessun cloud. Le modifiche dei colleghi si sommano, non si sovrascrivono.</p>
           <div class="hero__cta">
             <a class="btn btn--primary" href="#download" data-i18n="hero.cta">Scarica per Windows</a>
-            <a class="btn btn--outline" href="#prezzi" data-i18n="hero.pricing">Vedi i prezzi</a>
+            <a class="btn btn--outline" href="#tutorial" data-i18n="hero.tutorial">Guarda i video</a>
+            <!-- <a class="btn btn--outline" href="#prezzi" data-i18n="hero.pricing">Vedi i prezzi</a> Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. -->
           </div>
-          <p class="hero__meta" data-i18n="hero.meta">Gratis per uso personale e fino a 3 persone · Team da 49,90 €/anno per tutto l'ufficio · Windows 10/11 · in italiano e in inglese</p>
+          <p class="hero__meta" data-i18n="hero.meta">Gratuita, anche per tutto l'ufficio · Windows 10/11 · in italiano e in inglese</p>
         </div>
         <figure class="window" style="margin:0">
           <div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -97,7 +103,7 @@
         <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t1">Nessun dato lascia il vostro server</span></span>
         <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t2">Senza account e senza telemetria</span></span>
         <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t3">Installer o eseguibile portabile, in italiano e in inglese</span></span>
-        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t4">Un prezzo per ufficio, non per persona</span></span>
+        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span data-i18n="trust.t4">Gratuita, senza limiti di persone</span></span>
       </div>
     </section>
 
@@ -309,6 +315,7 @@
       </div>
     </section>
 
+<!-- Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento.
     <section id="prezzi">
       <div class="wrap">
         <h2 class="sec__title" data-i18n="price.title">Prezzi</h2>
@@ -369,6 +376,7 @@
       </div>
     </section>
 
+-->
     <section id="faq">
       <div class="wrap">
         <h2 class="sec__title" data-i18n="faq.title">Domande frequenti</h2>
@@ -379,8 +387,8 @@
           <details><summary data-i18n="faq.q3">Come si condivide con i colleghi?</summary><p data-i18n="faq.a3">Crei il workspace su una cartella del server in modalità «Condiviso in rete» con una password. I colleghi installano l'app, aprono la stessa cartella e inseriscono la password una sola volta. Da quel momento le modifiche di ciascuno compaiono sugli altri PC entro pochi secondi.</p></details>
           <details><summary data-i18n="faq.q4">Cosa succede se due persone modificano lo stesso progetto?</summary><p data-i18n="faq.a4">Ogni modifica prende un lock sul file del progetto, lo rilegge, applica il cambiamento e lo riscrive in modo atomico: le modifiche si sommano anche se avvengono nello stesso istante. Se un collega ha toccato il progetto che stai guardando, la riga lampeggia e un avviso dice chi è stato.</p></details>
           <details><summary data-i18n="faq.q5">Posso partire dai progetti che ho già?</summary><p data-i18n="faq.a5">Sì. Scegli la cartella che li contiene: l'app li riconosce dai file (<code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>…), li crea nel workspace e ne ricava lo stack con prerequisiti e passi. Oppure collega GitHub con un token in sola lettura e crea i progetti dai repository.</p></details>
-          <details><summary data-i18n="faq.q6">Cosa succede quando scade l'abbonamento?</summary><p data-i18n="faq.a6">Il workspace torna al piano Free: continui a usare l'app, i dati restano dove sono, ma le funzioni dei piani a pagamento si disattivano finché non rinnovi. L'abbonamento è annuale (o mensile) e include tutti gli aggiornamenti.</p></details>
-          <details><summary data-i18n="faq.q7">Serve una licenza per ogni PC?</summary><p data-i18n="faq.a7">No: una licenza per workspace, cioè per cartella condivisa. Vale per tutti i membri fino al numero di posti del piano. Se hai più uffici con più cartelle, servono più licenze oppure il piano Business con più workspace.</p></details>
+          <!-- Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. <details><summary data-i18n="faq.q6">Cosa succede quando scade l'abbonamento?</summary><p data-i18n="faq.a6">Il workspace torna al piano Free: continui a usare l'app, i dati restano dove sono, ma le funzioni dei piani a pagamento si disattivano finché non rinnovi. L'abbonamento è annuale (o mensile) e include tutti gli aggiornamenti.</p></details> -->
+          <!-- Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. <details><summary data-i18n="faq.q7">Serve una licenza per ogni PC?</summary><p data-i18n="faq.a7">No: una licenza per workspace, cioè per cartella condivisa. Vale per tutti i membri fino al numero di posti del piano. Se hai più uffici con più cartelle, servono più licenze oppure il piano Business con più workspace.</p></details> -->
           <details><summary data-i18n="faq.q8">Come faccio i backup?</summary><p data-i18n="faq.a8">Il workspace è una cartella: qualsiasi backup del server la include. In più l'app crea copie di sicurezza del workspace, che l'amministratore ripristina dalle Impostazioni.</p></details>
           <details><summary data-i18n="faq.q9">È conforme al GDPR?</summary><p data-i18n="faq.a9">I dati non lasciano la vostra infrastruttura e l'app non raccoglie informazioni personali oltre al nome utente e al nome del PC con cui firmare le modifiche. Non ci sono trasferimenti a terzi da documentare. Leggi l'<a href="privacy.html" data-i18n-href="link.privacy">informativa</a>.</p></details>
           <details><summary data-i18n="faq.q10">Windows mostra «PC protetto da Windows» all'installazione.</summary><p data-i18n="faq.a10">È SmartScreen, che diffida dei programmi che vede per la prima volta. L'avviso scompare man mano che la reputazione cresce; nel frattempo scegli «Ulteriori informazioni → Esegui comunque» dopo aver scaricato il file dalle fonti ufficiali, oppure usa l'eseguibile portabile.</p></details>
@@ -415,12 +423,23 @@
         </div>
       </div>
     </section>
+    <section id="sostieni">
+      <div class="wrap donate">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        <div>
+          <h2 class="sec__title" data-i18n="donate.title">Sostieni il progetto</h2>
+          <p class="sec__lead" data-i18n="donate.lead">Todo Doto è gratuito. Una donazione è ben accetta e supporterà lo sviluppo del progetto.</p>
+        </div>
+        <a class="btn btn--primary" href="https://www.paypal.com/donate/?business=nisos%40live.it&amp;item_name=Todo+Doto&amp;currency_code=EUR" target="_blank" rel="noopener" data-i18n="donate.cta">Dona con PayPal</a>
+      </div>
+    </section>
   </main>
 
   <footer>
     <div class="wrap foot">
       <span>© 2026 Todo Doto · <a href="mailto:supporto@projectgoalmanager.app">supporto@projectgoalmanager.app</a></span>
       <nav class="foot__links" aria-label="Collegamenti" data-i18n-aria-label="foot.label">
+        <a href="#sostieni" data-i18n="foot.donate">Dona</a>
         <a href="guida.html" data-i18n="foot.guide" data-i18n-href="link.guide">Guida</a>
         <a href="changelog.html" data-i18n="foot.changelog">Novità</a>
         <a href="vs-trello.html" data-i18n="foot.vsTrello">vs Trello</a>

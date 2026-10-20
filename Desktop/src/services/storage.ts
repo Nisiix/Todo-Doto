@@ -51,6 +51,7 @@ import {
   type BackupInfo,
 } from './backup'
 import { common } from '@/i18n/common'
+import { EncryptedDataError, isEncryptedBytes, isEncryptedText, type DataCipher } from './vault'
 
 export interface LockOptions {
   /** Un lock rimasto identico per questo tempo è considerato abbandonato. */
@@ -104,7 +105,10 @@ export const isSafeId = (id: string) => SAFE_ID.test(id)
 async function isOwnJson(fs: FsApi, path: string, name: string, field: 'id' | 'userId') {
   if (!/\.json$/i.test(name) || !isSafeId(name.slice(0, -5))) return false
   try {
-    const raw = JSON.parse(await fs.readText(path)) as Record<string, unknown>
+    const text = await fs.readText(path)
+    // File cifrato dall'app (workspace con la cifratura attiva): il contenuto non si legge senza chiave
+    if (isEncryptedText(text)) return true
+    const raw = JSON.parse(text) as Record<string, unknown>
     return raw[field] === name.slice(0, -5)
   } catch {
     return false
@@ -120,6 +124,18 @@ export class WorkspaceStorage {
   private queues = new Map<string, Promise<unknown>>()
   /** Chi tiene i lock creati da questa istanza (es. "mario@PC-UFFICIO"), mostrato a chi aspetta. */
   lockOwner = ''
+  /** Chiave dati del workspace (cifratura sul disco) e se le scritture vanno cifrate. */
+  private cipher: DataCipher | null = null
+  private encryptWrites = false
+
+  /** Imposta la chiave dati: con `write` i file si scrivono cifrati (workspace.json resta in chiaro). */
+  setCipher(cipher: DataCipher | null, write: boolean) {
+    this.cipher = cipher
+    this.encryptWrites = !!cipher && write
+  }
+  get hasCipher() {
+    return !!this.cipher
+  }
 
   constructor(
     public readonly root: string,
@@ -184,12 +200,46 @@ export class WorkspaceStorage {
 
   private async readJson<T>(path: string, parse: (raw: unknown) => T): Promise<T> {
     const text = await this.fs.readText(path)
-    return parse(JSON.parse(text))
+    return parse(JSON.parse(await this.decode(text)))
+  }
+
+  /** Testo di un file: in chiaro così com'è, cifrato decifrato con la chiave dati. */
+  private async decode(text: string): Promise<string> {
+    if (!isEncryptedText(text)) return text
+    if (!this.cipher) throw new EncryptedDataError()
+    try {
+      return await this.cipher.decryptText(text)
+    } catch {
+      throw new EncryptedDataError() // chiave diversa (es. password cambiata altrove)
+    }
   }
 
   /** JSON compatto: file più piccoli da trasferire e analizzare (quelli formattati si leggono comunque). */
-  private writeJson(path: string, data: unknown) {
-    return this.fs.writeTextAtomic(path, JSON.stringify(data))
+  private async writeJson(path: string, data: unknown) {
+    const json = JSON.stringify(data)
+    // workspace.json resta in chiaro: serve per aprire il workspace (contiene la chiave avvolta)
+    const out = this.encryptWrites && this.cipher && path !== this.paths.workspace ? await this.cipher.encryptText(json) : json
+    return this.fs.writeTextAtomic(path, out)
+  }
+
+  /**
+   * Riscrive tutti i file del workspace nel formato attuale (cifrato o in
+   * chiaro), ognuno sotto il suo lock. Serve ad attivare o disattivare la
+   * cifratura: nel frattempo i lettori accettano entrambi i formati.
+   */
+  async rewriteAll() {
+    const same = (r: unknown) => r
+    const rewrite = async (path: string) => {
+      if (!(await this.fs.exists(path))) return
+      await this.withLock(path, async () => this.writeJson(path, await this.readJson(path, same)))
+    }
+    for (const p of [this.paths.users, this.paths.tree, this.paths.drive, this.paths.audit]) await rewrite(p)
+    for (const id of await this.listProjectIds()) await rewrite(await this.projectPath(id))
+    if (await this.fs.exists(this.paths.readinessDir)) {
+      for (const name of await this.fs.readDir(this.paths.readinessDir)) {
+        if (name.endsWith('.json') && isSafeId(name.slice(0, -5))) await rewrite(await this.fs.join(this.paths.readinessDir, name))
+      }
+    }
   }
 
   /**
@@ -372,7 +422,16 @@ export class WorkspaceStorage {
     return this.fs.join(dir, name)
   }
   async readBackup(dir: string, name: string): Promise<BackupBundle> {
-    return unpackBackup(await this.fs.readBinary(await this.backupPath(dir, name)))
+    let bytes = await this.fs.readBinary(await this.backupPath(dir, name))
+    if (isEncryptedBytes(bytes)) {
+      if (!this.cipher) throw new EncryptedDataError()
+      try {
+        bytes = await this.cipher.decryptBytes(bytes)
+      } catch {
+        throw new EncryptedDataError()
+      }
+    }
+    return unpackBackup(bytes)
   }
   /**
    * Crea una copia sotto lock della cartella delle copie. Con `onlyIfDue` (le
@@ -390,7 +449,9 @@ export class WorkspaceStorage {
       let name = backupFileName(at, bundle.reason)
       // Due copie nello stesso secondo: si sposta di un secondo
       while (list.some((b) => b.name === name)) name = backupFileName((at = new Date(at.getTime() + 1000)), bundle.reason)
-      await this.fs.writeBinary(await this.backupPath(dir, name), await packBackup(bundle))
+      const packed = await packBackup(bundle)
+      // Workspace cifrato: anche la copia (che può stare su un altro disco o server)
+      await this.fs.writeBinary(await this.backupPath(dir, name), this.encryptWrites && this.cipher ? await this.cipher.encryptBytes(new Uint8Array(packed)) : packed)
       // Rotazione: si eliminano SOLO copie dell'app (nome riconosciuto) in questa cartella
       for (const old of backupsToDelete([...list, { name, at, reason: bundle.reason }])) {
         await this.fs.remove(await this.backupPath(dir, old.name)).catch(() => {})
@@ -404,7 +465,7 @@ export class WorkspaceStorage {
    * le cartelle dei progetti non si toccano). `keep` conserva i campi del
    * workspace che non devono tornare indietro (password, impostazioni copie).
    */
-  async restoreAll(content: BackupContent, keep: Pick<WorkspaceMeta, 'auth' | 'backup'>) {
+  async restoreAll(content: BackupContent, keep: Pick<WorkspaceMeta, 'auth' | 'backup' | 'encryption'>) {
     await this.withLock(this.paths.workspace, () => this.writeJson(this.paths.workspace, { ...content.workspace, ...keep }))
     await this.withLock(this.paths.users, () => this.writeJson(this.paths.users, content.users))
     await this.withLock(this.paths.tree, () => this.writeJson(this.paths.tree, content.tree))
