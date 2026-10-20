@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Download } from 'lucide-vue-next'
+import { Download, Mail, Send } from 'lucide-vue-next'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { getFs } from '@/services/fs'
-import { buildRoadmapHtml, defaultRoadmapOptions, roadmapSections, type RoadmapOptions } from '@/services/roadmap'
+import { buildRoadmapHtml, defaultRoadmapOptions, roadmapSections, roadmapText, type RoadmapOptions } from '@/services/roadmap'
+import { isEmail, mailtoLink } from '@/services/office'
 import type { Project } from '@/types'
 import { defineMessages } from '@/i18n'
 
@@ -33,6 +34,14 @@ const m = defineMessages({
     saved: 'Roadmap salvata. Per un PDF: aprila e stampa in PDF.',
     open: 'Apri',
     preview: 'Anteprima della roadmap',
+    mail: 'Invia per email',
+    mailHint: 'Apre il programma di posta con la roadmap in testo',
+    sendTo: 'Invia al cliente',
+    sendToPlaceholder: 'email del cliente',
+    subject: (p: string) => `Roadmap · ${p}`,
+    sent: 'Roadmap inviata.',
+    sendFailed: 'Invio non riuscito: controlla Impostazioni › Email e Teams.',
+    invalid: 'Indirizzo email non valido.',
   },
   en: {
     title: 'Client roadmap',
@@ -56,6 +65,14 @@ const m = defineMessages({
     saved: 'Roadmap saved. For a PDF: open it and print to PDF.',
     open: 'Open',
     preview: 'Roadmap preview',
+    mail: 'Send by email',
+    mailHint: 'Opens the mail program with the roadmap as text',
+    sendTo: 'Send to the client',
+    sendToPlaceholder: 'client email',
+    subject: (p: string) => `Roadmap · ${p}`,
+    sent: 'Roadmap sent.',
+    sendFailed: 'Sending failed: check Settings › Email and Teams.',
+    invalid: 'Invalid email address.',
   },
 })
 
@@ -100,6 +117,28 @@ const slug = (s: string) =>
     .replace(/[^A-Za-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase() || 'progetto'
+
+const ctx = () => ({ labels: ws.labelsById, userName: ws.userName })
+async function mailText() {
+  const title = opts.value.title.trim() || props.project.name
+  await (await getFs()).openExternal(mailtoLink([], m.subject(title), roadmapText(props.project, opts.value, ctx())), 'link')
+}
+/** Con il metodo di invio del workspace (Outlook o SMTP) la roadmap parte come pagina HTML. */
+const canSend = computed(() => ws.isNetwork && (ws.meta?.mail.method ?? 'off') !== 'off')
+const clientEmail = ref('')
+const sending = ref(false)
+async function sendToClient() {
+  const to = clientEmail.value.split(/[,;\s]+/).filter(Boolean)
+  if (!to.length || !to.every(isEmail)) return ui.toast(m.invalid, 'warning')
+  sending.value = true
+  try {
+    const title = opts.value.title.trim() || props.project.name
+    const ok = await ws.sendMail({ to, subject: m.subject(title), html: html.value, text: roadmapText(props.project, opts.value, ctx()) })
+    ui.toast(ok === true ? m.sent : m.sendFailed, ok === true ? 'success' : 'error', undefined, 6000)
+  } finally {
+    sending.value = false
+  }
+}
 
 async function save() {
   const fs = await getFs()
@@ -147,6 +186,11 @@ async function save() {
       <iframe :srcdoc="html" sandbox="" class="h-[62vh] min-w-0 flex-1 rounded-md border border-line bg-white" :title="m.preview" data-rm-preview />
     </div>
     <template #footer>
+      <div v-if="canSend" class="mr-auto flex items-center gap-2">
+        <input v-model="clientEmail" type="email" class="field !h-8 w-56" :placeholder="m.sendToPlaceholder" data-rm-client />
+        <BaseButton :disabled="sending || !clientEmail.trim()" data-rm-send @click="sendToClient"><Send :size="14" /> {{ m.sendTo }}</BaseButton>
+      </div>
+      <BaseButton variant="ghost" :title="m.mailHint" data-rm-mail @click="mailText"><Mail :size="14" /> {{ m.mail }}</BaseButton>
       <BaseButton variant="primary" data-rm-save @click="save"><Download :size="14" /> {{ m.save }}</BaseButton>
     </template>
   </BaseDialog>

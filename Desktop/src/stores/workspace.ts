@@ -9,6 +9,9 @@ import { useSessionStore } from './session'
 import { useUiStore } from './ui'
 import { useNotificationsStore } from './notifications'
 import { useVpnStore } from './vpn'
+import { useOutboxStore } from './outbox'
+import { mailOutlook, mailSmtp, type MailMessage } from '@/services/office'
+import { openSecret, sealSecret } from '@/services/mail'
 import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { applyStatusRules, firstLine } from '@/services/items'
@@ -29,6 +32,8 @@ import type {
   Folder,
   Item,
   Label,
+  MailSettings,
+  MailTopic,
   PresenceFile,
   Project,
   Question,
@@ -345,6 +350,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     next.updatedAt = nowIso()
     next.updatedBy = currentUser.value?.id ?? 'unknown'
     projects.value[id] = next
+    useOutboxStore().onLocalChange(cur, next)
     void flushCache() // subito: il portatile può spegnersi da un momento all'altro
     return next
   }
@@ -882,7 +888,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!s) return
     if (status.value === 'unreachable') return mutateOffline(id, fn)
     try {
-      const fresh = await s.mutateProject(id, me, fn)
+      // Il progetto appena riletto, prima della modifica: per sapere cosa ha fatto questo utente (Teams, email)
+      let before: Project | null = null
+      const fresh = await s.mutateProject(id, me, (p) => {
+        before = clone(p)
+        return fn(p)
+      })
+      if (before && fresh) useOutboxStore().onLocalChange(before, fresh)
       projects.value[id] = fresh
       markLocalWrite(`projects/${id}`) // forza il ricalcolo alla prossima firma senza segnalare "remoto"
       lastError.value = null
@@ -1039,6 +1051,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       stack: { ...EMPTY_STACK },
       aiTools: [],
       github: null,
+      teams: null,
       nextSeq: 1,
       git: { autoClose: true, handled: [], baselineDone: false },
       visibility: data.visibility ?? (data.members.length ? 'restricted' : 'public'),
@@ -1462,9 +1475,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const auth = await hashPassword(newPassword)
       // Dati cifrati: la stessa chiave dati, avvolta con la nuova password (i file non cambiano)
       const wrapped = cipher && meta.value?.encryption ? await wrapKey(cipher.raw, newPassword, meta.value.encryption.enabled) : null
+      // Password SMTP: si cifra di nuovo con la nuova password del workspace
+      const oldSecret = meta.value?.mail.smtp.secret ?? ''
+      const smtpPw = oldSecret && sessionPassword ? await openSecret(oldSecret, sessionPassword) : null
+      const resealed = smtpPw !== null ? await sealSecret(smtpPw, newPassword) : null
       const m = await s.mutateMeta((x) => {
         x.auth = auth
         if (wrapped) x.encryption = wrapped
+        if (resealed) x.mail.smtp.secret = resealed
       })
       meta.value = m
       sessionPassword = newPassword
@@ -1704,6 +1722,69 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
 
+  // --- email e Teams ---------------------------------------------------------------------
+
+  /**
+   * Invia un'email con il metodo del workspace (Outlook di questo PC o server
+   * SMTP aziendale). 'off': nessun metodo scelto. Mai eccezioni: false se non riesce.
+   */
+  async function sendMail(message: MailMessage): Promise<boolean | 'off'> {
+    const ms = meta.value?.mail
+    if (!ms || ms.method === 'off' || !isNetwork.value) return 'off'
+    try {
+      if (ms.method === 'outlook') return (await mailOutlook(message)).ok
+      const password = ms.smtp.secret ? (sessionPassword ? await openSecret(ms.smtp.secret, sessionPassword) : null) : ''
+      if (password === null) return false
+      const { host, port, security, from, user } = ms.smtp
+      return (await mailSmtp({ host, port, security, from, user, password }, message)).ok
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Email del workspace (solo amministratori, workspace di rete). `smtpPassword`:
+   * undefined = invariata, '' = nessuna; si salva cifrata con la password del workspace.
+   */
+  async function setMailSettings(next: MailSettings, smtpPassword?: string): Promise<boolean> {
+    const s = storage.value
+    if (!s || !isAdmin.value || !isNetwork.value) return false
+    let secret = meta.value?.mail.smtp.secret ?? ''
+    if (smtpPassword !== undefined) {
+      if (smtpPassword && !sessionPassword) return false
+      secret = smtpPassword ? await sealSecret(smtpPassword, sessionPassword!) : ''
+    }
+    const value: MailSettings = { ...next, smtp: { ...next.smtp, host: next.smtp.host.trim(), from: next.smtp.from.trim(), user: next.smtp.user.trim(), secret } }
+    const r = await guard(async () => {
+      meta.value = await s.mutateMeta((x) => void (x.mail = value))
+      markLocalWrite('workspace.json')
+      return true
+    })
+    return !!r
+  }
+
+  /** La propria email e per cosa riceverla. */
+  async function setMyMail(email: string, mailOn: MailTopic[]) {
+    const s = storage.value
+    const me = currentUser.value
+    if (!s || !me) return
+    await guard(async () => {
+      users.value = (
+        await s.mutateUsers((f) => {
+          const u = f.users.find((x) => x.id === me.id)
+          if (u) Object.assign(u, { email: email.trim(), mailOn: [...new Set(mailOn)] })
+        })
+      ).users
+    })
+  }
+
+  /** Canale Teams di un progetto (solo amministratori); null per scollegarlo. */
+  const setProjectTeams = (projectId: string, teams: Project['teams']) =>
+    isAdmin.value ? mutateProject(projectId, (p) => void (p.teams = teams)) : Promise.resolve(undefined)
+
+  /** Il riepilogo di oggi lo manda un PC solo: il primo che crea il segnaposto nella cartella Dati. */
+  const claimDaily = async (key: string) => (storage.value && status.value === 'open' ? storage.value.claimDaily(key).catch(() => false) : false)
+
   /**
    * Accesso con l'account di dominio (solo amministratori). Per attivarlo serve
    * un account di dominio su questo PC; se si indicano gruppi degli
@@ -1745,6 +1826,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     passwordRemembered,
     setEncryption,
     setDomainLogin,
+    sendMail,
+    setMailSettings,
+    setMyMail,
+    setProjectTeams,
+    claimDaily,
     readiness,
     presence,
     offlinePending,

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Copy, Loader2, Sparkles } from 'lucide-vue-next'
+import { Copy, Loader2, Mail, Sparkles } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useAiStore, withAi } from '@/stores/ai'
 import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { getFs } from '@/services/fs'
+import { mailtoLink } from '@/services/office'
 import { hasWeekFacts, weekFacts, weeklySummary, type WeekSummary } from '@/services/aiAssist'
 import { defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -47,6 +49,12 @@ async function generate() {
   if (r) result.value = r
   else failed.value = true
 }
+/** «Invia per email»: apre il programma di posta con il riepilogo (nessuna connessione dall'app). */
+async function mail() {
+  if (!result.value) return
+  const text = [result.value.summary, '', ...result.value.highlights.map((h) => `- ${h}`)].join('\n')
+  await (await getFs()).openExternal(mailtoLink([], `${m.title} · ${ws.meta?.name ?? ''}`, text), 'link')
+}
 async function copy() {
   if (!result.value) return
   try {
@@ -65,6 +73,7 @@ async function copy() {
       <h2 class="text-[15px] font-bold">{{ m.title }}</h2>
       <span class="flex-1" />
       <BaseButton v-if="result" size="sm" variant="ghost" @click="copy"><Copy :size="13" /> {{ common.actions.copy }}</BaseButton>
+      <BaseButton v-if="result" size="sm" variant="ghost" data-weekly-mail @click="mail"><Mail :size="13" /> {{ common.actions.sendByEmail }}</BaseButton>
       <BaseButton size="sm" :variant="result ? 'ghost' : 'primary'" :disabled="busy" data-weekly-generate @click="generate">{{ result ? m.again : m.generate }}</BaseButton>
     </div>
     <p v-if="!result && !busy && !failed" class="mt-1 text-[13px] text-ink-3">{{ m.lead }}</p>

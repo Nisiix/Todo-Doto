@@ -199,3 +199,18 @@ ${done}
 </html>
 `
 }
+
+/** Versione in testo semplice (per «Invia per email» con il programma di posta). */
+export function roadmapText(p: Project, o: RoadmapOptions, ctx: RoadmapContext): string {
+  const now = ctx.now ?? dayjs()
+  const s = roadmapSections(p, o, now)
+  const pct = s.total ? Math.round((s.completed / s.total) * 100) : 0
+  const line = (i: Item, date: string | null) => `- ${date ? `${date} · ` : ''}${firstLine(i.title)}${o.showAssignees && i.assigneeId ? ` (${ctx.userName(i.assigneeId)})` : ''}`
+  const out = [`${m.roadmap}: ${o.title.trim() || p.name}`, m.updated(now.format(DATE.dateLong)), '']
+  if (o.intro.trim()) out.push(o.intro.trim(), '')
+  out.push(`${pct}% · ${m.progress(s.completed, s.total)}`, '', m.planned)
+  out.push(...(s.planned.length ? s.planned.map((i) => line(i, dayjs(i.dueDate).format(DATE.dayMonth))) : [m.nothingPlanned]))
+  if (s.undated.length) out.push('', m.undated, ...s.undated.map((i) => line(i, null)))
+  if (s.done.length) out.push('', m.done, ...s.done.map((i) => line(i, i.completedAt ? dayjs(i.completedAt).format(DATE.dayMonth) : null)))
+  return out.join('\n')
+}

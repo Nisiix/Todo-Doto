@@ -6,6 +6,7 @@ import OfflineReportDialog from '@/components/dialogs/OfflineReportDialog.vue'
 import { onMounted } from 'vue'
 import { useGitHubStore } from '@/stores/github'
 import { useReadinessStore } from '@/stores/readiness'
+import { useOutboxStore } from '@/stores/outbox'
 import { useAiStore } from '@/stores/ai'
 
 // Progetti collegati a GitHub: lo stack si risincronizza da solo all'apertura (se attivo)
@@ -13,6 +14,8 @@ const github = useGitHubStore()
 onMounted(() => void github.autoSyncOnOpen().catch(() => undefined))
 // Configurazione dei PC: verifica dei prerequisiti in background, esiti condivisi e notifiche
 useReadinessStore()
+// Teams, email personali e riepilogo del mattino (se configurati dall'amministratore)
+useOutboxStore()
 // IA locale di questo PC: stato del motore (e, al primo avvio, ricerca di uno già installato)
 const ai = useAiStore()
 onMounted(() => void ai.start().catch(() => undefined))

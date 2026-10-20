@@ -2,11 +2,12 @@
 import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, Heart, KeyRound, Lock, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, Heart, KeyRound, Lock, Mail, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-vue-next'
 import { useConfirm } from '@/composables/useConfirm'
 import { getFs } from '@/services/fs'
 import { DONATE_URL } from '@/services/branding'
 import VpnSettings from './VpnSettings.vue'
+import MailSettings from './MailSettings.vue'
 import DomainLoginSettings from './DomainLoginSettings.vue'
 import dayjs from 'dayjs'
 import RestoreDialog from './RestoreDialog.vue'
@@ -33,6 +34,7 @@ const m = defineMessages({
     tabGeneral: 'Generali',
     tabUser: 'Dati utente',
     tabNotifications: 'Notifiche',
+    tabMail: 'Email e Teams',
     tabBackup: 'Backup',
     tabAi: 'IA locale',
     appearance: 'Aspetto',
@@ -100,6 +102,7 @@ const m = defineMessages({
     tabGeneral: 'General',
     tabUser: 'User data',
     tabNotifications: 'Notifications',
+    tabMail: 'Email and Teams',
     tabBackup: 'Backup',
     tabAi: 'Local AI',
     appearance: 'Appearance',
@@ -201,13 +204,14 @@ async function backupNow() {
 const lastBackup = computed(() => ws.backups[0] ?? null)
 
 /** Schede: Generali, Dati utente (nomi e password), IA locale (per questo PC), Notifiche, Backup (solo amministratori). */
-type Tab = 'general' | 'user' | 'notifications' | 'ai' | 'backup'
+type Tab = 'general' | 'user' | 'notifications' | 'mail' | 'ai' | 'backup'
 const tab = ref<Tab>('general')
 const tabs = computed(() => [
   { id: 'general' as Tab, label: m.tabGeneral, icon: SlidersHorizontal },
   { id: 'user' as Tab, label: m.tabUser, icon: UserRound },
   { id: 'ai' as Tab, label: m.tabAi, icon: Cpu },
   { id: 'notifications' as Tab, label: m.tabNotifications, icon: Bell },
+  ...(ws.isNetwork ? [{ id: 'mail' as Tab, label: m.tabMail, icon: Mail }] : []),
   ...(ws.isAdmin ? [{ id: 'backup' as Tab, label: m.tabBackup, icon: Archive }] : []),
 ])
 const aiSettings = ref<InstanceType<typeof AiSettings> | null>(null)
@@ -417,6 +421,10 @@ const themes: { value: Theme; label: string }[] = [
         </div>
       </section>
 
+    </div>
+
+    <div v-if="ws.isNetwork" v-show="tab === 'mail'" role="tabpanel" data-settings-panel="mail">
+      <MailSettings />
     </div>
 
     <div v-show="tab === 'ai'" role="tabpanel" data-settings-panel="ai">

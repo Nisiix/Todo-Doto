@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import dayjs from 'dayjs'
-import { Check, Lock, RotateCcw, Trash2, X } from 'lucide-vue-next'
+import { Check, Lock, Mail, RotateCcw, Trash2, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import LabelBadge from '@/components/board/LabelBadge.vue'
@@ -13,6 +13,9 @@ import WorkingOn from '@/components/detail/WorkingOn.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
+import { getFs } from '@/services/fs'
+import { mailtoLink } from '@/services/office'
+import { firstLine } from '@/services/items'
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority, type Project, type Status } from '@/types'
 import { DATE, defineMessages } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -33,6 +36,8 @@ const m = defineMessages({
     createdBy: (s: string) => `Creato da ${s}`,
     description: 'Descrizione',
     notesPlaceholder: 'Dettagli, decisioni, riferimenti…',
+    mailHint: 'Apre il programma di posta con il task (titolo, stato, scadenza, descrizione)',
+    mailFacts: (p: string, s: string, pr: string) => `Progetto: ${p}\nStato: ${s} · Priorità: ${pr}`,
   },
   en: {
     lockProject: 'Project in the trash: restore it to make changes.',
@@ -49,6 +54,8 @@ const m = defineMessages({
     createdBy: (s: string) => `Created by ${s}`,
     description: 'Description',
     notesPlaceholder: 'Details, decisions, references…',
+    mailHint: 'Opens the mail program with the task (title, status, due date, description)',
+    mailFacts: (p: string, s: string, pr: string) => `Project: ${p}\nStatus: ${s} · Priority: ${pr}`,
   },
 })
 
@@ -139,6 +146,20 @@ function discard() {
   load(props.item)
 }
 
+/** «Invia per email»: apre il programma di posta (nessuna connessione dall'app). */
+async function mailItem() {
+  const it = props.item
+  const lines = [
+    it.title,
+    '',
+    m.mailFacts(props.project.name, STATUS_LABEL[it.status], PRIORITY_LABEL[it.priority]),
+    it.dueDate ? m.due(dayjs(it.dueDate).format(DATE.date)) : '',
+    it.assigneeId ? m.assignedTo(ws.userName(it.assigneeId)) : '',
+    it.notes ? `\n${it.notes}` : '',
+  ].filter(Boolean)
+  await (await getFs()).openExternal(mailtoLink([], `[${props.project.name}] ${firstLine(it.title)}`, lines.join('\n')), 'link')
+}
+
 const close = () => (ui.selectedItemId = null)
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
   if (e.key === 'Escape' && !(e.target as HTMLElement)?.closest('textarea, input, [role=dialog]')) close()
@@ -160,6 +181,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
       <BaseButton v-if="actions.canReopen.value" size="sm" variant="ghost" @click="actions.reopen()">
         <RotateCcw :size="14" /> {{ item.bucket === 'done' ? common.item.reopen : m.restore }}
       </BaseButton>
+      <BaseButton size="icon-sm" variant="ghost" :title="`${common.actions.sendByEmail}: ${m.mailHint}`" data-item-mail @click="mailItem"><Mail :size="14" /></BaseButton>
       <BaseButton v-if="actions.canTrash.value" size="icon-sm" variant="ghost" :title="common.item.moveToTrash" @click="actions.trash()"><Trash2 :size="14" /></BaseButton>
       <BaseButton size="icon-sm" variant="ghost" :title="m.closeEsc" @click="close"><X :size="15" /></BaseButton>
     </div>

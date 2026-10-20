@@ -11,6 +11,7 @@ import ItemRow from '@/components/board/ItemRow.vue'
 import ItemDialog from '@/components/dialogs/ItemDialog.vue'
 import RoadmapDialog from '@/components/dialogs/RoadmapDialog.vue'
 import StackDriftBanner from '@/components/project/StackDriftBanner.vue'
+import ProjectTeams from '@/components/project/ProjectTeams.vue'
 import FilterBar from '@/components/board/FilterBar.vue'
 import AttachmentsBoard from '@/components/board/AttachmentsBoard.vue'
 import DetailPanel from '@/components/layout/DetailPanel.vue'
@@ -351,6 +352,7 @@ const tabs: { id: Bucket; label: string }[] = [
         <template v-else-if="section === 'stack'">
           <ProjectStack :project="project" :read-only="trashed" />
           <ProjectAiTools class="mt-12 border-t border-line pt-8" :project="project" :read-only="trashed" />
+          <ProjectTeams v-if="ws.isNetwork" class="mt-12 border-t border-line pt-8" :project="project" :read-only="trashed" />
         </template>
         <template v-else-if="section === 'attachments'">
           <h2 class="mb-4 text-[17px] font-bold tracking-tight">{{ m.attachments }}</h2>

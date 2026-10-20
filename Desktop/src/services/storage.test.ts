@@ -39,6 +39,7 @@ const project = (id: string): Project => ({
   stack: { ...EMPTY_STACK },
   aiTools: [],
   github: null,
+  teams: null,
   nextSeq: 0,
   git: { autoClose: true, handled: [], baselineDone: false },
 })

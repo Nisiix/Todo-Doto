@@ -344,6 +344,14 @@ export const ProjectSchema = z.object({
     .default({ autoClose: true, handled: [], baselineDone: false }),
   /** Repository GitHub collegato: lo Stack si sincronizza dai suoi file. */
   github: z.object({ owner: z.string(), repo: z.string(), syncedAt: iso.default('') }).nullable().default(null),
+  /**
+   * Canale Microsoft Teams del progetto: indirizzo di un Workflow («Pubblica in
+   * un canale quando si riceve una richiesta webhook») e quali eventi inviare.
+   */
+  teams: z
+    .object({ url: z.string(), events: z.array(z.enum(['item_created', 'item_completed', 'assigned', 'question', 'mention'])).default(['item_completed', 'assigned', 'question', 'mention']) })
+    .nullable()
+    .default(null),
 })
 export type Project = z.infer<typeof ProjectSchema>
 export type Visibility = 'public' | 'restricted'

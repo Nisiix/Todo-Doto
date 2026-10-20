@@ -95,6 +95,8 @@ export const FILES = {
   readinessDir: 'readiness',
   /** Chi lavora a cosa, un file per utente (presence/<idUtente>.json). */
   presenceDir: 'presence',
+  /** Segnaposto degli invii giornalieri (riepilogo del mattino): uno per giorno, li crea il PC che invia. */
+  mailDir: 'mail',
   /** Cartella predefinita delle copie di sicurezza (se non se ne sceglie un'altra). */
   backupsDir: 'backups',
 } as const
@@ -195,6 +197,11 @@ export class WorkspaceStorage {
       if (own(e.name) || (await isOwnJson(fs, path, e.name, 'userId'))) await fs.remove(path)
     }
     await fs.remove(presenceDir).catch(() => {}) // solo se vuota
+    const mailDir = await fs.join(root, FILES.mailDir)
+    for (const e of await fs.listDir(mailDir).catch(() => [])) {
+      if (!e.isDir && /^[a-z]+-\d{4}-\d{2}-\d{2}\.json$/.test(e.name)) await fs.remove(await fs.join(mailDir, e.name))
+    }
+    await fs.remove(mailDir).catch(() => {}) // solo se vuota
     // Copie di sicurezza nella cartella predefinita (quelle in altre cartelle restano)
     const backupsDir = await fs.join(root, FILES.backupsDir)
     for (const e of await fs.listDir(backupsDir).catch(() => [])) {
@@ -439,6 +446,28 @@ export class WorkspaceStorage {
     await this.fs.mkdir(this.paths.presenceDir)
     const path = await this.presencePath(f.userId)
     await this.withLock(path, () => this.writeJson(path, f))
+  }
+
+  // --- invii giornalieri ------------------------------------------------------------
+
+  /**
+   * Prende l'invio di oggi (es. "digest-2026-10-20"): true solo per il primo PC
+   * che crea il segnaposto (creazione esclusiva, atomica anche in rete).
+   * I segnaposto più vecchi di 30 giorni si tolgono.
+   */
+  async claimDaily(key: string): Promise<boolean> {
+    if (!/^[a-z]+-\d{4}-\d{2}-\d{2}$/.test(key)) throw new Error(`Chiave non valida: ${key}`)
+    const dir = await this.fs.join(this.root, FILES.mailDir)
+    await this.fs.mkdir(dir)
+    const ok = await this.fs.createExclusive(await this.fs.join(dir, `${key}.json`), JSON.stringify({ by: this.lockOwner, at: new Date().toISOString() }))
+    if (ok) {
+      const limit = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
+      for (const name of await this.fs.readDir(dir).catch(() => [])) {
+        const d = /-(\d{4}-\d{2}-\d{2})\.json$/.exec(name)?.[1]
+        if (d && d < limit) await this.fs.remove(await this.fs.join(dir, name)).catch(() => {})
+      }
+    }
+    return ok
   }
 
   // --- copie di sicurezza ---------------------------------------------------------
