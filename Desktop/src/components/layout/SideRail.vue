@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { FolderPlus, LayoutDashboard, Plus, RotateCcw, Trash2, X } from 'lucide-vue-next'
+import { FolderPlus, LayoutDashboard, Plus, RotateCcw, Sun, Trash2, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
@@ -12,6 +12,7 @@ import ProjectDialog from '@/components/dialogs/ProjectDialog.vue'
 import NameDialog from '@/components/dialogs/NameDialog.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useConfirm } from '@/composables/useConfirm'
+import { useMyDay } from '@/composables/useMyDay'
 import type { Folder, Project } from '@/types'
 import { defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -20,6 +21,9 @@ const m = defineMessages({
   it: {
     overview: 'Panoramica',
     overviewHint: 'Da tenere d’occhio, chi lavora a cosa, domande aperte, configurazione di questo PC',
+    today: 'Oggi',
+    todayHint: 'Quello che riguarda te in tutti i progetti: ritardi, scadenze di oggi, domande che aspettano te',
+    todayCount: (n: number) => `${n} da guardare oggi`,
     working: (n: number) => `${n} ${n === 1 ? 'persona sta lavorando' : 'persone stanno lavorando'} a un task`,
     deleteFolderTitle: (n: string) => `Eliminare la cartella «${n}»?`,
     deleteFolderMessage: (inside: number) =>
@@ -50,6 +54,9 @@ const m = defineMessages({
   en: {
     overview: 'Overview',
     overviewHint: 'What to keep an eye on, who’s working on what, open questions, setup of this PC',
+    today: 'Today',
+    todayHint: 'What concerns you across all projects: overdue, due today, questions waiting for you',
+    todayCount: (n: number) => `${n} to look at today`,
     working: (n: number) => `${n} ${n === 1 ? 'person is' : 'people are'} working on a task`,
     deleteFolderTitle: (n: string) => `Delete the folder “${n}”?`,
     deleteFolderMessage: (inside: number) =>
@@ -160,6 +167,8 @@ async function emptyTrash() {
     await ws.emptyProjectTrash()
   }
 }
+const { day } = useMyDay()
+
 const trashMenu = (p: Project) => [
   { label: m.restore, icon: RotateCcw, onSelect: () => ws.restoreProject(p.id) },
   ...(ws.canPurge ? [{ label: common.item.deleteForever, icon: X, danger: true, onSelect: () => deleteForever(p) }] : []),
@@ -188,6 +197,17 @@ const trashMenu = (p: Project) => [
         <span v-if="ws.workingEntries.length" class="flex items-center gap-1 text-[11.5px] tabular-nums text-ok" :title="m.working(ws.workingEntries.length)">
           <span class="h-1.5 w-1.5 rounded-full bg-ok" /> {{ ws.workingEntries.length }}
         </span>
+      </RouterLink>
+      <RouterLink
+        :to="{ name: 'today' }"
+        class="-mt-2 mb-3 flex h-8 items-center gap-2 rounded-md px-2 text-[13.5px] font-medium text-ink-2 hover:bg-surface-2"
+        active-class="bg-accent-soft/70 text-ink"
+        :title="m.todayHint"
+        data-today-link
+      >
+        <Sun :size="15" />
+        <span class="flex-1">{{ m.today }}</span>
+        <span v-if="day.badge" class="min-w-5 rounded-full bg-p-alta/15 px-1.5 text-center text-[11.5px] font-semibold tabular-nums text-p-alta" :title="m.todayCount(day.badge)">{{ day.badge }}</span>
       </RouterLink>
       <!-- Preferiti: la sezione c'è solo se almeno un progetto è segnato con la stella -->
       <section v-if="ws.favoriteProjects.length" class="mb-4" data-favorites>

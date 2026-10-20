@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { closePhrase, closedSeqs, normalizeSeq, parseReflog, planGitClose, subjectOf, taskCode, type GitCommit } from './gitLink'
+import { branchFromHead, branchName, closePhrase, closedSeqs, commitsBySeq, isActiveFromGit, mentionedSeqs, normalizeSeq, parseReflog, planGitClose, seqFromBranch, subjectOf, taskCode, type GitCommit } from './gitLink'
 import type { Item, Project } from '@/types'
 
 const item = (over: Partial<Item>): Item => ({
@@ -120,5 +120,46 @@ describe('reflog (quando git non è installato)', () => {
       ['a', 'Mario Rossi', 'Primo'],
     ])
     expect(c[0]!.date).toBe(new Date(1760515400 * 1000).toISOString())
+  })
+})
+
+describe('attività git per task', () => {
+  it('menzioni: tutti i codici citati, anche senza parola di chiusura', () => {
+    expect(mentionedSeqs('TODO-12 primo passo, vedi anche todo-3')).toEqual([12, 3])
+    expect(mentionedSeqs('niente qui, TODO-0 non vale')).toEqual([])
+  })
+
+  it('nome del branch: minuscole, senza accenti, tagliato su un trattino', () => {
+    expect(branchName(12, 'Esportazione dei dati in CSV')).toBe('todo-12-esportazione-dei-dati-in-csv')
+    expect(branchName(3, 'Perché l’app è lenta?\nDettagli')).toBe('todo-3-perche-l-app-e-lenta')
+    expect(branchName(7, '!!!')).toBe('todo-7')
+    const long = branchName(1, 'Una descrizione molto lunga che supera di parecchio il limite dei quaranta caratteri')
+    expect(long).toBe('todo-1-una-descrizione-molto-lunga-che-supera')
+    expect(long.length).toBeLessThanOrEqual(47)
+  })
+
+  it('numero del task dal branch e branch da .git/HEAD', () => {
+    expect(seqFromBranch('todo-12-esportazione')).toBe(12)
+    expect(seqFromBranch('feature/TODO-4')).toBe(4)
+    expect(seqFromBranch('mytodo-4')).toBeNull()
+    expect(seqFromBranch('main')).toBeNull()
+    expect(branchFromHead('ref: refs/heads/todo-12-csv\n')).toBe('todo-12-csv')
+    expect(branchFromHead('a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2')).toBeNull()
+  })
+
+  it('commit per task e «in lavorazione»', () => {
+    const now = Date.parse('2026-10-20T12:00:00Z')
+    const commits = [
+      { hash: 'c3', author: 'Anna', date: '2026-10-19T10:00:00Z', message: 'TODO-5 bozza della pagina' },
+      { hash: 'c2', author: 'Anna', date: '2026-10-10T10:00:00Z', message: 'chiude TODO-4, vedi TODO-5' },
+      { hash: 'c1', author: 'Mario', date: '2026-10-01T10:00:00Z', message: 'commit iniziale' },
+    ]
+    const by = commitsBySeq(commits)
+    expect(by.get(5)!.map((t) => [t.commit.hash, t.closes])).toEqual([['c3', false], ['c2', false]])
+    expect(by.get(4)!.map((t) => [t.commit.hash, t.closes])).toEqual([['c2', true]])
+    expect(isActiveFromGit(5, by.get(5), null, now)).toBe(true)
+    expect(isActiveFromGit(4, by.get(4), null, now)).toBe(false) // solo la chiusura, e vecchia
+    expect(isActiveFromGit(9, undefined, 'todo-9-login', now)).toBe(true)
+    expect(isActiveFromGit(9, undefined, 'main', now)).toBe(false)
   })
 })

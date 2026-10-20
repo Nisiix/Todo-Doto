@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { getFs } from '@/services/fs'
 import { commitCandidates, matchCommits, type CommitSuggestion } from '@/services/aiAssist'
-import type { GitCommit } from '@/services/gitLink'
+import { branchFromHead, commitsBySeq, isActiveFromGit, type GitCommit, type TaskCommit } from '@/services/gitLink'
 import { useAiStore, withAi } from './ai'
 import { resolveStack, varsFor } from '@/services/scaffold'
 import { useWorkspaceStore } from './workspace'
-import type { Project } from '@/types'
+import type { Item, Project } from '@/types'
 
 /** Tra una lettura dei commit e la successiva dello stesso progetto (salvo richiesta esplicita). */
 const MIN_INTERVAL_MS = 20_000
@@ -23,6 +23,10 @@ export const useGitStore = defineStore('git', () => {
   /** progetto → la sua cartella contiene un repository git */
   const hasGit = ref<Record<string, boolean>>({})
   const lastScan = new Map<string, number>()
+  /** Ultimi commit letti per progetto (sola lettura, in memoria) e branch corrente su questo PC. */
+  const commits = ref<Record<string, GitCommit[]>>({})
+  const branch = ref<Record<string, string | null>>({})
+  const bySeq = computed(() => Object.fromEntries(Object.entries(commits.value).map(([id, cs]) => [id, commitsBySeq(cs)])))
   const busy = new Set<string>()
 
   const repoOf = (p: Project) => resolveStack(p.stack, varsFor(p.name)).sourcePath.trim()
@@ -49,16 +53,38 @@ export const useGitStore = defineStore('git', () => {
     busy.add(p.id)
     lastScan.set(p.id, Date.now())
     try {
-      if (!(await detect(p)) || !p.git.autoClose) return
-      const commits = await (await getFs()).gitLog(repoOf(p), 300)
-      await ws.applyGitCommits(p.id, commits)
-      await suggestFromCommits(p.id, commits)
+      if (!(await detect(p))) return
+      const fs = await getFs()
+      await readBranch(p)
+      const list = await fs.gitLog(repoOf(p), 300)
+      commits.value = { ...commits.value, [p.id]: list }
+      if (!p.git.autoClose) return
+      await ws.applyGitCommits(p.id, list)
+      await suggestFromCommits(p.id, list)
     } catch {
       /* repository non leggibile: si riproverà al prossimo giro */
     } finally {
       busy.delete(p.id)
     }
   }
+
+  /** Branch corrente della cartella del progetto, da `.git/HEAD` (senza eseguire git). */
+  async function readBranch(p: Project) {
+    let name: string | null = null
+    try {
+      const fs = await getFs()
+      name = branchFromHead(await fs.readText(await fs.join(repoOf(p), '.git', 'HEAD')))
+    } catch {
+      name = null
+    }
+    if (branch.value[p.id] !== name) branch.value = { ...branch.value, [p.id]: name }
+  }
+
+  /** Commit che citano il task, dal più recente. */
+  const commitsOf = (projectId: string, item: Pick<Item, 'seq'>): TaskCommit[] => (item.seq ? (bySeq.value[projectId]?.get(item.seq) ?? []) : [])
+  /** In lavorazione secondo git: commit recenti che lo citano o il suo branch aperto su questo PC. */
+  const isActive = (projectId: string, item: Pick<Item, 'seq' | 'bucket'>) =>
+    item.bucket === 'todo' && !!item.seq && isActiveFromGit(item.seq, bySeq.value[projectId]?.get(item.seq), branch.value[projectId] ?? null)
 
   // --- commit senza "chiude TODO-n": suggerimenti dell'IA locale (da confermare) ------
   //
@@ -123,9 +149,11 @@ export const useGitStore = defineStore('git', () => {
 
   function reset() {
     hasGit.value = {}
+    commits.value = {}
+    branch.value = {}
     lastScan.clear()
     suggestions.value = {}
   }
 
-  return { hasGit, detect, scan, reset, suggestions, pending, acceptSuggestion, dismissSuggestion }
+  return { hasGit, commits, branch, commitsOf, isActive, detect, scan, reset, suggestions, pending, acceptSuggestion, dismissSuggestion }
 })

@@ -579,6 +579,11 @@ export const LocalConfigSchema = z.object({
   // tipi di notifica disattivati (tutti attivi se assenti)
   mutedNotifications: z.array(z.enum(NOTIFICATION_TYPES)).default([]),
   ai: AiConfigSchema.default(DEFAULT_AI_CONFIG),
+  /**
+   * Vista «Oggi»: task rinviati (scelta personale, per macchina, non cambia la
+   * scadenza condivisa). workspaceId → id del task → giorno in cui ricompare (YYYY-MM-DD).
+   */
+  snoozed: z.record(z.string(), z.record(z.string(), z.string())).default({}),
 })
 
 /** Filtro della lista elementi di un progetto. */

@@ -153,3 +153,99 @@ test('attenzioni e tempi: urgenze senza nessuno e confermati senza scadenza, con
   await panel.locator('[data-signal="urgent_unassigned"]').click()
   await expect(page.locator('#d-priority')).toHaveValue('immediata')
 })
+
+test('oggi: ritardi, scadenze e urgenze di tutti i progetti; completare e rinviare senza aprire il progetto', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Sito')
+  await quick(page).fill('Consegnare le bozze entro oggi')
+  await quick(page).press('Enter')
+  await quick(page).fill('Server giù !immediata')
+  await quick(page).press('Enter')
+  await quick(page).fill('Idea per dopo')
+  await quick(page).press('Enter')
+  await createProject(page, 'App')
+  await quick(page).fill('Release entro domani')
+  await quick(page).press('Enter')
+
+  const link = page.locator('[data-today-link]')
+  await expect(link).toContainText('1')
+  await link.click()
+  const view = page.locator('[data-today]')
+  await expect(view.getByRole('heading', { name: 'Oggi', exact: true })).toBeVisible()
+  await expect(view.locator('[data-today-section="today"]')).toContainText('Consegnare le bozze')
+  await expect(view.locator('[data-today-section="urgent"]')).toContainText('Server giù')
+  await expect(view.locator('[data-today-section="week"]')).toContainText('Release')
+  await expect(view.locator('[data-today-section="week"]')).toContainText('App')
+  await expect(view).not.toContainText('Idea per dopo')
+
+  // Completare dalla vista
+  await view.locator('[data-today-section="today"] [data-today-complete]').click()
+  await expect(view.locator('[data-today-section="today"]')).toHaveCount(0)
+  await expect(link).not.toContainText('1')
+
+  // Rinviare: sparisce fino al giorno scelto, poi si riprende
+  await view.locator('[data-today-section="urgent"] li').hover()
+  await view.locator('[data-today-section="urgent"] [data-today-snooze]').click()
+  await page.getByRole('menuitem', { name: /A domani/ }).click()
+  await expect(view.locator('[data-today-section="urgent"]')).toHaveCount(0)
+  await view.locator('[data-today-snoozed] summary').click()
+  await expect(view.locator('[data-today-snoozed]')).toContainText('Server giù')
+  await view.locator('[data-today-snoozed]').getByRole('button', { name: 'Riprendi ora' }).click()
+  await expect(view.locator('[data-today-section="urgent"]')).toContainText('Server giù')
+
+  // Clic sul titolo: si apre il task nel suo progetto
+  await view.locator('[data-today-section="week"]').getByText('Release').click()
+  await expect(page.getByRole('heading', { name: 'App' })).toBeVisible()
+  await expect(page.locator('#d-due')).not.toHaveValue('')
+})
+
+test('attività git: commit che citano il task, branch da copiare, «in lavorazione» dal codice', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic('/esterni/negozio/package.json', JSON.stringify({ dependencies: { vue: '^3.5.0' } }))
+    await fs.writeTextAtomic('/esterni/negozio/.git/HEAD', 'ref: refs/heads/todo-2-pagina-di-accesso\n')
+  })
+  const recent = new Date(Date.now() - 86_400_000).toISOString()
+  await page.evaluate((date) => {
+    Object.assign(window, {
+      __pgmGit: {
+        '/esterni/negozio': [
+          { hash: 'b2b2b2b2b2', author: 'Anna', date, message: 'TODO-1 prima bozza del carrello' },
+          { hash: 'a1a1a1a1a1', author: 'Mario', date: '2026-01-10T10:00:00Z', message: 'commit iniziale' },
+        ],
+      },
+    })
+  }, recent)
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
+  await page.fill('#p-disk', '/esterni/negozio')
+  await expect(page.locator('[data-folder-kind]')).toHaveAttribute('data-kind', 'project')
+  await page.getByRole('button', { name: 'Importa progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'negozio' })).toBeVisible()
+  await page.locator('aside').first().getByRole('link', { name: /^Todo( \d+)?$/ }).click()
+
+  await quick(page).fill('Carrello')
+  await quick(page).press('Enter')
+  await quick(page).fill('Pagina di accesso')
+  await quick(page).press('Enter')
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+
+  // TODO-1 citato da un commit di ieri, TODO-2 col branch aperto su questo PC: entrambi «in lavorazione»
+  await expect(rows(page).filter({ hasText: 'Carrello' }).locator('[data-git-active]')).toBeVisible()
+  await expect(rows(page).filter({ hasText: 'Pagina di accesso' }).locator('[data-git-active]')).toBeVisible()
+
+  await rows(page).filter({ hasText: 'Carrello' }).click()
+  const act = page.locator('[data-git-activity]')
+  await expect(act.locator('[data-task-commits]')).toContainText('prima bozza del carrello')
+  await expect(act.locator('[data-task-commits]')).toContainText('Anna')
+  await expect(act.locator('[data-branch-name]')).toHaveText('todo-1-carrello')
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await act.locator('[data-copy-switch]').click()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('git switch -c todo-1-carrello')
+  await page.keyboard.press('Escape')
+
+  await rows(page).filter({ hasText: 'Pagina di accesso' }).click()
+  await expect(act).toHaveCount(1)
+  await expect(act.locator('[data-branch-here]')).toContainText('aperto su questo PC')
+  await expect(act).toContainText('Nessun commit cita ancora TODO-2')
+})

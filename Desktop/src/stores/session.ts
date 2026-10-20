@@ -8,7 +8,7 @@ import { DEFAULT_AI_CONFIG, type Identity, type LocalConfig, type RecentWorkspac
 /** Identità locale (SO) e configurazione per macchina. */
 export const useSessionStore = defineStore('session', () => {
   const identity = ref<Identity>({ username: '', hostname: '' })
-  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, offlineCopy: true, vpn: {}, favorites: {}, mutedNotifications: [], ai: { ...DEFAULT_AI_CONFIG } })
+  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, offlineCopy: true, vpn: {}, favorites: {}, mutedNotifications: [], ai: { ...DEFAULT_AI_CONFIG }, snoozed: {} })
   const ready = ref(false)
 
   /** Chiave con cui si cifrano le password memorizzate in locale. */
@@ -57,7 +57,19 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   /** Salva la configurazione di questo PC (dopo averla cambiata). */
+  /** Rinvii della vista «Oggi» del workspace: id del task → giorno in cui ricompare. */
+  const snoozedOf = (workspaceId: string) => config.value.snoozed[workspaceId] ?? {}
+
+  /** Rinvia un task fino al giorno indicato (null = lo riprende subito); i rinvii scaduti si tolgono. */
+  async function snooze(workspaceId: string, itemId: string, until: string | null, today: string) {
+    const cur = Object.fromEntries(Object.entries(snoozedOf(workspaceId)).filter(([, d]) => d > today))
+    if (until && until > today) cur[itemId] = until
+    else delete cur[itemId]
+    config.value.snoozed = { ...config.value.snoozed, [workspaceId]: cur }
+    await saveConfig(config.value)
+  }
+
   const persist = () => saveConfig(config.value)
 
-  return { identity, config, ready, localSecret, init, saveConfig: persist, touchRecent, removeRecent, forgetWorkspace, favoritesOf, toggleFavorite }
+  return { identity, config, ready, localSecret, init, saveConfig: persist, touchRecent, removeRecent, forgetWorkspace, favoritesOf, toggleFavorite, snoozedOf, snooze }
 })

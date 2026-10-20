@@ -109,3 +109,81 @@ export function parseReflog(text: string): GitCommit[] {
   }
   return out.reverse() // il più recente per primo, come git log
 }
+
+// ---------------------------------------------------------------------------
+// Attività git per task: commit che citano il task, branch del task
+// ---------------------------------------------------------------------------
+
+/** Numeri di tutti i task citati nel messaggio, che lo chiudano o no ("TODO-12 primo passo"). */
+export function mentionedSeqs(message: string): number[] {
+  const out = new Set<number>()
+  for (const c of message.matchAll(CODE_RE)) {
+    const n = Number(c[1])
+    if (n > 0) out.add(n)
+  }
+  return [...out]
+}
+
+/**
+ * Nome del branch per il task: `todo-12-esportazione-csv` (minuscole, senza
+ * accenti, al massimo ~40 caratteri tagliati su un trattino).
+ */
+export function branchName(seq: number, title: string): string {
+  const slug = (title.split(/\r?\n/).find((l) => l.trim()) ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  let cut = slug
+  if (cut.length > 40) {
+    cut = cut.slice(0, 41)
+    cut = cut.includes('-') ? cut.slice(0, cut.lastIndexOf('-')) : cut.slice(0, 40)
+  }
+  return cut ? `${TASK_PREFIX.toLowerCase()}-${seq}-${cut}` : `${TASK_PREFIX.toLowerCase()}-${seq}`
+}
+
+/** Numero del task dal nome di un branch (`todo-12-…`, `feature/todo-12`), o null. */
+export function seqFromBranch(branch: string | null | undefined): number | null {
+  const m = /(?:^|\/)todo-(\d+)(?:$|[-_/])/i.exec(branch ?? '')
+  return m ? Number(m[1]) || null : null
+}
+
+/** Branch corrente dal contenuto di `.git/HEAD` (`ref: refs/heads/<nome>`); null se staccato. */
+export function branchFromHead(head: string): string | null {
+  const m = /^ref:\s*refs\/heads\/(.+?)\s*$/m.exec(head)
+  return m ? m[1]! : null
+}
+
+export interface TaskCommit {
+  commit: GitCommit
+  /** Il commit chiude il task ("chiude TODO-12"), oltre a citarlo. */
+  closes: boolean
+}
+
+/** Commit che citano ciascun task, dal più recente (come arrivano da git log). */
+export function commitsBySeq(commits: GitCommit[]): Map<number, TaskCommit[]> {
+  const out = new Map<number, TaskCommit[]>()
+  for (const commit of commits) {
+    const closing = new Set(closedSeqs(commit.message))
+    for (const seq of mentionedSeqs(commit.message)) {
+      const list = out.get(seq) ?? []
+      list.push({ commit, closes: closing.has(seq) })
+      out.set(seq, list)
+    }
+  }
+  return out
+}
+
+/** Giorni entro cui un commit o il branch corrente fanno dire «in lavorazione». */
+export const ACTIVE_DAYS = 3
+
+/**
+ * Il task è in lavorazione secondo il codice: c'è un commit che lo cita negli
+ * ultimi giorni, oppure su questo PC è aperto il suo branch.
+ */
+export function isActiveFromGit(seq: number, list: TaskCommit[] | undefined, currentBranch: string | null, now = Date.now()): boolean {
+  if (seq && seqFromBranch(currentBranch) === seq) return true
+  const since = now - ACTIVE_DAYS * 86_400_000
+  return !!list?.some((t) => !t.closes && Date.parse(t.commit.date) >= since)
+}

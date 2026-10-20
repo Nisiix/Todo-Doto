@@ -10,6 +10,7 @@ export const router = createRouter({
       component: () => import('@/views/WorkspaceView.vue'),
       children: [
         { path: '', name: 'workspace-home', component: () => import('@/views/WorkspaceHomeView.vue') },
+        { path: 'today', name: 'today', component: () => import('@/views/TodayView.vue') },
         { path: 'p/:id/:section?', name: 'project', component: () => import('@/views/ProjectView.vue'), props: true },
         { path: 'members', name: 'members', component: () => import('@/views/MembersView.vue') },
         { path: 'drive', name: 'drive', component: () => import('@/views/DriveView.vue') },

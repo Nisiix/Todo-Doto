@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { Check, CircleHelp, MessageSquare } from 'lucide-vue-next'
+import { Check, CircleHelp, GitBranch, MessageSquare } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import PrioritySelect from './PrioritySelect.vue'
 import StatusSelect from './StatusSelect.vue'
@@ -13,6 +13,7 @@ import WorkingBadge from './WorkingBadge.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
+import { useGitStore } from '@/stores/git'
 import { dueState, firstLine, formatDue, openQuestions as openQuestionsOf } from '@/services/items'
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority } from '@/types'
 import { DATE, defineMessages } from '@/i18n'
@@ -24,6 +25,7 @@ const m = defineMessages({
     markDone: 'Segna come completato (C)',
     openQuestions: 'Domande aperte',
     comments: 'Commenti',
+    gitActive: 'In lavorazione secondo git: commit recenti che lo citano o il suo branch aperto su questo PC',
     completed: 'completato',
     trashed: 'cestinato',
   },
@@ -33,6 +35,7 @@ const m = defineMessages({
     markDone: 'Mark as completed (C)',
     openQuestions: 'Open questions',
     comments: 'Comments',
+    gitActive: 'In progress according to git: recent commits citing it or its branch checked out on this PC',
     completed: 'completed',
     trashed: 'trashed',
   },
@@ -43,6 +46,7 @@ const m = defineMessages({
  * modificabili in linea; le azioni (completa, cestina…) stanno in
  * ItemRowActions e nella tastiera (↑/↓ sposta, Invio apre, C completa, Canc cestina).
  */
+const git = useGitStore()
 const props = defineProps<{ item: Item; projectId: string; readOnly?: boolean }>()
 const ws = useWorkspaceStore()
 const ui = useUiStore()
@@ -121,6 +125,7 @@ function onKeydown(e: KeyboardEvent) {
     </span>
     <!-- Chi ci sta lavorando (workspace di rete): pastiglia di altezza fissa, la riga non si sposta -->
     <WorkingBadge v-if="item.bucket === 'todo'" :item-id="item.id" />
+    <span v-if="git.isActive(projectId, item)" class="flex h-5 shrink-0 items-center rounded-full bg-ok/10 px-1.5 text-ok" :title="m.gitActive" data-git-active><GitBranch :size="12" /></span>
     <!-- L'etichetta resta visibile anche in modalità compatta: è un colore, non costa spazio -->
     <LabelBadge v-if="!editable || compact" :label-id="item.labelId" />
 
