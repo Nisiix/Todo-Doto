@@ -66,7 +66,11 @@ watch(
   { immediate: true },
 )
 const valid = computed(() => isTeamsWebhook(url.value))
-const dirty = computed(() => url.value.trim() !== (props.project.teams?.url ?? '') || events.value.slice().sort().join() !== (props.project.teams?.events ?? []).slice().sort().join())
+const dirty = computed(() => {
+  const t = props.project.teams
+  if (!t) return !!url.value.trim()
+  return url.value.trim() !== t.url || events.value.slice().sort().join() !== t.events.slice().sort().join()
+})
 
 async function save() {
   if (!valid.value) return

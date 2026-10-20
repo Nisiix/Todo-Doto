@@ -43,7 +43,9 @@ describe('workspace di rete cifrato', () => {
 
     expect(await ws.setEncryption(true)).toBe(true)
     expect(ws.meta?.encryption?.enabled).toBe(true)
-    for (const f of ['users.json', 'tree.json', 'audit.json', `projects/${p!.id}.json`]) {
+    const auditFiles = (await (await getFs()).readDir('/sec/audit')).map((n) => `audit/${n}`)
+    expect(auditFiles.length).toBeGreaterThan(0)
+    for (const f of ['users.json', 'tree.json', ...auditFiles, `projects/${p!.id}.json`]) {
       const text = await raw(`/sec/${f}`)
       expect(isEncryptedText(text), f).toBe(true)
       expect(text).not.toContain('XBRL')

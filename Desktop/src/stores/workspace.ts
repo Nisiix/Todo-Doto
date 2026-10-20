@@ -23,6 +23,7 @@ import { mergeStack } from '@/services/stackDoc'
 import { findOffline, readOffline, removeOffline, saveOffline, type OfflineFile } from '@/services/offlineCache'
 import { mergeProject, type MergeReport } from '@/services/merge3'
 import { inGroup, roleFromGroups } from '@/services/domain'
+import { pollInterval } from '@/services/polling'
 import type {
   Attachment,
   AuditAction,
@@ -64,7 +65,6 @@ export interface OfflineSyncReport {
 export type OpenResult = { ok: true } | { ok: false; needsPassword: true } | { ok: false; error: string }
 export type WsStatus = 'closed' | 'opening' | 'locked' | 'open' | 'unreachable'
 
-const POLL_MS = 4000
 /** «Ci sto lavorando»: rinnovo dell'indicazione e oltre quanto senza rinnovo non vale più. */
 export const PRESENCE_BEAT_MS = 10 * 60_000
 export const PRESENCE_STALE_MS = 30 * 60_000
@@ -122,6 +122,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   let signature: Signature = {}
   let pollTimer: number | null = null
+  let lastActivity = Date.now()
+  /** Catena di controlli in corso: una nuova la sostituisce (niente controlli doppi). */
+  let pollChain = 0
+  const onActivity = () => (lastActivity = Date.now())
   let presenceTimer: number | null = null
   let backupTimer: number | null = null
   let unwatch: (() => void) | null = null
@@ -304,6 +308,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     if (!data) throw new Error(common.ws.offlineUnreadable)
     users.value = data.users
     if (!currentUser.value) throw new Error(common.ws.offlineUnreadable)
+    storage.value?.setWriter(currentUser.value.id, session.identity.hostname)
     passwordRemembered.value = !!meta.value?.auth && (await hasRememberedPassword(meta.value.id))
     tree.value = data.tree
     projects.value = data.projects
@@ -404,8 +409,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
     if (pendingAudit.length) {
       try {
-        audit.value = (await s.appendAudit(pendingAudit)).entries
-        markLocalWrite('audit.json')
+        await s.appendAudit(pendingAudit)
+        audit.value = [...audit.value, ...pendingAudit].slice(-5000)
+        writeGen++
         pendingAudit = []
       } catch {
         /* si riprova al prossimo invio */
@@ -513,6 +519,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       users.value = (await storage.value!.mutateUsers((f) => f.users.push(u))).users
     }
     await syncDomainAccount()
+    // Da qui le scritture finiscono nel giornale di questo PC e la cronologia nei suoi file
+    if (currentUser.value) storage.value?.setWriter(currentUser.value.id, session.identity.hostname)
   }
 
   /**
@@ -604,7 +612,20 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   // --- aggiornamento live --------------------------------------------------------
   function startWatching() {
     stopWatching()
-    pollTimer = window.setInterval(() => void refresh(), POLL_MS)
+    // Controllo adattivo: spesso con la finestra davanti, meno in secondo piano o lontani dal PC
+    const chain = ++pollChain
+    const schedule = () => {
+      const delay = pollInterval({
+        hidden: typeof document !== 'undefined' && document.visibilityState === 'hidden',
+        focused: typeof document === 'undefined' || document.hasFocus(),
+        idleMs: Date.now() - lastActivity,
+      })
+      pollTimer = window.setTimeout(() => void refresh().finally(() => chain === pollChain && schedule()), delay)
+    }
+    lastActivity = Date.now()
+    schedule()
+    window.addEventListener('pointerdown', onActivity, true)
+    window.addEventListener('keydown', onActivity, true)
     // Copia automatica: poco dopo l'apertura, poi un controllo ogni ora (si fa solo se dovuta)
     backupTimer = window.setTimeout(function tick() {
       void maybeAutoBackup()
@@ -619,8 +640,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }, 60_000)
   }
   function stopWatching() {
-    if (pollTimer) clearInterval(pollTimer)
+    if (pollTimer) clearTimeout(pollTimer)
     pollTimer = null
+    pollChain++
+    window.removeEventListener('pointerdown', onActivity, true)
+    window.removeEventListener('keydown', onActivity, true)
     if (backupTimer) clearTimeout(backupTimer)
     backupTimer = null
     if (presenceTimer) clearInterval(presenceTimer)
@@ -683,6 +707,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const me = currentUser.value?.id
       const remoteAuthors = new Set<string>()
       const applied: Record<string, string | undefined> = {}
+      const auditKeys: string[] = []
+      /** Progetti già riletti in questo giro (true se applicati). */
+      const projectDone = new Map<string, boolean>()
       for (const key of changedKeys) {
         // Se dalla lettura della firma è avvenuta una scrittura locale, si salta: il
         // file verrà riletto al prossimo giro (la sua firma resta "da aggiornare").
@@ -730,16 +757,24 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           if (v) copy[id] = v
           else delete copy[id]
           presence.value = copy
-        } else if (key === 'audit.json') {
-          const v = (await s.readAudit()).entries
-          if (stale()) continue
-          audit.value = v
+        } else if (key === 'audit.json' || key.startsWith('audit/')) {
+          // Cronologia: si rilegge una volta sola, dopo, solo nei file cambiati
+          auditKeys.push(key)
+          continue
         } else if (key.startsWith('projects/')) {
-          const id = key.slice('projects/'.length)
-          if (!next[key]) {
+          // Progetto grande: i capitoli (projects/<id>.c<n>) fanno parte dello stesso progetto
+          const id = key.slice('projects/'.length).replace(/\.c\d+$/, '')
+          const done = projectDone.get(id)
+          if (done !== undefined) {
+            if (done) applied[key] = next[key]
+            continue
+          }
+          projectDone.set(id, false)
+          if (!next[`projects/${id}`]) {
             if (stale()) continue
             delete projects.value[id]
             if (ui.selectedItemId && !findItem(ui.selectedItemId)) ui.selectedItemId = null
+            projectDone.set(id, true)
             continue
           }
           const fresh = await s.readProject(id).catch(() => null)
@@ -752,8 +787,17 @@ export const useWorkspaceStore = defineStore('workspace', () => {
             if (canSee(fresh)) notifications.ingest(fresh, diffProjects(prev, fresh), me ?? null)
           }
           projects.value[id] = fresh
+          projectDone.set(id, true)
+          for (const k of changedKeys) if (k !== key && k.startsWith(`projects/${id}.c`)) applied[k] = next[k]
         }
         applied[key] = next[key]
+      }
+      if (auditKeys.length) {
+        const v = (await s.readAudit(auditKeys).catch(() => null))?.entries
+        if (v && gen === writeGen) {
+          audit.value = v
+          for (const k of auditKeys) applied[k] = next[k]
+        }
       }
       // Aggiorna la firma solo per i file effettivamente applicati
       for (const k of Object.keys(next)) if (!changedKeys.has(k)) applied[k] = next[k]
@@ -875,8 +919,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       return
     }
     try {
-      audit.value = (await s.appendAudit([entry])).entries
-      markLocalWrite('audit.json')
+      await s.appendAudit([entry])
+      audit.value = [...audit.value, entry].slice(-5000)
+      writeGen++
     } catch (e) {
       lastError.value = describe(e)
     }

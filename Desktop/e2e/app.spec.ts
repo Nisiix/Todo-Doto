@@ -2046,3 +2046,68 @@ test('portatile fuori ufficio: la cartella cade, si lavora sulla copia e al rito
   }, data)
   expect(JSON.parse(remote).items[0].priority).toBe('alta')
 })
+
+test('VPN, accesso aziendale, email e Teams: impostazioni e canale del progetto', async ({ page }) => {
+  // Ufficio simulato: VPN di Windows, account di dominio, Outlook e un Workflow di Teams
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown>
+    w.__pgmSent = [] as unknown[]
+    w.__pgmOffice = {
+      vpnList: () => [{ name: 'Ufficio', connected: false, allUsers: true }],
+      vpnConnect: () => ({ ok: true, code: 0, message: '' }),
+      domainIdentity: () => ({ domain: 'STUDIO', user: 'anteprima', sid: 'S-1-5-21-9-1001', groups: ['STUDIO\\TodoDoto-Admin'] }),
+      mailOutlook: (m: unknown) => ((w.__pgmSent as unknown[]).push(m), { ok: true, code: 0, message: '' }),
+      teams: (url: string, body: unknown) => ((w.__pgmSent as unknown[]).push({ url, body }), 200),
+    }
+  })
+  await createNetworkWorkspace(page, 'Studio')
+  await createProject(page, 'Portale')
+  await openSettings(page)
+  await page.getByRole('tab', { name: 'Dati utente' }).click()
+  // VPN: scelta e collegamento automatico
+  const vpn = page.locator('[data-vpn-settings]')
+  await vpn.locator('[data-vpn-select]').selectOption('Ufficio')
+  await expect(vpn.locator('[data-vpn-auto]')).toBeChecked()
+  await vpn.locator('[data-vpn-connect]').click()
+  await expect(page.getByText('VPN collegata.')).toBeVisible()
+  // Accesso aziendale con i gruppi di Active Directory
+  const domain = page.locator('[data-domain-login]')
+  await expect(domain).toContainText('Su questo PC: STUDIO\\anteprima')
+  await domain.locator('[data-domain-toggle]').check()
+  await domain.locator('[data-domain-admin-groups] input').fill('Direzione')
+  await page.keyboard.press('Enter')
+  await domain.locator('[data-domain-save]').click()
+  await expect(page.getByText('Non fai parte di nessuno dei gruppi degli amministratori indicati')).toBeVisible()
+  await domain.locator('[data-domain-admin-groups] input').fill('TodoDoto-Admin')
+  await page.keyboard.press('Enter')
+  await domain.locator('[data-domain-save]').click()
+  await expect(page.getByText('Accesso aziendale salvato.')).toBeVisible()
+  // Email: la mia e il metodo del workspace, con la prova
+  await page.getByRole('tab', { name: 'Email e Teams' }).click()
+  await page.locator('[data-my-email]').fill('anteprima@studio.it')
+  await page.locator('[data-mail-on="mention"]').check()
+  await page.locator('[data-my-mail-save]').click()
+  await expect(page.getByText('Preferenze email salvate.')).toBeVisible()
+  await page.locator('[data-mail-method="outlook"]').check()
+  await page.locator('[data-digest-toggle]').check()
+  await page.locator('[data-mail-save]').click()
+  await expect(page.getByText('Impostazioni email salvate.')).toBeVisible()
+  await page.locator('[data-mail-test]').click()
+  await expect(page.getByText('Email di prova inviata.')).toBeVisible()
+  await page.keyboard.press('Escape')
+  // Canale Teams del progetto: solo indirizzi dei Workflow; poi i task completati arrivano nel canale
+  await openSection(page, 'Stack')
+  const teams = page.locator('[data-project-teams]')
+  await teams.locator('[data-teams-url]').fill('https://example.com/hook')
+  await expect(teams.locator('[data-teams-invalid]')).toBeVisible()
+  await teams.locator('[data-teams-url]').fill('https://prod-01.westeurope.logic.azure.com:443/workflows/abc/triggers/manual/paths/invoke?sig=x')
+  await teams.locator('[data-teams-save]').click()
+  await expect(page.getByText('Canale Teams salvato.')).toBeVisible()
+  await openSection(page, 'Todo')
+  await addItem(page, 'Pagina contatti')
+  await rows(page).filter({ hasText: 'Pagina contatti' }).click()
+  await page.getByRole('button', { name: 'Completa', exact: true }).click()
+  await expect
+    .poll(() => page.evaluate(() => JSON.stringify((window as unknown as { __pgmSent: unknown[] }).__pgmSent)))
+    .toContain('ha completato il task')
+})

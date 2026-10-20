@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LockBusyError, WorkspaceStorage } from './storage'
 import { getFs } from './fs'
-import { EMPTY_STACK, MAIL_DEFAULTS, type Item, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
+import { EMPTY_STACK, MAIL_DEFAULTS, ProjectSchema, type Item, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
 
 const meta: WorkspaceMeta = {
   schema: 1,
@@ -310,7 +310,7 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
     let fileStats = 0
     fs.stat = async (p: string) => {
       const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
-      if (n === '/rapido' || n === '/rapido/projects' || n === '/rapido/readiness' || n === '/rapido/presence') return { mtimeMs: dirTime, size: 0 }
+      if (['/rapido', '/rapido/projects', '/rapido/readiness', '/rapido/presence', '/rapido/audit', '/rapido/changes'].includes(n)) return { mtimeMs: dirTime, size: 0 }
       fileStats++
       return original(p)
     }
@@ -335,7 +335,7 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
     const fs = await getFs()
     const s = await freshWorkspace('/sezioni')
     for (const id of ['prj_a', 'prj_b', 'prj_c']) await s.writeProject({ ...project(id), name: id })
-    const times: Record<string, number> = { '/sezioni': 1, '/sezioni/projects': 1, '/sezioni/readiness': 1, '/sezioni/presence': 1 }
+    const times: Record<string, number> = { '/sezioni': 1, '/sezioni/projects': 1, '/sezioni/readiness': 1, '/sezioni/presence': 1, '/sezioni/audit': 1, '/sezioni/changes': 1 }
     const original = fs.stat
     const asked: string[] = []
     fs.stat = async (p: string) => {
@@ -386,5 +386,131 @@ describe('WorkspaceStorage: le cancellazioni restano nella cartella Dati', () =>
     await fs.writeTextAtomic('/progetto/src/main.ts', 'codice')
     await expect(fs.remove('/progetto')).rejects.toThrow()
     expect(await fs.readText('/progetto/src/main.ts')).toBe('codice')
+  })
+})
+
+describe('WorkspaceStorage: tanti utenti sulla stessa cartella', () => {
+  const entry = (id: string, at: string) => ({ id, at, userId: 'usr_1', action: 'item_created' as const, projectId: 'p', projectName: 'P', itemId: null, itemTitle: null, count: null })
+
+  it('cronologia: ogni PC scrive i suoi file del mese; si leggono insieme al vecchio audit.json; si rilegge solo il file cambiato', async () => {
+    const fs = await getFs()
+    const a = await freshWorkspace('/cron')
+    await a.appendAudit([entry('aud_old', '2026-01-01T00:00:00.000Z')]) // senza scrittore: vecchio formato
+    a.setWriter('usr_1', 'PC1')
+    const b = await new WorkspaceStorage('/cron').init()
+    b.setWriter('usr_2', 'PC2')
+    const now = new Date().toISOString()
+    await a.appendAudit([entry('aud_a', now)])
+    await b.appendAudit([entry('aud_b', now)])
+    const names = await fs.readDir('/cron/audit')
+    expect(names.sort()).toEqual([`${now.slice(0, 7)}.usr_1-PC1.json`, `${now.slice(0, 7)}.usr_2-PC2.json`])
+    const reader = await new WorkspaceStorage('/cron').init()
+    expect((await reader.readAudit()).entries.map((e) => e.id)).toEqual(['aud_old', 'aud_a', 'aud_b'])
+    // Un'altra voce di PC2: si rilegge solo il suo file
+    await b.appendAudit([entry('aud_b2', new Date().toISOString())])
+    const original = fs.readText
+    const read: string[] = []
+    fs.readText = async (p: string) => (read.push(p), original(p))
+    try {
+      const r = await reader.readAudit([`audit/${now.slice(0, 7)}.usr_2-PC2`])
+      expect(r.entries.map((e) => e.id)).toEqual(['aud_old', 'aud_a', 'aud_b', 'aud_b2'])
+      expect(read).toEqual([`/cron/audit/${now.slice(0, 7)}.usr_2-PC2.json`])
+    } finally {
+      fs.readText = original
+    }
+  })
+
+  it('giornale delle modifiche: chi controlla interroga solo i file scritti dagli altri; senza giornale (versioni precedenti) rilegge tutto', async () => {
+    const fs = await getFs()
+    const a = await freshWorkspace('/giornale')
+    a.setWriter('usr_1', 'PC1')
+    for (let i = 0; i < 20; i++) await a.writeProject({ ...project(`prj_${i}`), name: `P${i}` })
+    const b = await new WorkspaceStorage('/giornale').init()
+    const first = await b.signature()
+    await new Promise((r) => setTimeout(r, 3))
+    await a.mutateProject('prj_7', 'usr_1', (p) => void (p.name = 'cambiato'))
+    // Le date delle cartelle cambiano (nel filesystem in memoria le cartelle non hanno data: la si simula)
+    const original = fs.stat
+    let tick = 1
+    const asked: string[] = []
+    fs.stat = async (p: string) => {
+      const n = p.replace(/\\/g, '/')
+      if (/^\/giornale(\/(projects|readiness|presence|audit|changes))?$/.test(n)) return { mtimeMs: tick, size: 0 }
+      asked.push(n)
+      return original(p)
+    }
+    try {
+      await b.signature() // prima lettura con le date delle cartelle (completa)
+      await new Promise((r) => setTimeout(r, 3))
+      await a.mutateProject('prj_3', 'usr_1', (p) => void (p.name = 'di nuovo'))
+      tick = 2
+      asked.length = 0
+      const sig = await b.signature()
+      expect(sig['projects/prj_3']).not.toBe(first['projects/prj_3'])
+      expect(asked.filter((x) => x.includes('/projects/'))).toEqual(['/giornale/projects/prj_3.json'])
+      // Un PC con una versione precedente (nessun giornale): si rilegge la cartella intera
+      const old = await new WorkspaceStorage('/giornale').init()
+      await new Promise((r) => setTimeout(r, 3))
+      await old.mutateProject('prj_5', 'usr_9', (p) => void (p.name = 'vecchia versione'))
+      tick = 3
+      asked.length = 0
+      const sig2 = await b.signature()
+      expect(sig2['projects/prj_5']).not.toBe(sig['projects/prj_5'])
+      expect(asked.filter((x) => x.includes('/projects/')).length).toBeGreaterThan(10)
+    } finally {
+      fs.stat = original
+    }
+  })
+
+  it('progetti grandi: task in capitoli, una modifica riscrive un capitolo solo; le versioni precedenti non possono riscriverli', async () => {
+    const fs = await getFs()
+    const s = await freshWorkspace('/grande')
+    const items = Array.from({ length: 400 }, (_, i) => ({ ...ITEM, id: `itm_${i}`, title: `Task ${i}`, seq: i + 1 }))
+    await s.writeProject({ ...project('prj_big'), items, nextSeq: 401 })
+    const names = (await fs.readDir('/grande/projects')).sort()
+    expect(names.filter((n) => /\.c\d+\.json$/.test(n))).toHaveLength(Math.ceil(400 / 150))
+    const meta = JSON.parse(await fs.readText('/grande/projects/prj_big.json'))
+    expect(Array.isArray(meta.items)).toBe(false)
+    // Un'app di una versione precedente non legge il file (e quindi non lo riscrive perdendo i task)
+    expect(() => ProjectSchema.parse(meta)).toThrow()
+    // Lettura: tutti i task, nell'ordine
+    const read = await s.readProject('prj_big')
+    expect(read.items.map((i) => i.id)).toEqual(items.map((i) => i.id))
+    // Modifica di un task: si riscrivono il suo capitolo e il file principale
+    const writes: string[] = []
+    const original = fs.writeTextAtomic
+    fs.writeTextAtomic = async (p: string, t: string) => (writes.push(p), original(p, t))
+    try {
+      await s.mutateProject('prj_big', 'usr_1', (p) => void (p.items.find((i) => i.id === 'itm_42')!.title = 'cambiato'))
+    } finally {
+      fs.writeTextAtomic = original
+    }
+    expect(writes.filter((w) => /prj_big\.c\d+\.json$/.test(w))).toHaveLength(1)
+    expect(writes).toContain('/grande/projects/prj_big.json')
+    expect((await new WorkspaceStorage('/grande').init().then((x) => x.readProject('prj_big'))).items[42]!.title).toBe('cambiato')
+    // Firma: i capitoli fanno parte del progetto
+    expect(Object.keys(await s.signature()).filter((k) => k.startsWith('projects/prj_big')).length).toBe(4)
+    // Quando torna piccolo, un file solo e i capitoli spariscono
+    await s.mutateProject('prj_big', 'usr_1', (p) => void (p.items = p.items.slice(0, 50)))
+    expect((await fs.readDir('/grande/projects')).filter((n) => n.startsWith('prj_big'))).toEqual(['prj_big.json'])
+    expect((await s.readProject('prj_big')).items).toHaveLength(50)
+  })
+
+  it('progetti grandi: eliminazione, dati cifrati ed eliminazione dei dati del workspace comprendono i capitoli', async () => {
+    const fs = await getFs()
+    const s = await freshWorkspace('/grande2')
+    const items = Array.from({ length: 320 }, (_, i) => ({ ...ITEM, id: `itm_${i}`, title: `Segreto ${i}`, seq: i + 1 }))
+    await s.writeProject({ ...project('prj_a'), items })
+    await s.writeProject({ ...project('prj_b'), items })
+    const { createEncryption } = await import('./vault')
+    const { cipher } = await createEncryption('pw')
+    s.setCipher(cipher, true)
+    await s.rewriteAll()
+    for (const n of (await fs.readDir('/grande2/projects')).filter((x) => x.startsWith('prj_a'))) expect(await fs.readText(`/grande2/projects/${n}`)).not.toContain('Segreto')
+    expect((await s.readProject('prj_a')).items).toHaveLength(320)
+    await s.deleteProject('prj_a')
+    expect((await fs.readDir('/grande2/projects')).filter((n) => n.startsWith('prj_a'))).toEqual([])
+    await WorkspaceStorage.deleteData('/grande2')
+    expect(await fs.exists('/grande2/projects')).toBe(false)
   })
 })

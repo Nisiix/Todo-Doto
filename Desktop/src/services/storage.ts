@@ -95,6 +95,10 @@ export const FILES = {
   readinessDir: 'readiness',
   /** Chi lavora a cosa, un file per utente (presence/<idUtente>.json). */
   presenceDir: 'presence',
+  /** Cronologia a file per mese e per chi scrive (audit/<AAAA-MM>.<scrittore>.json): niente file condiviso da riscrivere. */
+  auditDir: 'audit',
+  /** Giornale delle modifiche, uno per PC che scrive (changes/<scrittore>.json): gli altri sanno quali file rileggere. */
+  changesDir: 'changes',
   /** Segnaposto degli invii giornalieri (riepilogo del mattino): uno per giorno, li crea il PC che invia. */
   mailDir: 'mail',
   /** Cartella predefinita delle copie di sicurezza (se non se ne sceglie un'altra). */
@@ -102,9 +106,48 @@ export const FILES = {
 } as const
 
 export type Signature = Record<string, string> // path relativo -> "mtime:size"
-const SECTIONS = ['root', 'projects', 'readiness', 'presence'] as const
+const SECTIONS = ['root', 'projects', 'readiness', 'presence', 'audit'] as const
+
+/** Progetti grandi: da CHUNK_SPLIT_AT task in su, i task stanno in «capitoli» di circa CHUNK_SIZE (projects/<id>.c<n>.json). */
+export const CHUNK_SPLIT_AT = 300
+export const CHUNK_SIZE = 150
+const CHUNK_RE = /^([A-Za-z0-9_-]{1,80})\.c(\d{1,3})\.json$/
+const AUDIT_RE = /^(\d{4}-\d{2})\.([A-Za-z0-9_-]{1,120})\.json$/
+const JOURNAL_RE = /^[A-Za-z0-9_-]{1,120}\.json$/
+/** Righe tenute nel giornale di ogni PC: chi è rimasto indietro di più rilegge tutto. */
+const JOURNAL_KEEP = 300
+/** Mesi di cronologia letti all'apertura; i file propri più vecchi di un anno si tolgono. */
+const AUDIT_MONTHS = 6
+const AUDIT_KEEP_MONTHS = 12
+
+/** Quanti capitoli: si dividono i progetti grandi e si torna a un file solo quando diventano piccoli. */
+export function chunkCount(items: number, prev: number): number {
+  if (prev) {
+    if (items < CHUNK_SPLIT_AT / 3) return 0
+    const t = Math.ceil(items / CHUNK_SIZE)
+    return t > prev * 2 ? t : prev
+  }
+  return items >= CHUNK_SPLIT_AT ? Math.ceil(items / CHUNK_SIZE) : 0
+}
+/** Capitolo di un task: dipende solo dal suo id, così un task resta sempre nello stesso file. */
+export function chunkOf(itemId: string, chunks: number): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < itemId.length; i++) h = Math.imul(h ^ itemId.charCodeAt(i), 0x01000193) >>> 0
+  return h % chunks
+}
+const monthOf = (iso: string) => iso.slice(0, 7)
+const monthsAgo = (n: number) => {
+  const d = new Date()
+  d.setUTCDate(1)
+  d.setUTCMonth(d.getUTCMonth() - n)
+  return d.toISOString().slice(0, 7)
+}
+type SplitInfo = { chunks: number; order: string[] }
+/** Prefisso delle chiavi di ogni sezione nei giornali (la radice ha pochi file: si rilegge sempre). */
+const SECTION_PREFIX: Record<(typeof SECTIONS)[number], string | null> = { root: null, projects: 'projects/', readiness: 'readiness/', presence: 'presence/', audit: 'audit/' }
 interface SectionCache {
   at: number
+  changesKey: string
   parts: Record<(typeof SECTIONS)[number], { key: string; sig: Signature }>
 }
 
@@ -127,10 +170,22 @@ async function isOwnJson(fs: FsApi, path: string, name: string, field: 'id' | 'u
 }
 /** Un file di `projects/` è davvero un progetto dell'app. */
 const isProjectFile = (fs: FsApi, path: string, name: string) => isOwnJson(fs, path, name, 'id')
+/** Un capitolo di un progetto grande (`<id>.c<n>.json` con lo stesso id dentro). */
+async function isChunkFile(fs: FsApi, path: string, name: string) {
+  const m = CHUNK_RE.exec(name)
+  if (!m) return false
+  try {
+    const text = await fs.readText(path)
+    if (isEncryptedText(text)) return true
+    return (JSON.parse(text) as { projectId?: string }).projectId === m[1]
+  } catch {
+    return false
+  }
+}
 
 export class WorkspaceStorage {
   private fs!: FsApi
-  private paths = { workspace: '', users: '', tree: '', drive: '', audit: '', projectsDir: '', readinessDir: '', presenceDir: '' }
+  private paths = { workspace: '', users: '', tree: '', drive: '', audit: '', projectsDir: '', readinessDir: '', presenceDir: '', auditDir: '', changesDir: '' }
   /** Coda per file: le mutazioni di questo processo sullo stesso file, una alla volta. */
   private queues = new Map<string, Promise<unknown>>()
   /** Chi tiene i lock creati da questa istanza (es. "mario@PC-UFFICIO"), mostrato a chi aspetta. */
@@ -163,6 +218,8 @@ export class WorkspaceStorage {
     this.paths.projectsDir = await this.fs.join(this.root, FILES.projectsDir)
     this.paths.readinessDir = await this.fs.join(this.root, FILES.readinessDir)
     this.paths.presenceDir = await this.fs.join(this.root, FILES.presenceDir)
+    this.paths.auditDir = await this.fs.join(this.root, FILES.auditDir)
+    this.paths.changesDir = await this.fs.join(this.root, FILES.changesDir)
     return this
   }
 
@@ -180,9 +237,16 @@ export class WorkspaceStorage {
     for (const e of await fs.listDir(projectsDir).catch(() => [])) {
       if (e.isDir) continue
       const path = await fs.join(projectsDir, e.name)
-      if (own(e.name) || (await isProjectFile(fs, path, e.name))) await fs.remove(path)
+      if (own(e.name) || (await isProjectFile(fs, path, e.name)) || (await isChunkFile(fs, path, e.name))) await fs.remove(path)
     }
     await fs.remove(projectsDir).catch(() => {}) // solo se vuota
+    for (const [dirName, re] of [[FILES.auditDir, AUDIT_RE], [FILES.changesDir, JOURNAL_RE]] as const) {
+      const dir = await fs.join(root, dirName)
+      for (const e of await fs.listDir(dir).catch(() => [])) {
+        if (!e.isDir && (re.test(e.name) || own(e.name))) await fs.remove(await fs.join(dir, e.name))
+      }
+      await fs.remove(dir).catch(() => {}) // solo se vuota
+    }
     const readinessDir = await fs.join(root, FILES.readinessDir)
     for (const e of await fs.listDir(readinessDir).catch(() => [])) {
       if (e.isDir) continue
@@ -243,7 +307,93 @@ export class WorkspaceStorage {
     const json = JSON.stringify(data)
     // workspace.json resta in chiaro: serve per aprire il workspace (contiene la chiave avvolta)
     const out = this.encryptWrites && this.cipher && path !== this.paths.workspace ? await this.cipher.encryptText(json) : json
-    return this.fs.writeTextAtomic(path, out)
+    await this.fs.writeTextAtomic(path, out)
+    this.pendingKeys.add(this.keyOf(path))
+  }
+
+  // --- giornale delle modifiche -----------------------------------------------------
+  //
+  // Ogni PC che scrive tiene il suo giornale (changes/<scrittore>.json): un
+  // numero progressivo e il file toccato. Chi controlla i cambiamenti legge solo
+  // i giornali cambiati e interroga solo i file indicati, invece di chiedere la
+  // data di tutti i file: il costo non cresce più con il numero di progetti.
+
+  /** Chi scrive (utente + PC), per il nome del giornale e dei file di cronologia; vuoto finché non si sa. */
+  private writerId = ''
+  setWriter(userId: string, host: string) {
+    const id = `${userId}-${host}`.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 120)
+    if (id !== this.writerId) {
+      this.writerId = id
+      this.journal = null
+    }
+  }
+  private pendingKeys = new Set<string>()
+  private journal: { seq: number; entries: { seq: number; key: string }[] } | null = null
+
+  /** Percorso relativo alla cartella Dati, senza `.json` (es. "projects/prj_1"). */
+  private keyOf(path: string) {
+    const n = (x: string) => x.replace(/\\/g, '/').replace(/\/+$/, '')
+    const rel = n(path).startsWith(n(this.root) + '/') ? n(path).slice(n(this.root).length + 1) : n(path)
+    return rel.replace(/\.json$/i, '')
+  }
+
+  /** Scrive nel proprio giornale i file toccati dall'ultima operazione. */
+  async flushJournal() {
+    if (!this.pendingKeys.size) return
+    const keys = [...this.pendingKeys]
+    this.pendingKeys.clear()
+    if (!this.writerId) return
+    await this.serialize('::journal', async () => {
+      const path = await this.fs.join(this.paths.changesDir, `${this.writerId}.json`)
+      if (!this.journal) {
+        try {
+          const j = JSON.parse(await this.fs.readText(path)) as { seq?: number; entries?: { seq: number; key: string }[] }
+          this.journal = { seq: j.seq ?? 0, entries: j.entries ?? [] }
+        } catch {
+          this.journal = { seq: 0, entries: [] }
+        }
+      }
+      const j = this.journal
+      for (const key of keys) j.entries.push({ seq: ++j.seq, key })
+      if (j.entries.length > JOURNAL_KEEP) j.entries = j.entries.slice(-JOURNAL_KEEP)
+      await this.fs.mkdir(this.paths.changesDir)
+      await this.fs.writeTextAtomic(path, JSON.stringify({ writer: this.writerId, seq: j.seq, entries: j.entries }))
+    }).catch(() => {
+      /* il giornale è un'ottimizzazione: senza, gli altri rileggono le date di tutti i file */
+    })
+  }
+
+  /** Ultimo numero letto per ogni giornale e la sua firma (per non rileggerlo se non cambia). */
+  private journalSeen = new Map<string, number>()
+  private journalStats = new Map<string, string>()
+
+  /**
+   * File cambiati secondo i giornali dall'ultima lettura. null = non si sa
+   * (giornale illeggibile o qualcuno rimasto troppo indietro): si rilegge tutto.
+   */
+  private async readJournals(): Promise<Set<string> | null> {
+    try {
+      if (!(await this.fs.exists(this.paths.changesDir))) return new Set()
+      const keys = new Set<string>()
+      let unknown = false
+      for (const name of await this.fs.readDir(this.paths.changesDir)) {
+        if (!JOURNAL_RE.test(name)) continue
+        const path = await this.fs.join(this.paths.changesDir, name)
+        const st = await this.fs.stat(path)
+        const sig = st ? `${st.mtimeMs}:${st.size}` : ''
+        if (sig && this.journalStats.get(name) === sig) continue
+        this.journalStats.set(name, sig)
+        const j = JSON.parse(await this.fs.readText(path)) as { entries?: { seq: number; key: string }[] }
+        const entries = j.entries ?? []
+        const seen = this.journalSeen.get(name)
+        if (seen !== undefined && entries.length && entries[0]!.seq > seen + 1) unknown = true
+        for (const e of entries) if (seen === undefined || e.seq > seen) keys.add(e.key)
+        this.journalSeen.set(name, entries.length ? entries[entries.length - 1]!.seq : (seen ?? 0))
+      }
+      return unknown ? null : keys
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -259,6 +409,14 @@ export class WorkspaceStorage {
     }
     for (const p of [this.paths.users, this.paths.tree, this.paths.drive, this.paths.audit]) await rewrite(p)
     for (const id of await this.listProjectIds()) await rewrite(await this.projectPath(id))
+    for (const name of await this.fs.readDir(this.paths.projectsDir).catch(() => [])) {
+      if (CHUNK_RE.test(name)) await rewrite(await this.fs.join(this.paths.projectsDir, name))
+    }
+    for (const name of await this.fs.readDir(this.paths.auditDir).catch(() => [])) {
+      if (AUDIT_RE.test(name)) await rewrite(await this.fs.join(this.paths.auditDir, name))
+    }
+    this.chunkCache.clear()
+    this.auditCache.clear()
     for (const dir of [this.paths.readinessDir, this.paths.presenceDir]) {
       if (!(await this.fs.exists(dir))) continue
       for (const name of await this.fs.readDir(dir)) {
@@ -308,6 +466,7 @@ export class WorkspaceStorage {
         return await fn()
       } finally {
         await this.release(lockPath, token)
+        await this.flushJournal()
       }
     })
   }
@@ -356,19 +515,79 @@ export class WorkspaceStorage {
   readMeta = () => this.readJson(this.paths.workspace, (r) => WorkspaceMetaSchema.parse(r))
   readUsers = () => this.readJson(this.paths.users, (r) => UsersFileSchema.parse(r))
   readTree = () => this.readJson(this.paths.tree, (r) => TreeFileSchema.parse(r))
-  async readAudit(): Promise<AuditFile> {
-    if (!(await this.fs.exists(this.paths.audit))) return { entries: [] }
-    return this.readJson(this.paths.audit, (r) => AuditFileSchema.parse(r))
-  }
-  /** Aggiunge voci alla cronologia (sotto lock, come tutte le mutazioni). */
-  appendAudit(entries: AuditFile['entries']) {
-    return this.withLock(this.paths.audit, async () => {
-      const a = await this.readAudit()
-      a.entries.push(...entries)
-      if (a.entries.length > 5000) a.entries = a.entries.slice(-5000)
-      await this.writeJson(this.paths.audit, a)
-      return a
+  /** Voci lette per file (audit.json delle versioni precedenti e audit/<mese>.<scrittore>.json). */
+  private auditCache = new Map<string, AuditFile['entries']>()
+
+  /**
+   * Cronologia: il vecchio audit.json (scritto dalle versioni precedenti) più i
+   * file per mese e per scrittore degli ultimi mesi, in ordine di tempo (ultime
+   * 5000 voci). `changed`: chiavi dei file cambiati ("audit.json",
+   * "audit/<mese>.<scrittore>"): gli altri si prendono da quanto già letto.
+   */
+  async readAudit(changed?: Iterable<string>): Promise<AuditFile> {
+    const ch = changed ? new Set(changed) : null
+    const want = (key: string) => !ch || ch.has(key) || !this.auditCache.has(key)
+    if (want('audit.json')) {
+      const legacy = (await this.fs.exists(this.paths.audit)) ? (await this.readJson(this.paths.audit, (r) => AuditFileSchema.parse(r))).entries : []
+      this.auditCache.set('audit.json', legacy)
+    }
+    const from = monthsAgo(AUDIT_MONTHS)
+    const names = (await this.fs.readDir(this.paths.auditDir).catch(() => [])).filter((n) => {
+      const m = AUDIT_RE.exec(n)
+      return !!m && m[1]! >= from
     })
+    const present = new Set(['audit.json', ...names.map((n) => `audit/${n.slice(0, -5)}`)])
+    for (const k of [...this.auditCache.keys()]) if (!present.has(k)) this.auditCache.delete(k)
+    for (const n of names) {
+      const key = `audit/${n.slice(0, -5)}`
+      if (!want(key)) continue
+      const entries = await this.readJson(await this.fs.join(this.paths.auditDir, n), (r) => AuditFileSchema.parse(r).entries).catch(() => [])
+      this.auditCache.set(key, entries)
+    }
+    const seen = new Set<string>()
+    const all = [...this.auditCache.values()].flat().filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
+    all.sort((a, b) => a.at.localeCompare(b.at))
+    return { entries: all.slice(-5000) }
+  }
+  /**
+   * Aggiunge voci alla cronologia. Ogni PC scrive solo i propri file (uno al
+   * mese): niente lock condiviso fra tutti né riscrittura dell'intera cronologia.
+   * Prima di sapere chi scrive (workspace appena creato) si usa audit.json.
+   */
+  async appendAudit(entries: AuditFile['entries']) {
+    if (!entries.length) return
+    if (!this.writerId) {
+      await this.withLock(this.paths.audit, async () => {
+        const a = (await this.fs.exists(this.paths.audit)) ? await this.readJson(this.paths.audit, (r) => AuditFileSchema.parse(r)) : { entries: [] }
+        a.entries.push(...entries)
+        if (a.entries.length > 5000) a.entries = a.entries.slice(-5000)
+        await this.writeJson(this.paths.audit, a)
+        this.auditCache.set('audit.json', a.entries)
+      })
+      return
+    }
+    await this.fs.mkdir(this.paths.auditDir)
+    const byMonth = new Map<string, AuditFile['entries']>()
+    for (const e of entries) byMonth.set(monthOf(e.at), [...(byMonth.get(monthOf(e.at)) ?? []), e])
+    for (const [month, list] of byMonth) {
+      const name = `${month}.${this.writerId}.json`
+      const path = await this.fs.join(this.paths.auditDir, name)
+      await this.withLock(path, async () => {
+        const isNew = !(await this.fs.exists(path))
+        const a = isNew ? { entries: [] as AuditFile['entries'] } : await this.readJson(path, (r) => AuditFileSchema.parse(r))
+        a.entries.push(...list)
+        await this.writeJson(path, a)
+        this.auditCache.set(`audit/${name.slice(0, -5)}`, a.entries)
+        // Mese nuovo: si tolgono i propri file più vecchi di un anno
+        if (isNew) {
+          const limit = monthsAgo(AUDIT_KEEP_MONTHS)
+          for (const n of await this.fs.readDir(this.paths.auditDir).catch(() => [])) {
+            const m = AUDIT_RE.exec(n)
+            if (m && m[2] === this.writerId && m[1]! < limit) await this.fs.remove(await this.fs.join(this.paths.auditDir, n)).catch(() => {})
+          }
+        }
+      })
+    }
   }
   async readDrive(): Promise<DriveFile> {
     if (!(await this.fs.exists(this.paths.drive))) return DriveFileSchema.parse({})
@@ -376,10 +595,106 @@ export class WorkspaceStorage {
   }
 
   async readProject(id: string): Promise<Project> {
-    const p = await this.readJson(await this.projectPath(id), (r) => ProjectSchema.parse(r))
+    const raw = await this.readJson(await this.projectPath(id), (r) => r as Record<string, unknown>)
+    // Progetto grande: i task stanno nei capitoli (il file principale ha solo l'elenco)
+    const split = raw.items && !Array.isArray(raw.items) ? (raw.items as SplitInfo) : null
+    this.splitOf.set(id, split?.chunks ?? 0)
+    if (split) raw.items = await this.readChunks(id, split)
+    const p = ProjectSchema.parse(raw)
     // Task dei file di versioni precedenti: numerati in memoria (il file si aggiorna alla prossima modifica)
     normalizeSeq(p)
     return p
+  }
+
+  // --- progetti grandi divisi in capitoli -------------------------------------------
+  //
+  // Il file principale tiene il progetto con `items: { chunks, order }` (un
+  // oggetto, non un elenco: le versioni precedenti dell'app non lo leggono e
+  // quindi non possono riscriverlo perdendo i task) e i task stanno in
+  // projects/<id>.c<n>.json. Una modifica a un task riscrive solo il suo
+  // capitolo e il file principale; chi rilegge prende dalla memoria i capitoli
+  // non cambiati.
+
+  /** Capitoli di ogni progetto all'ultima lettura (0 = file unico). */
+  private splitOf = new Map<string, number>()
+  private chunkCache = new Map<string, { sig: string; items: unknown[] }>()
+
+  private chunkPath(id: string, n: number) {
+    if (!isSafeId(id) || !Number.isInteger(n) || n < 0 || n > 999) throw new Error(`Capitolo non valido: ${id}.${n}`)
+    return this.fs.join(this.paths.projectsDir, `${id}.c${n}.json`)
+  }
+
+  private async readChunks(id: string, split: SplitInfo): Promise<unknown[]> {
+    const byId = new Map<string, unknown>()
+    const extra: unknown[] = []
+    for (let n = 0; n < split.chunks; n++) {
+      const path = await this.chunkPath(id, n)
+      const st = await this.fs.stat(path)
+      const sig = st ? `${st.mtimeMs}:${st.size}` : ''
+      let items = sig ? this.chunkCache.get(path) : undefined
+      if (!items || items.sig !== sig) {
+        const data = st ? await this.readJson(path, (r) => r as { projectId?: string; items?: unknown[] }) : { items: [] }
+        items = { sig, items: data.items ?? [] }
+        if (sig) this.chunkCache.set(path, items)
+      }
+      for (const it of items.items) {
+        const iid = (it as { id?: string }).id
+        if (iid) byId.set(iid, it)
+        else extra.push(it)
+      }
+    }
+    const out: unknown[] = []
+    for (const iid of split.order ?? []) {
+      const it = byId.get(iid)
+      if (it) {
+        out.push(it)
+        byId.delete(iid)
+      }
+    }
+    // Task non ancora nell'elenco (lettura a metà di un salvataggio): in fondo
+    return [...out, ...byId.values(), ...extra]
+  }
+
+  /** Quanti capitoli ha ora sul disco il progetto (per toglierli quando si riscrive). */
+  private async splitOnDisk(id: string): Promise<number> {
+    try {
+      const raw = await this.readJson(await this.projectPath(id), (r) => r as { items?: unknown })
+      return raw.items && !Array.isArray(raw.items) ? ((raw.items as SplitInfo).chunks ?? 0) : 0
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * Scrive un progetto in un file o in capitoli. `prev`: capitoli sul disco;
+   * `before`: i capitoli com'erano letti (si riscrivono solo quelli cambiati).
+   */
+  private async writeProjectFiles(p: Project, prev: number, before: string[] | null) {
+    const path = await this.projectPath(p.id)
+    const k = chunkCount(p.items.length, prev)
+    if (k) {
+      const groups: Project['items'][] = Array.from({ length: k }, () => [])
+      for (const it of p.items) groups[chunkOf(it.id, k)]!.push(it)
+      for (let n = 0; n < k; n++) {
+        const items = groups[n]!
+        if (k === prev && before && before[n] === JSON.stringify(items)) continue
+        await this.writeJson(await this.chunkPath(p.id, n), { projectId: p.id, n, items })
+      }
+    }
+    for (let n = k; n < prev; n++) {
+      const cp = await this.chunkPath(p.id, n)
+      await this.fs.remove(cp).catch(() => {})
+      this.chunkCache.delete(cp)
+      this.pendingKeys.add(this.keyOf(cp))
+    }
+    await this.writeJson(path, k ? { ...p, items: { chunks: k, order: p.items.map((i) => i.id) } satisfies SplitInfo } : p)
+    this.splitOf.set(p.id, k)
+  }
+  private chunkJson(p: Project, k: number): string[] | null {
+    if (!k) return null
+    const groups: Project['items'][] = Array.from({ length: k }, () => [])
+    for (const it of p.items) groups[chunkOf(it.id, k)]!.push(it)
+    return groups.map((g) => JSON.stringify(g))
   }
 
   async listProjectIds(): Promise<string[]> {
@@ -548,6 +863,15 @@ export class WorkspaceStorage {
     await this.withLock(this.paths.tree, () => this.writeJson(this.paths.tree, content.tree))
     await this.withLock(this.paths.drive, () => this.writeJson(this.paths.drive, content.drive))
     await this.withLock(this.paths.audit, () => this.writeJson(this.paths.audit, content.audit))
+    // La cronologia torna quella della copia: via i file per mese (solo quelli dell'app)
+    for (const n of await this.fs.readDir(this.paths.auditDir).catch(() => [])) {
+      if (!AUDIT_RE.test(n)) continue
+      const ap = await this.fs.join(this.paths.auditDir, n)
+      await this.fs.remove(ap).catch(() => {})
+      this.pendingKeys.add(this.keyOf(ap))
+    }
+    this.auditCache.clear()
+    await this.flushJournal()
     const restored = new Set(content.projects.map((p) => p.id))
     for (const p of content.projects) await this.restoreProject(p)
     for (const id of await this.listProjectIds()) if (!restored.has(id)) await this.deleteProject(id)
@@ -556,7 +880,7 @@ export class WorkspaceStorage {
   async restoreProject(p: Project) {
     await this.fs.mkdir(this.paths.projectsDir)
     const path = await this.projectPath(p.id)
-    await this.withLock(path, () => this.writeJson(path, p))
+    await this.withLock(path, async () => this.writeProjectFiles(p, await this.splitOnDisk(p.id), null))
   }
 
   // --- scrittura -----------------------------------------------------------
@@ -566,7 +890,8 @@ export class WorkspaceStorage {
 
   async writeProject(p: Project) {
     await this.fs.mkdir(this.paths.projectsDir)
-    await this.writeJson(await this.projectPath(p.id), p)
+    await this.writeProjectFiles(p, await this.splitOnDisk(p.id), null)
+    await this.flushJournal()
   }
 
   /**
@@ -576,7 +901,18 @@ export class WorkspaceStorage {
    */
   async deleteProject(id: string) {
     const path = await this.projectPath(id)
-    await this.withLock(path, () => this.fs.remove(path))
+    await this.withLock(path, async () => {
+      const chunks = await this.splitOnDisk(id)
+      await this.fs.remove(path)
+      this.pendingKeys.add(this.keyOf(path))
+      for (let n = 0; n < chunks; n++) {
+        const cp = await this.chunkPath(id, n)
+        await this.fs.remove(cp).catch(() => {})
+        this.chunkCache.delete(cp)
+        this.pendingKeys.add(this.keyOf(cp))
+      }
+      this.splitOf.delete(id)
+    })
   }
 
   /** Mutazione sotto lock: rilegge, applica `fn`, incrementa `version`, scrive. Ritorna il progetto aggiornato. */
@@ -584,12 +920,14 @@ export class WorkspaceStorage {
     const path = await this.projectPath(id)
     return this.withLock(path, async () => {
       const fresh = await this.readProject(id)
+      const prev = this.splitOf.get(id) ?? 0
+      const before = this.chunkJson(fresh, prev)
       const result = fn(fresh)
       if (result === false) return fresh
       fresh.version += 1
       fresh.updatedAt = nowIso()
       fresh.updatedBy = actorId
-      await this.writeJson(path, fresh)
+      await this.writeProjectFiles(fresh, prev, before)
       return fresh
     })
   }
@@ -636,22 +974,45 @@ export class WorkspaceStorage {
    * firma completa si ricalcola comunque ogni FULL_SIGNATURE_MS.
    */
   async signature(): Promise<Signature> {
-    const dirs = [this.root, this.paths.projectsDir, this.paths.readinessDir, this.paths.presenceDir]
+    const dirs = [this.root, this.paths.projectsDir, this.paths.readinessDir, this.paths.presenceDir, this.paths.auditDir, this.paths.changesDir]
     const stats = await Promise.all(dirs.map((d) => this.fs.stat(d)))
     // Cartella del workspace non raggiungibile (rete, VPN): è un errore, non «tutti i file cancellati»
     if (!stats[0] && !(await this.fs.exists(this.root))) throw new Error(`unreachable: ${this.root}`)
     const full = !this.sections || Date.now() - this.sections.at >= FULL_SIGNATURE_MS || !stats[0]?.mtimeMs
     const prev = full ? null : this.sections
+    // Giornali delle modifiche: quali file sono cambiati (null = non si sa, si rilegge la cartella)
+    const changesKey = String(stats[5]?.mtimeMs ?? 0)
+    let journal: Set<string> | null = null
+    if (full || !prev || prev.changesKey !== changesKey || !stats[5]?.mtimeMs) journal = await this.readJournals()
+    else journal = new Set()
     const parts = await Promise.all(
       SECTIONS.map(async (name, i) => {
         const key = String(stats[i]?.mtimeMs ?? 0)
         const old = prev?.parts[name]
         // Cartella assente: resta tale finché non compare. Data non affidabile (0): si rilegge sempre
         if (old && old.key === key && (stats[i] === null || stats[i]?.mtimeMs)) return old
+        // Cartella cambiata: se i giornali dicono quali file, si interrogano solo quelli
+        const prefix = SECTION_PREFIX[name]
+        const touched = journal && prefix ? [...journal].filter((k) => k.startsWith(prefix)) : []
+        if (old && journal && prefix && touched.length && stats[i]?.mtimeMs) {
+          const sig = { ...old.sig }
+          await Promise.all(
+            touched.map(async (k) => {
+              const st = await this.fs.stat(await this.fs.join(this.root, `${k}.json`))
+              if (st) sig[k] = `${st.mtimeMs}:${st.size}`
+              else delete sig[k]
+            }),
+          )
+          return { key, sig }
+        }
         return { key, sig: await this.sectionSignature(name) }
       }),
     )
-    this.sections = { at: full ? Date.now() : this.sections!.at, parts: Object.fromEntries(SECTIONS.map((n, i) => [n, parts[i]!])) as SectionCache['parts'] }
+    this.sections = {
+      at: full ? Date.now() : this.sections!.at,
+      changesKey,
+      parts: Object.fromEntries(SECTIONS.map((n, i) => [n, parts[i]!])) as SectionCache['parts'],
+    }
     return Object.assign({}, ...parts.map((p) => p.sig)) as Signature
   }
   /** Ultime firme per sezione e date delle cartelle a cui si riferiscono (vedi signature()). */
@@ -668,9 +1029,19 @@ export class WorkspaceStorage {
       const st = await Promise.all(paths.map((p) => this.fs.stat(p)))
       files.forEach((f, i) => put(f, st[i] ?? null))
     } else if (name === 'projects') {
-      const ids = await this.listProjectIds()
-      const stats = await Promise.all(ids.map(async (id) => [id, await this.fs.stat(await this.projectPath(id))] as const))
-      for (const [id, s] of stats) put(`${FILES.projectsDir}/${id}`, s)
+      if (!(await this.fs.exists(this.paths.projectsDir))) return sig
+      // File principali dei progetti e capitoli dei progetti grandi
+      const names = (await this.fs.readDir(this.paths.projectsDir)).filter((n) => (n.endsWith('.json') && isSafeId(n.slice(0, -5))) || CHUNK_RE.test(n))
+      const stats = await Promise.all(names.map(async (n) => [n.slice(0, -5), await this.fs.stat(await this.fs.join(this.paths.projectsDir, n))] as const))
+      for (const [stem, s] of stats) put(`${FILES.projectsDir}/${stem}`, s)
+    } else if (name === 'audit') {
+      const from = monthsAgo(AUDIT_MONTHS)
+      const names = (await this.fs.readDir(this.paths.auditDir).catch(() => [])).filter((n) => {
+        const m = AUDIT_RE.exec(n)
+        return !!m && m[1]! >= from
+      })
+      const stats = await Promise.all(names.map(async (n) => [n.slice(0, -5), await this.fs.stat(await this.fs.join(this.paths.auditDir, n))] as const))
+      for (const [stem, s] of stats) put(`${FILES.auditDir}/${stem}`, s)
     } else {
       const dir = name === 'readiness' ? this.paths.readinessDir : this.paths.presenceDir
       const prefix = name === 'readiness' ? FILES.readinessDir : FILES.presenceDir
