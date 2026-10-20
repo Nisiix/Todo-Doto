@@ -1,7 +1,7 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { parseQuickAdd, tokenText, type QuickAddResult, type QuickToken } from '@/services/quickAdd'
-import { todayKey } from '@/services/items'
+import { useToday } from './useToday'
 import { locale } from '@/i18n'
 
 /**
@@ -11,6 +11,7 @@ import { locale } from '@/i18n'
  */
 export function useQuickAdd(text: Readonly<Ref<string>>) {
   const ws = useWorkspaceStore()
+  const { today } = useToday()
   const ignore = ref<string[]>([])
   watch(text, (t) => {
     if (!t.trim()) ignore.value = []
@@ -20,7 +21,7 @@ export function useQuickAdd(text: Readonly<Ref<string>>) {
       users: ws.users,
       labels: ws.tree.labels,
       meId: ws.currentUser?.id ?? null,
-      today: todayKey(),
+      today: today.value,
       dayFirst: locale === 'it',
       ignore: ignore.value,
     }),

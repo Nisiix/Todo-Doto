@@ -26,6 +26,7 @@ import TasksFromTextDialog from '@/components/ai/TasksFromTextDialog.vue'
 import QuickAddBar from '@/components/quick/QuickAddBar.vue'
 import ProjectInsights from '@/components/project/ProjectInsights.vue'
 import { projectSignals } from '@/services/insights'
+import { useToday } from '@/composables/useToday'
 import { useAiStore } from '@/stores/ai'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
@@ -232,7 +233,8 @@ const showRoadmap = ref(false)
 const showDecisions = ref(false)
 // Attenzioni e tempi di ciclo (pannello sopra la lista «Da fare»)
 const showInsights = ref(false)
-const signals = computed(() => (project.value ? projectSignals(project.value, { userIds: ws.users.map((u) => u.id) }) : []))
+const { nowIso } = useToday()
+const signals = computed(() => (project.value ? projectSignals(project.value, { userIds: ws.users.map((u) => u.id), now: nowIso.value }) : []))
 const highSignals = computed(() => signals.value.filter((x) => x.severity === 'high').length)
 const decisionCount = computed(() => (project.value ? projectDecisions(project.value).length : 0))
 // IA locale attiva su questo PC: compaiono le funzioni assistite (task da un testo)

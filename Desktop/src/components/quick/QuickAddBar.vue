@@ -6,21 +6,18 @@ import { useQuickAdd } from '@/composables/useQuickAdd'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { defineMessages } from '@/i18n'
-import { common } from '@/i18n/common'
 
 const m = defineMessages({
   it: {
     placeholder: 'Aggiungi un task… es. Esportazione CSV !alta @mario #bug entro venerdì',
     label: 'Aggiungi un task rapidamente',
     hint: '!priorità · @persona · #etichetta · entro venerdì, per domani, ^15/11, tra 3 giorni · Invio per aggiungere',
-    created: 'Task aggiunto',
     empty: 'Scrivi il titolo del task, non solo i comandi.',
   },
   en: {
     placeholder: 'Add a task… e.g. CSV export !high @mario #bug by friday',
     label: 'Quickly add a task',
     hint: '!priority · @person · #label · by friday, by tomorrow, ^11/15, in 3 days · Enter to add',
-    created: 'Task added',
     empty: 'Write the task title, not just the commands.',
   },
 })
@@ -33,7 +30,6 @@ const props = defineProps<{ projectId: string }>()
 const ws = useWorkspaceStore()
 const ui = useUiStore()
 const text = ref('')
-const focused = ref(false)
 const busy = ref(false)
 const { parsed, keep } = useQuickAdd(text)
 
@@ -51,7 +47,8 @@ async function submit() {
       ...(p.dueDate ? { status: 'confermato' as const, dueDate: p.dueDate } : {}),
     })
     text.value = ''
-    ui.toast(m.created, 'success', { label: common.actions.open, run: () => (ui.selectedItemId = item.id) }, 2500)
+    // La riga nuova lampeggia nella lista: niente avviso per ogni task aggiunto di fila
+    ui.flashItems([item.id])
   } finally {
     busy.value = false
   }
@@ -69,16 +66,15 @@ async function submit() {
         :aria-label="m.label"
         :disabled="busy"
         data-quick-input
-        @focus="focused = true"
-        @blur="focused = false"
         @keydown.enter.prevent="submit()"
         @keydown.esc.prevent="text = ''"
       />
       <CornerDownLeft v-if="text.trim()" :size="14" class="shrink-0 text-ink-3" />
     </label>
-    <div v-if="text.trim() || focused" class="mt-1.5 space-y-1 px-1">
+    <!-- Solo mentre si scrive: se comparisse anche col solo fuoco, perdendolo la lista salirebbe sotto il clic -->
+    <div v-if="text.trim()" class="mt-1.5 space-y-1 px-1">
       <QuickAddChips :parsed="parsed" @remove="keep" />
-      <p v-if="focused" class="text-[11.5px] text-ink-3">{{ m.hint }}</p>
+      <p class="text-[11.5px] text-ink-3">{{ m.hint }}</p>
     </div>
   </div>
 </template>

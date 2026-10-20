@@ -2,13 +2,13 @@ import { computed } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useSessionStore } from '@/stores/session'
 import { myDay } from '@/services/today'
-import { todayKey } from '@/services/items'
+import { useToday } from './useToday'
 
 /** La giornata dell'utente corrente nei progetti visibili (vista «Oggi» e numero nella barra laterale). */
 export function useMyDay() {
   const ws = useWorkspaceStore()
   const session = useSessionStore()
-  const today = computed(() => todayKey())
+  const { today } = useToday()
   const day = computed(() =>
     myDay(ws.visibleProjects, {
       meId: ws.currentUser?.id ?? '',

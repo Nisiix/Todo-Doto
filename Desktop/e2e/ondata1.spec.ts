@@ -318,3 +318,18 @@ test('palette dei comandi: > per i comandi, + per un task nel progetto aperto, c
   await box.fill('+ qualcosa')
   await expect(page.locator('[data-palette-add]')).toContainText('Apri un progetto')
 })
+
+test('oggi a cavallo della mezzanotte: la scadenza di domani diventa di oggi senza riaprire l’app', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-20T23:58:00') })
+  await createLocalWorkspace(page)
+  await createProject(page, 'Notte')
+  await quick(page).fill('Backup notturno entro domani')
+  await quick(page).press('Enter')
+  await expect(rows(page).filter({ hasText: 'Backup notturno' })).toHaveCount(1)
+  const link = page.locator('[data-today-link]')
+  await expect(link).not.toContainText('1')
+  await page.clock.runFor(3 * 60_000)
+  await expect(link).toContainText('1')
+  await link.click()
+  await expect(page.locator('[data-today-section="today"]')).toContainText('Backup notturno')
+})
