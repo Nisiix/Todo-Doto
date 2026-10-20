@@ -74,6 +74,22 @@ describe('unione delle modifiche fatte fuori ufficio', () => {
     expect(report.dropped).toEqual(['Footer rivisto'])
   })
 
+  it('decisione presa fuori ufficio: arriva nella cartella anche se intanto un collega ha risposto', () => {
+    const q = { id: 'q1', authorId: 'usr_1', text: 'Quale libreria?', mentions: [], createdAt: T, resolved: false, resolvedAt: null, decision: null, answers: [{ id: 'a1', authorId: 'usr_2', text: 'Day.js', mentions: [], createdAt: T }] }
+    const b = copy(base)
+    b.items[0]!.questions.push(q)
+    const local = copy(b)
+    local.items[0]!.questions[0]!.decision = { answerId: 'a1', rationale: 'leggera', at: T, by: 'usr_1' }
+    local.items[0]!.questions[0]!.resolved = true
+    const remote = copy(b)
+    remote.items[0]!.questions[0]!.answers.push({ id: 'a2', authorId: 'usr_3', text: 'Luxon', mentions: [], createdAt: T })
+    const { merged } = mergeProject(b, local, remote)
+    const mq = merged.items[0]!.questions[0]!
+    expect(mq.decision).toMatchObject({ answerId: 'a1', rationale: 'leggera' })
+    expect(mq.resolved).toBe(true)
+    expect(mq.answers.map((a) => a.text)).toEqual(['Day.js', 'Luxon'])
+  })
+
   it('campi del progetto: la descrizione cambiata solo qui passa; cambiata da entrambi è un conflitto', () => {
     const local = copy(base)
     local.description = 'Nuova descrizione'

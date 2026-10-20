@@ -14,7 +14,7 @@ describe('summarize: riepilogo per gli admin', () => {
   const p1 = project('A', [
     item({ status: 'confermato', priority: 'alta', dueDate: '2026-10-10', assigneeId: 'u1' }), // scaduto
     item({ status: 'da_definire', priority: 'immediata', dueDate: '2026-10-18', assigneeId: 'u1' }), // in scadenza
-    item({ status: 'da_valutare', priority: 'bassa', assigneeId: null, questions: [{ id: 'q', authorId: 'u1', text: '?', mentions: [], createdAt: '', resolved: false, resolvedAt: null, answers: [] }] }),
+    item({ status: 'da_valutare', priority: 'bassa', assigneeId: null, questions: [{ id: 'q', authorId: 'u1', text: '?', mentions: [], createdAt: '', resolved: false, resolvedAt: null, answers: [], decision: null }] }),
     item({ bucket: 'done', assigneeId: 'u2' }),
     item({ bucket: 'trash' }),
   ])

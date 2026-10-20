@@ -491,7 +491,7 @@ describe('workspace: notifiche dalle modifiche remote', () => {
       const i = x.items[0]!
       i.bucket = 'done'
       i.comments.push({ id: 'c1', authorId: 'usr_c', text: 'fatto', mentions: [], createdAt: '' })
-      i.questions.push({ id: 'q1', authorId: 'usr_c', text: `@${me.displayName} ok?`, mentions: [me.id], createdAt: '', resolved: false, resolvedAt: null, answers: [] })
+      i.questions.push({ id: 'q1', authorId: 'usr_c', text: `@${me.displayName} ok?`, mentions: [me.id], createdAt: '', resolved: false, resolvedAt: null, answers: [], decision: null })
     })
     await ws.refresh()
     const types = notif.items.map((n) => n.type).sort()

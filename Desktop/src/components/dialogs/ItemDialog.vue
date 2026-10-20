@@ -10,6 +10,8 @@ import { BUCKET_LABEL, type Item } from '@/types'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ItemFields from '@/components/board/ItemFields.vue'
+import QuickAddChips from '@/components/quick/QuickAddChips.vue'
+import { useQuickAdd } from '@/composables/useQuickAdd'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import type { Priority, Status } from '@/types'
@@ -71,6 +73,22 @@ const labelId = ref<string | null>(null)
 const assigneeId = ref<string | null>(null)
 const error = ref('')
 
+// Inserimento rapido anche nel titolo: !alta @mario #bug entro venerdì compilano i campi sotto
+const { parsed, keep } = useQuickAdd(title)
+watch(
+  () => parsed.value.tokens.map((t) => `${t.kind}:${t.value}`).join('|'),
+  () => {
+    const p = parsed.value
+    if (p.priority) priority.value = p.priority
+    if (p.assigneeId) assigneeId.value = p.assigneeId
+    if (p.labelId) labelId.value = p.labelId
+    if (p.dueDate) {
+      status.value = 'confermato'
+      dueDate.value = p.dueDate
+    }
+  },
+)
+
 // Task simili già presenti (IA locale, per significato): solo un avviso, non blocca nulla
 const ai = useAiStore()
 const similar = ref<Item[]>([])
@@ -109,7 +127,7 @@ watch(open, (o) => {
 })
 
 async function submit() {
-  const t = title.value.trim()
+  const t = parsed.value.title
   if (!t) return (error.value = m.errTitle)
   const item = await ws.addItem(props.projectId, {
     title: t,
@@ -131,6 +149,7 @@ async function submit() {
       <div>
         <label class="label" for="i-title">{{ m.titleLabel }}</label>
         <input id="i-title" v-model="title" class="field text-[14.5px] font-semibold" :placeholder="m.titlePlaceholder" data-autofocus @keydown.ctrl.enter.prevent="submit()" />
+        <QuickAddChips class="mt-1.5" :parsed="parsed" @remove="keep" />
         <div v-if="similar.length" class="mt-1.5 rounded-md bg-surface-2 px-2.5 py-1.5 text-[12.5px]" data-similar-tasks>
           <p class="flex items-center gap-1.5 font-medium text-p-alta"><CopyIcon :size="12" /> {{ m.similar }}</p>
           <p v-for="s in similar" :key="s.id" class="truncate text-ink-2">

@@ -1329,7 +1329,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   const askQuestion = (projectId: string, itemId: string, text: string) =>
     mutateItem(projectId, itemId, (it) =>
-      void it.questions.push({ id: newId('qst'), ...authored(text), resolved: false, resolvedAt: null, answers: [] }),
+      void it.questions.push({ id: newId('qst'), ...authored(text), resolved: false, resolvedAt: null, answers: [], decision: null }),
     )
 
   const answerQuestion = (projectId: string, itemId: string, questionId: string, text: string) =>
@@ -1339,6 +1339,24 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     mutateQuestion(projectId, itemId, questionId, (q) => {
       q.resolved = resolved
       q.resolvedAt = resolved ? nowIso() : null
+    })
+
+  /**
+   * Registro delle decisioni: la risposta scelta diventa la decisione (con una
+   * motivazione facoltativa) e la domanda si risolve. `answerId` null la toglie.
+   */
+  const decideQuestion = (projectId: string, itemId: string, questionId: string, answerId: string | null, rationale = '') =>
+    mutateQuestion(projectId, itemId, questionId, (q) => {
+      if (!answerId) {
+        q.decision = null
+        return
+      }
+      if (!q.answers.some((a) => a.id === answerId)) return
+      q.decision = { answerId, rationale: rationale.trim(), at: nowIso(), by: currentUser.value?.id ?? 'unknown' }
+      if (!q.resolved) {
+        q.resolved = true
+        q.resolvedAt = q.decision.at
+      }
     })
 
   const deleteQuestion = (projectId: string, itemId: string, questionId: string) =>
@@ -1943,6 +1961,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     askQuestion,
     answerQuestion,
     resolveQuestion,
+    decideQuestion,
     deleteQuestion,
     addAttachment,
     updateAttachment,

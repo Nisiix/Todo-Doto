@@ -25,7 +25,7 @@ describe('diffProjects: cosa è cambiato tra due versioni', () => {
   })
 
   it('rileva stato, descrizione, commenti, domande e risposte con l’autore giusto e le menzioni', () => {
-    const a = project([item({ id: 'x', questions: [{ id: 'q1', authorId: 'u1', text: 'Q?', mentions: [], createdAt: '', resolved: false, resolvedAt: null, answers: [] }] })])
+    const a = project([item({ id: 'x', questions: [{ id: 'q1', authorId: 'u1', text: 'Q?', mentions: [], createdAt: '', resolved: false, resolvedAt: null, answers: [], decision: null }] })])
     const b = project([
       item({
         id: 'x',
@@ -33,8 +33,8 @@ describe('diffProjects: cosa è cambiato tra due versioni', () => {
         notes: 'nuove note',
         comments: [{ id: 'c1', authorId: 'u3', text: 'ciao @Mario', mentions: ['u1'], createdAt: '' }],
         questions: [
-          { id: 'q1', authorId: 'u1', text: 'Q?', mentions: [], createdAt: '', resolved: false, resolvedAt: null, answers: [{ id: 'a1', authorId: 'u4', text: 'R', mentions: [], createdAt: '' }] },
-          { id: 'q2', authorId: 'u5', text: 'Altra?', mentions: ['u2'], createdAt: '', resolved: false, resolvedAt: null, answers: [] },
+          { id: 'q1', authorId: 'u1', text: 'Q?', mentions: [], createdAt: '', resolved: false, resolvedAt: null, answers: [{ id: 'a1', authorId: 'u4', text: 'R', mentions: [], createdAt: '' }], decision: null },
+          { id: 'q2', authorId: 'u5', text: 'Altra?', mentions: ['u2'], createdAt: '', resolved: false, resolvedAt: null, answers: [], decision: null },
         ],
       }),
     ])

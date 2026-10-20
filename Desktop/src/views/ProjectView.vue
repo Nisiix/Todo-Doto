@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Activity, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -10,6 +10,8 @@ import VisibilityDot from '@/components/ui/VisibilityDot.vue'
 import ItemRow from '@/components/board/ItemRow.vue'
 import ItemDialog from '@/components/dialogs/ItemDialog.vue'
 import RoadmapDialog from '@/components/dialogs/RoadmapDialog.vue'
+import DecisionsDialog from '@/components/dialogs/DecisionsDialog.vue'
+import { projectDecisions } from '@/services/decisions'
 import StackDriftBanner from '@/components/project/StackDriftBanner.vue'
 import ProjectTeams from '@/components/project/ProjectTeams.vue'
 import FilterBar from '@/components/board/FilterBar.vue'
@@ -21,6 +23,9 @@ import GanttChart from '@/components/board/GanttChart.vue'
 import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import CommitSuggestions from '@/components/ai/CommitSuggestions.vue'
 import TasksFromTextDialog from '@/components/ai/TasksFromTextDialog.vue'
+import QuickAddBar from '@/components/quick/QuickAddBar.vue'
+import ProjectInsights from '@/components/project/ProjectInsights.vue'
+import { projectSignals } from '@/services/insights'
 import { useAiStore } from '@/stores/ai'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
@@ -60,6 +65,10 @@ const m = defineMessages({
     fromText: 'Da un testo',
     roadmap: 'Roadmap per il cliente',
     roadmapHint: 'Una pagina con cosa è fatto e cosa arriva, da mandare al cliente o stampare in PDF',
+    insights: 'Attenzioni',
+    insightsHint: 'Attenzioni e tempi del progetto: ritardi, urgenze senza nessuno, domande senza risposta, task fermi',
+    decisions: 'Decisioni',
+    decisionsHint: 'Il registro delle decisioni prese nelle domande dei task',
     fromTextHint: 'Ricava i task da appunti, una mail o un verbale',
     noMatch: 'Nessun elemento corrisponde ai filtri.',
     emptyTodo: 'Lista vuota. Premi «Nuovo task» (o il tasto N) per aggiungere la prima cosa da fare.',
@@ -92,6 +101,10 @@ const m = defineMessages({
     fromText: 'From a text',
     roadmap: 'Client roadmap',
     roadmapHint: 'A page with what is done and what is coming, to send to the client or print to PDF',
+    insights: 'Attention',
+    insightsHint: 'Project attention and times: overdue, unassigned urgent tasks, unanswered questions, stuck tasks',
+    decisions: 'Decisions',
+    decisionsHint: 'The log of decisions taken in task questions',
     fromTextHint: 'Pick out tasks from notes, an email or meeting minutes',
     noMatch: 'No items match the filters.',
     emptyTodo: 'Empty list. Press “New task” (or the N key) to add the first thing to do.',
@@ -201,6 +214,12 @@ const showLabels = ref(false)
 const showNewItem = ref(false)
 const showFromText = ref(false)
 const showRoadmap = ref(false)
+const showDecisions = ref(false)
+// Attenzioni e tempi di ciclo (pannello sopra la lista «Da fare»)
+const showInsights = ref(false)
+const signals = computed(() => (project.value ? projectSignals(project.value, { userIds: ws.users.map((u) => u.id) }) : []))
+const highSignals = computed(() => signals.value.filter((x) => x.severity === 'high').length)
+const decisionCount = computed(() => (project.value ? projectDecisions(project.value).length : 0))
 // IA locale attiva su questo PC: compaiono le funzioni assistite (task da un testo)
 const ai = useAiStore()
 /** Etichette aperte dal nuovo task: alla chiusura si torna al nuovo task (con i dati già inseriti). */
@@ -311,6 +330,9 @@ const tabs: { id: Bucket; label: string }[] = [
             </div>
             <p v-if="project.description" class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">{{ project.description }}</p>
           </div>
+          <BaseButton v-if="decisionCount" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.decisionsHint" data-decisions-open @click="showDecisions = true">
+            <Gavel :size="14" /> {{ m.decisions }} <span class="tabular-nums text-ink-3">{{ decisionCount }}</span>
+          </BaseButton>
           <BaseButton v-if="!trashed" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.roadmapHint" data-roadmap-open @click="showRoadmap = true">
             <MapIcon :size="14" /> {{ m.roadmap }}
           </BaseButton>
@@ -333,10 +355,23 @@ const tabs: { id: Bucket; label: string }[] = [
               {{ t.label }}
               <span class="text-[12px] font-medium tabular-nums text-ink-3">{{ counts[t.id] || '' }}</span>
             </button>
-            <BaseButton v-if="tab === 'todo' && !trashed && ai.active" size="sm" variant="ghost" class="mb-1 ml-auto" :title="m.fromTextHint" data-from-text @click="showFromText = true">
+            <BaseButton
+              v-if="tab === 'todo' && !trashed"
+              size="sm"
+              variant="ghost"
+              class="mb-1 ml-auto"
+              :class="{ 'text-danger': highSignals && !showInsights }"
+              :title="m.insightsHint"
+              :aria-pressed="showInsights"
+              data-insights-toggle
+              @click="showInsights = !showInsights"
+            >
+              <Activity :size="14" /> {{ m.insights }} <span class="tabular-nums">{{ signals.length || '' }}</span>
+            </BaseButton>
+            <BaseButton v-if="tab === 'todo' && !trashed && ai.active" size="sm" variant="ghost" class="mb-1" :title="m.fromTextHint" data-from-text @click="showFromText = true">
               <ListPlus :size="14" /> {{ m.fromText }}
             </BaseButton>
-            <BaseButton v-if="tab === 'todo' && !trashed" size="sm" variant="primary" class="mb-1" :class="{ 'ml-auto': !ai.active }" :title="m.newItemKey" @click="showNewItem = true">
+            <BaseButton v-if="tab === 'todo' && !trashed" size="sm" variant="primary" class="mb-1" :title="m.newItemKey" @click="showNewItem = true">
               <Plus :size="14" /> {{ m.newItem }}
             </BaseButton>
             <BaseButton v-if="tab === 'trash' && counts.trash && !trashed && ws.canPurge" size="sm" variant="ghost" class="mb-1 ml-auto text-danger" @click="emptyTrash">
@@ -359,6 +394,8 @@ const tabs: { id: Bucket; label: string }[] = [
           <AttachmentsBoard :project="project" :read-only="trashed" />
         </template>
         <template v-else>
+          <ProjectInsights v-if="tab === 'todo' && showInsights" :project="project" :signals="signals" />
+          <QuickAddBar v-if="tab === 'todo' && !trashed" :project-id="project.id" />
           <CommitSuggestions v-if="tab === 'todo' && !trashed" :project="project" />
           <div ref="listEl">
             <TransitionGroup name="fade" tag="div" class="space-y-px">
@@ -383,5 +420,6 @@ const tabs: { id: Bucket; label: string }[] = [
     <ItemDialog v-model:open="showNewItem" :project-id="project.id" @manage-labels="labelsFromNewItem" />
     <TasksFromTextDialog v-model:open="showFromText" :project-id="project.id" />
     <RoadmapDialog v-model:open="showRoadmap" :project="project" />
+    <DecisionsDialog v-model:open="showDecisions" :project="project" />
   </template>
 </template>

@@ -178,8 +178,17 @@ export const QuestionSchema = z.object({
   resolved: z.boolean().default(false),
   resolvedAt: iso.nullable().default(null),
   answers: z.array(AnswerSchema).default([]),
+  /**
+   * Decisione presa (registro delle decisioni): la risposta scelta e, se
+   * indicata, la motivazione. Assente nei file delle versioni precedenti.
+   */
+  decision: z
+    .object({ answerId: z.string(), rationale: z.string().default(''), at: iso, by: z.string() })
+    .nullable()
+    .default(null),
 })
 export type Question = z.infer<typeof QuestionSchema>
+export type Decision = NonNullable<Question['decision']>
 
 export const ItemSchema = z.object({
   id: z.string(),

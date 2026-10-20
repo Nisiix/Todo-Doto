@@ -109,6 +109,10 @@ export function mergeProject(base: Project, local: Project, remote: Project): { 
       q.resolvedAt = l.resolvedAt
       report.applied++
     }
+    if (!same(l.decision, b.decision) && same(r.decision, b.decision)) {
+      q.decision = clone(l.decision)
+      report.applied++
+    }
     q.answers = mergeList(b.answers, l.answers, r.answers)
     return q
   }
