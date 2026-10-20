@@ -1,5 +1,7 @@
 # Roadmap tecnica: VPN, accesso aziendale, email/Teams, team grandi
 
+> **Stato (0.4.0):** fatti la VPN (§1), l'accesso con l'account di dominio e i ruoli dai gruppi (§2, livello 1), tutte le fasi di email e Teams (§3) e i punti 1–5 della tabella del §4. Restano l'SSO con Microsoft Entra ID (§2, livello 2), l'avviso istantaneo nella LAN e il nodo di sincronizzazione (§4, punti 6–7).
+
 Piani per le prossime versioni di Todo Doto (dopo la 0.3.0). Valgono i vincoli di sempre: nessun server da installare, nessun servizio esterno obbligatorio, l'IA solo sul PC, nessuna scrittura nelle cartelle dei progetti senza un'azione dell'utente.
 
 ---
@@ -77,10 +79,10 @@ Interventi in ordine di rapporto beneficio/costo:
 | # | Intervento | Effetto | Stato |
 |---|---|---|---|
 | 1 | **Firma per cartella** | si interrogano solo le cartelle cambiate: il rinnovo della presenza di un collega non fa rileggere i progetti | **fatto nella 0.3.0** |
-| 2 | **Cronologia a file giornalieri e per autore** (`audit/2026-10-20/<utente>.jsonl`, solo aggiunte) | niente più lock condiviso né riscrittura del file intero: ognuno aggiunge righe al proprio file | 1–2 giorni |
-| 3 | **Giornale delle modifiche** (`changes/<utente>.log`, una riga per scrittura: file, versione, ora) | gli altri PC leggono solo le righe nuove dei giornali (pochi byte) invece di interrogare le date dei file: il costo del controllo non dipende più dal numero di progetti. I giornali si compattano ogni giorno | 3–4 giorni |
-| 4 | **Polling adattivo** | 4 s quando la finestra è in primo piano, 30 s in background, 2 minuti con il PC inattivo: con 100 persone, di cui 20 attive, il carico scende di 4–5 volte | 1 giorno |
-| 5 | **Progetti divisi a capitoli** (`projects/<id>/meta.json` + un file ogni 100 task, commenti separati) | si riscrive e rilegge solo il pezzo toccato; meno attese sui lock dei progetti molto usati | 1 settimana, con migrazione automatica |
+| 2 | **Cronologia a file per mese e per PC** (`audit/2026-10.<utente>-<PC>.json`) | niente più lock condiviso né riscrittura del file intero: ognuno scrive solo i propri file | **fatto nella 0.4.0** |
+| 3 | **Giornale delle modifiche** (`changes/<utente>.log`, una riga per scrittura: file, versione, ora) | gli altri PC leggono solo le righe nuove dei giornali (pochi byte) invece di interrogare le date dei file: il costo del controllo non dipende più dal numero di progetti. I giornali si compattano ogni giorno | **fatto nella 0.4.0** |
+| 4 | **Polling adattivo** | 4 s quando la finestra è in primo piano, 30 s in secondo piano, 60 s dopo 5 minuti di inattività, 2 minuti ridotta a icona: con 100 persone, di cui 20 attive, il carico scende di 4–5 volte | **fatto nella 0.4.0** |
+| 5 | **Progetti divisi a capitoli** (`projects/<id>/meta.json` + un file ogni 100 task, commenti separati) | si riscrive e rilegge solo il pezzo toccato; meno attese sui lock dei progetti molto usati | **fatto nella 0.4.0** (da 300 task, capitoli da circa 150) |
 | 6 | **Avviso istantaneo nella LAN** (facoltativo) | dopo una scrittura il PC manda un pacchetto UDP multicast «progetto X versione 42» sulla rete locale; gli altri rileggono subito senza aspettare il polling, che può rallentare a 30 s. Nessun dato nel pacchetto, solo l'id e la versione; se la rete lo blocca resta il polling | 3 giorni |
 | 7 | **Nodo di sincronizzazione** (solo per organizzazioni grandi) | un PC dell'ufficio sempre acceso fa da «hub»: gli altri gli chiedono cosa è cambiato (HTTP nella LAN) invece di interrogare la cartella. La cartella resta la fonte dei dati: se l'hub si spegne si torna al funzionamento normale | 2 settimane |
 

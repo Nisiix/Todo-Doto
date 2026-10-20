@@ -2,6 +2,13 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.4.0 — 20 ottobre 2026
+
+- VPN dell'ufficio dalle impostazioni: si sceglie una VPN già configurata in Windows e Todo Doto la collega da sola quando la cartella condivisa non risponde (anche all'apertura). Le credenziali restano a Windows.
+- Accesso aziendale: con l'account di dominio (Active Directory o Microsoft Entra ID) la stessa persona è lo stesso utente su qualunque PC; i ruoli si possono ricavare dai gruppi di Active Directory.
+- Email e Teams: «Invia per email» su task, roadmap e riepilogo; canale Microsoft Teams per progetto con task creati, completati, assegnazioni, domande e menzioni; email a chi viene menzionato o riceve un task; il punto della giornata ogni mattina. Invio con Outlook del PC o con il server SMTP aziendale; tutto facoltativo e scelto dall'amministratore.
+- Pensato per team più grandi: cronologia in file per mese e per PC (niente più file unico riscritto da tutti), giornale delle modifiche per sapere quali file rileggere, controllo della cartella meno frequente con la finestra in secondo piano o lontani dal PC, progetti con centinaia di task divisi in capitoli.
+
 ## 0.3.0 — 20 ottobre 2026
 
 - Todo Doto è gratuito: licenze e abbonamenti sono sospesi. Chi vuole può sostenere lo sviluppo con una donazione PayPal (Impostazioni › Generali e sito).

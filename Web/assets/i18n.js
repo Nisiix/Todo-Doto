@@ -167,6 +167,7 @@ window.PGM_I18N = {
     'f10.l2': 'Client roadmap without internal details, to send or print to PDF',
     'f10.l3': '“Set up this PC” for every project and a warning when the Stack is out of date',
     'f10.l4': 'Optional data encryption on disk for network workspaces',
+    'f10.l5': 'Office VPN, sign-in with the domain account, email and Microsoft Teams channels',
     'alt.list': 'Task list of a project',
     'price.title': 'Pricing',
     'price.lead': 'A flat price per workspace, i.e. per office: adding a colleague costs nothing. No hidden costs, no server to pay for. Prices exclude VAT; invoices are issued to your company.',

@@ -137,6 +137,21 @@ Ogni PC scrive solo il file del proprio utente (niente conflitti). Si condividon
 ```
 Un file per utente, scritto solo da lui: «Ci sto lavorando» su un task (uno per volta; `itemId: null` = nessuno). Si rinnova ogni 10 minuti; oltre 30 minuti senza rinnovo (PC spento, app chiusa male) l'indicazione non si mostra più. Si toglie da sola completando o cestinando il task e chiudendo l'app.
 
+### audit/<AAAA-MM>.<scrittore>.json — cronologia per mese e per PC (dalla 0.4.0)
+Ogni PC scrive solo i propri file (`<idUtente>-<PC>`), uno al mese, con lo stesso formato di `audit.json`; all'apertura si leggono gli ultimi 6 mesi più il vecchio `audit.json` (scritto dalle versioni precedenti, che resta leggibile). I file propri più vecchi di un anno si tolgono da soli.
+
+### changes/<scrittore>.json — giornale delle modifiche (dalla 0.4.0)
+```jsonc
+{ "writer": "usr_…-PC-UFFICIO", "seq": 1842, "entries": [ { "seq": 1841, "key": "projects/prj_…" }, { "seq": 1842, "key": "audit/2026-10.usr_…-PC-UFFICIO" } ] }
+```
+Ogni scrittura aggiunge il file toccato (ultime 300 righe). Gli altri PC leggono solo i giornali cambiati e interrogano solo quei file; se un giornale non spiega un cambiamento (versione precedente dell'app, giornale troppo indietro) si rilegge la cartella.
+
+### projects/<id>.c<n>.json — capitoli dei progetti grandi (dalla 0.4.0)
+Da 300 task in su i task stanno in capitoli di circa 150 (il capitolo dipende dall'id del task); il file principale ha `items: { "chunks": n, "order": [id…] }`, un oggetto e non un elenco, così le versioni precedenti non lo leggono (e non possono riscriverlo perdendo i task). Sotto le 100 attività si torna a un file solo. Una modifica riscrive solo il capitolo toccato e il file principale.
+
+### mail/<tipo>-<data>.json — invii giornalieri
+Segnaposto creato in modo esclusivo dal PC che invia il punto della giornata: uno al giorno, tolti dopo 30 giorni.
+
 ### Cifratura sul disco (facoltativa, workspace di rete)
 Con la cifratura attiva tutti i file della cartella Dati tranne `workspace.json` (utenti, cartelle, cronologia, Drive, progetti, configurazione dei PC, presenza, copie di sicurezza) sono cifrati con AES-GCM 256: testo `PGMENC1:` + base64(iv + dati). La **chiave dati** è casuale e sta in `workspace.json` avvolta con una chiave ricavata dalla password del workspace (PBKDF2-SHA256, campo `encryption`: `{ v, enabled, salt, iterations, wrapped }`). Cambiare la password riavvolge solo la chiave; attivare o disattivare la cifratura riscrive i file, che nel frattempo si leggono in entrambi i formati.
 
@@ -242,7 +257,9 @@ Soluzione a tre livelli:
 2. **Watcher + polling.** Un watcher sulla cartella del workspace (plugin-fs `watch`) notifica i cambiamenti; dato che su SMB le notifiche possono non arrivare, ogni 4 s si confrontano anche `mtime`/`size` dei file. **Rete aziendale**: il controllo guarda prima solo la data di modifica della cartella del workspace e di `projects/` (ogni scrittura dell'app vi crea e rinomina file: il `.lock` e il temporaneo); se non sono cambiate non si interrogano i singoli file — 2 richieste invece di una per file — e la firma completa si ricalcola comunque ogni 30 s. I file si scrivono in JSON compatto (più piccoli da trasferire; quelli formattati delle versioni precedenti si leggono comunque). Il formato a un file per progetto con scrittura atomica resta: su una cartella condivisa è più sicuro di un database (SQLite e simili non sono affidabili sui lock di rete). Quando un file cambia, lo store ricarica **solo quel file** e la UI si aggiorna grazie alla reattività di Vue.
 3. **Segnalazione non invasiva.** Se il progetto aperto viene aggiornato da un altro utente, compare un toast "Aggiornato da Mario Rossi" e la riga modificata lampeggia; il pannello di dettaglio aperto viene ricaricato senza perdere il testo che si sta scrivendo (i campi in editing vengono riconciliati solo alla chiusura).
 
-La firma è divisa **per cartella** (radice, `projects/`, `readiness/`, `presence/`): si rileggono le date dei file solo nelle cartelle cambiate, così il rinnovo della presenza di un collega non fa interrogare tutti i progetti. Se la cartella del workspace non risponde la firma fallisce (non vale come «file cancellati»).
+**Controllo adattivo** (dalla 0.4.0): ogni 4 s con la finestra davanti, 30 s in secondo piano, 60 s dopo 5 minuti senza tastiera né mouse, 2 minuti con la finestra ridotta a icona; tornando sulla finestra si controlla subito. Con molti PC aperti il carico sul file server scende di diverse volte.
+
+La firma è divisa **per cartella** (radice, `projects/`, `readiness/`, `presence/`, `audit/`); con i giornali delle modifiche (`changes/`) di una cartella cambiata si interrogano solo i file indicati: si rileggono le date dei file solo nelle cartelle cambiate, così il rinnovo della presenza di un collega non fa interrogare tutti i progetti. Se la cartella del workspace non risponde la firma fallisce (non vale come «file cancellati»).
 
 Errori di rete (percorso non raggiungibile) → con la copia fuori ufficio attiva (predefinito) si continua a lavorare sulla copia di questo PC (vedi §9f), altrimenti banner "Cartella non raggiungibile, riprovo…" con retry automatico; l'app non si blocca.
 
@@ -414,7 +431,19 @@ Scopo: un'analisi più precisa dei progetti e altre funzioni assistite **senza s
 - **Portatile fuori ufficio** (workspace di rete; Impostazioni › Dati utente, «Tieni una copia del workspace su questo PC», attiva di default). Dopo ogni cambiamento l'app salva una copia del workspace nei propri dati sul PC (cifrata come il workspace, o con DPAPI). Se la cartella condivisa non risponde — all'apertura o mentre si lavora — si continua sulla copia: in alto «Fuori ufficio · N progetti da inviare». Si possono modificare task e progetti esistenti (stato, scadenze, commenti, nuovi task…); creare progetti, cambiare utenti, cartelle o impostazioni aspetta il ritorno. Quando la cartella torna raggiungibile (o all'apertura successiva in ufficio) le modifiche si uniscono **campo per campo** a quelle dei colleghi (`services/merge3.ts`): ciò che è cambiato solo da una parte si tiene; se lo stesso campo dello stesso task è cambiato da entrambe vince la versione condivisa e la propria compare nel resoconto «Modifiche fatte fuori ufficio»; commenti, domande e allegati si uniscono per id; i task creati offline ricevono un numero TODO libero; un task eliminato da un collega non torna. La cronologia scritta offline si aggiunge al ritorno.
 - **App gratuita**. Licenze e abbonamenti sono sospesi (codice commentato nel sito). Impostazioni › Generali e il sito hanno «Sostieni Todo Doto» con una donazione PayPal facoltativa.
 
+## 9g. Ufficio: VPN, accesso aziendale, email e Teams (0.4.0)
+
+- **VPN** (Impostazioni › Dati utente, per PC e per workspace). Elenco delle VPN configurate in Windows (`Get-VpnConnection`, anche quelle per tutti gli utenti), scelta di una, «Collega ora» e «Collega da sola quando la cartella condivisa non risponde» (predefinito). Il collegamento usa `rasdial <nome>` con le credenziali salvate in Windows; se Windows chiede utente e password si apre il pannello VPN di Windows. Si prova all'apertura del workspace e quando la cartella cade, al massimo ogni 2 minuti; con il badge «Fuori ufficio» c'è anche «Collega <VPN>». Il nome si accetta solo se è nell'elenco di Windows; nessuna shell.
+- **Accesso aziendale** (Impostazioni › Dati utente, amministratori). Con «Riconosci gli utenti dall'account di dominio» l'utente si riconosce dal SID dell'account Windows (Active Directory o Entra ID, letto con `whoami /user /groups`): la stessa persona su più PC è un solo utente. Facoltativi i gruppi degli amministratori e dei Cleaner: il ruolo di ognuno si aggiorna quando apre il workspace (Membro se in nessun gruppo); chi attiva i gruppi deve far parte di uno di quelli degli amministratori e l'ultimo amministratore non perde mai il ruolo. La password del workspace resta (protegge i dati e la cifratura).
+- **Email e Teams** (Impostazioni › Email e Teams; Stack del progetto › Canale Microsoft Teams). Tutto facoltativo:
+  1. «Invia per email» nel dettaglio del task, nella roadmap e nel riepilogo della settimana: apre il programma di posta (`mailto:`), nessuna connessione dall'app.
+  2. Canale Teams per progetto: l'amministratore incolla l'indirizzo di un Workflow («Pubblica in un canale quando viene ricevuta una richiesta webhook»; accettati solo `*.logic.azure.com`, `*.powerplatform.com`, `*.powerautomate.com`, `*.webhook.office.com` in https) e sceglie gli eventi (task creati, completati, assegnazioni, domande, menzioni). Lo invia il PC di chi fa la modifica, come scheda Adaptive Card; senza Internet si riprova più tardi.
+  3. Metodo di invio delle email del workspace: Outlook del PC di chi invia (automazione COM) o server SMTP aziendale (STARTTLS, TLS o nessuna sicurezza per la sola rete interna; password cifrata con quella del workspace e cifrata di nuovo quando cambia). «Invia una prova a me».
+  4. Ogni utente indica la sua email e se riceverla per menzioni, task assegnati e il punto della giornata. Le email partono dal PC di chi fa l'azione, solo a chi vede il progetto.
+  5. Il punto della giornata: dopo l'ora scelta, il primo PC di un amministratore aperto lo manda una volta (segnaposto in `mail/`), con task in ritardo, in scadenza nei prossimi 3 giorni, completati nelle ultime 24 ore e domande aperte, solo dei progetti che ognuno vede.
+- **Team grandi**: vedi §4 (cronologia per mese e per PC, giornale delle modifiche, capitoli) e §6 (controllo adattivo).
+
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 
 - Sincronizzazione cloud, notifiche push, app mobile.
-- Evoluzioni: notifiche desktop sui tag `@utente`, connessione VPN dalle impostazioni, riepiloghi via email o Teams, accesso con l'account di dominio (vedi PIANO-LANCIO.md).
+- Evoluzioni: notifiche desktop sui tag `@utente`, accesso con Microsoft Entra ID (SSO), avviso istantaneo nella rete locale e nodo di sincronizzazione per organizzazioni molto grandi (vedi ROADMAP-TECNICA.md).
