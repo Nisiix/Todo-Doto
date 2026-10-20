@@ -9,7 +9,7 @@ import { locale } from '@/i18n'
  * riconosciuti nel testo, con gli utenti e le etichette del workspace.
  * `keep(token)` lascia quel comando nel titolo; svuotando il testo si riparte.
  */
-export function useQuickAdd(text: Ref<string>) {
+export function useQuickAdd(text: Readonly<Ref<string>>) {
   const ws = useWorkspaceStore()
   const ignore = ref<string[]>([])
   watch(text, (t) => {

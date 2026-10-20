@@ -2,6 +2,16 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.5.0 — 20 ottobre 2026
+
+- Inserimento rapido: sopra la lista si scrive «Esportazione CSV !alta @mario #bug entro venerdì» e Invio crea il task con priorità, assegnatario, etichetta e scadenza. Ciò che è riconosciuto si vede prima; la X lo lascia nel titolo. Funziona anche nel dialog «Nuovo task».
+- Oggi: una pagina con quello che riguarda te in tutti i progetti (in ritardo, in scadenza oggi e in settimana, urgenti, domande che aspettano una tua risposta, risposte alle tue domande). Si completa e si rinvia senza aprire il progetto; il rinvio vale solo per te e non cambia la scadenza.
+- Decisioni: in una domanda, la risposta scelta diventa «la decisione», con la motivazione. Il progetto ha il suo registro delle decisioni, con ricerca e copia in Markdown.
+- Attenzioni e tempi: nel progetto, l'elenco di ciò che sta andando storto senza che nessuno l'abbia segnalato (ritardi, urgenze senza nessuno, domande senza risposta, task fermi) e i tempi mediani da creato a confermato e a completato, con l'età dei task da fare.
+- Git per task: nel dettaglio, i commit che citano TODO-n e il nome del branch da copiare; il task risulta «in lavorazione» con commit recenti o con il suo branch aperto sul PC.
+- Archivio: i completati da più di 90 giorni stanno in fondo a «Completati», dietro «Mostra archiviati». La ricerca li trova sempre.
+- Palette dei comandi: in Ctrl+K, «>» mostra i comandi (Oggi, nuovo task, decisioni, attenzioni, sezioni del progetto, impostazioni…) e «+» aggiunge un task al progetto aperto.
+
 ## 0.4.0 — 20 ottobre 2026
 
 - VPN dell'ufficio dalle impostazioni: si sceglie una VPN già configurata in Windows e Todo Doto la collega da sola quando la cartella condivisa non risponde (anche all'apertura). Le credenziali restano a Windows.

@@ -71,7 +71,14 @@ export const useUiStore = defineStore('ui', () => {
     settingsOpen.value = true
   }
 
+  // --- richieste dalla palette dei comandi al progetto aperto (nuovo task, decisioni…) ---
+  type ProjectAction = 'newItem' | 'decisions' | 'insights' | 'roadmap'
+  const projectRequest = ref<{ action: ProjectAction; projectId: string; at: number } | null>(null)
+  const requestProject = (action: ProjectAction, projectId: string) => (projectRequest.value = { action, projectId, at: Date.now() })
+
   return {
+    projectRequest,
+    requestProject,
     settingsOpen,
     settingsTab,
     openSettings,

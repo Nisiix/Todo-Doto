@@ -24,6 +24,18 @@ export function compareRecent(a: Item, b: Item): number {
   return kb.localeCompare(ka)
 }
 
+/** Giorni dopo il completamento oltre i quali un task finisce nell'archivio dei completati. */
+export const ARCHIVE_DAYS = 90
+
+/**
+ * Archivio: completati da più di `days` giorni. Restano nel file del progetto
+ * (nulla si sposta sul disco) e la ricerca li trova; nella lista «Completati»
+ * stanno in fondo, dietro «Mostra archiviati», così la lista resta corta.
+ */
+export function isArchived(item: Pick<Item, 'bucket' | 'completedAt'>, now = dayjs(), days = ARCHIVE_DAYS): boolean {
+  return item.bucket === 'done' && !!item.completedAt && dayjs(item.completedAt).isBefore(now.subtract(days, 'day'))
+}
+
 export function sortForBucket(items: Item[], bucket: Bucket): Item[] {
   return [...items].sort(bucket === 'todo' ? compareTodo : compareRecent)
 }

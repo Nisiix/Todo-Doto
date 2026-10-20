@@ -440,6 +440,13 @@ Obiettivo: uso quotidiano e passaparola fra sviluppatori.
 
 Nessun controllo di piano: si può fare subito.
 
+**Stato: fatta nella 0.5.0** (dettagli in `Desktop/PROGETTO.md` §9h). Differenze rispetto a quanto descritto sopra:
+
+- **S4 archivio**: i completati vecchi stanno da parte nella lista «Completati», ma restano nel file del progetto. Con i capitoli della 0.4.0 il problema di prestazioni non c'è più, e un file `archive/` separato avrebbe complicato unione fuori ufficio, copie e capitoli. La **pulizia guidata** resta nell'ondata 2.
+- **A3 segnali**: «assegnato a chi non apre il workspace da 14 giorni» richiede di registrare l'ultimo accesso di ogni utente, che oggi non c'è; al suo posto c'è «assegnato a un utente non più nel workspace». «In ritardo con altri 5 in ritardo» è sostituito dall'ordine per gravità e priorità.
+- **G5 git**: il branch si copia (nome o comando), non si crea dall'app; l'app continua a non eseguire git per conto dell'utente. I commit di un branch `todo-n-*` che non citano il codice non si contano: servirebbe eseguire git per sapere da dove parte il branch.
+- **S2 Oggi**: non è ancora selezionabile come pagina iniziale.
+
 ### Ondata 2 · "La squadra" (4–6 settimane)
 
 Obiettivo: le funzioni di coordinamento per i workspace di rete. Con la raccomandazione §6.0 restano gratuite e non richiedono il codice delle licenze; con il modello a tre piani sono il contenuto del piano Team.

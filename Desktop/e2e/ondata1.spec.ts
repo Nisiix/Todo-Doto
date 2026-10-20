@@ -249,3 +249,72 @@ test('attività git: commit che citano il task, branch da copiare, «in lavorazi
   await expect(act.locator('[data-branch-here]')).toContainText('aperto su questo PC')
   await expect(act).toContainText('Nessun commit cita ancora TODO-2')
 })
+
+test('archivio: i completati da più di 90 giorni stanno da parte, la ricerca li trova', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-06-01T09:00:00') })
+  await createLocalWorkspace(page)
+  await createProject(page, 'Storico')
+  await quick(page).fill('Vecchio lavoro')
+  await quick(page).press('Enter')
+  await rows(page).filter({ hasText: 'Vecchio lavoro' }).getByTitle('Segna come completato (C)').click()
+  await page.clock.setSystemTime(new Date('2026-10-20T09:00:00'))
+  await quick(page).fill('Lavoro recente')
+  await quick(page).press('Enter')
+  await rows(page).filter({ hasText: 'Lavoro recente' }).getByTitle('Segna come completato (C)').click()
+
+  await page.getByRole('button', { name: /^Completati/ }).click()
+  await expect(rows(page).filter({ hasText: 'Lavoro recente' })).toHaveCount(1)
+  await expect(rows(page).filter({ hasText: 'Vecchio lavoro' })).toHaveCount(0)
+  const toggle = page.locator('[data-archive-toggle]')
+  await expect(toggle).toContainText('Mostra il completato da più di 90 giorni')
+  await toggle.click()
+  await expect(rows(page).filter({ hasText: 'Vecchio lavoro' })).toHaveCount(1)
+  await expect(toggle).toContainText('Nascondi l’archivio')
+  await toggle.click()
+  await expect(rows(page).filter({ hasText: 'Vecchio lavoro' })).toHaveCount(0)
+  // La ricerca globale lo trova e lo apre anche ad archivio chiuso
+  await page.getByRole('combobox', { name: 'Cerca in tutti i progetti' }).fill('Vecchio')
+  await page.getByRole('option', { name: /Vecchio lavoro/ }).click()
+  await expect(rows(page).filter({ hasText: 'Vecchio lavoro' })).toHaveCount(1)
+})
+
+test('palette dei comandi: > per i comandi, + per un task nel progetto aperto, comandi anche nella ricerca', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Portale')
+  const box = page.getByRole('combobox', { name: 'Cerca in tutti i progetti' })
+
+  // + testo: il task si crea nel progetto aperto con l'inserimento rapido
+  await page.keyboard.press('Control+k')
+  await box.fill('+ Pagina contatti !alta')
+  const add = page.locator('[data-palette-add]')
+  await expect(add).toContainText('Aggiungi a Portale')
+  await expect(add.locator('[data-quick-chip="priority"]')).toContainText('Alta')
+  await box.press('Enter')
+  await expect(box).toHaveValue('')
+  const row = rows(page).filter({ hasText: 'Pagina contatti' })
+  await expect(row).toHaveCount(1)
+
+  // > testo: solo comandi; Invio esegue il primo
+  await box.fill('> nuovo')
+  await expect(page.locator('[data-palette-commands]')).toContainText('Nuovo task in Portale')
+  await box.press('Enter')
+  await expect(page.locator('#i-title')).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await box.fill('> attenzioni')
+  await page.locator('[data-command="insights"]').click()
+  await expect(page.locator('[data-insights]')).toBeVisible()
+
+  // Nella ricerca normale i comandi che corrispondono compaiono sopra i risultati
+  await box.fill('impostaz')
+  await page.locator('[data-command="settings"]').click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await box.fill('>oggi')
+  await box.press('Enter')
+  await expect(page.locator('[data-today]')).toBeVisible()
+  // Fuori da un progetto il + spiega cosa fare
+  await box.fill('+ qualcosa')
+  await expect(page.locator('[data-palette-add]')).toContainText('Apri un progetto')
+})

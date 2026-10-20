@@ -182,7 +182,8 @@ JSON compresso (gzip) con workspace, utenti, cartelle ed etichette, Drive, crono
       "comments":  [ { "id": "cmt_…", "authorId": "usr_…", "text": "…", "mentions": ["usr_…"], "createdAt": "…" } ],
       "questions": [ { "id": "qst_…", "authorId": "usr_…", "text": "…", "mentions": [], "createdAt": "…",
                        "resolved": false,
-                       "answers": [ { "id": "ans_…", "authorId": "usr_…", "text": "…", "createdAt": "…" } ] } ]
+                       "answers": [ { "id": "ans_…", "authorId": "usr_…", "text": "…", "createdAt": "…" } ],
+                       "decision": null } ]   // oppure { "answerId": "ans_…", "rationale": "…", "at": "…", "by": "usr_…" } (0.5.0)
   } ],
   "attachmentFolders": [ { "id": "afd_…", "name": "Specifiche" } ],
   "attachments": [ { "id": "att_…", "kind": "link", "name": "Figma", "target": "https://…",
@@ -194,7 +195,7 @@ JSON compresso (gzip) con workspace, utenti, cartelle ed etichette, Drive, crono
 
 ### Dati locali (per macchina, in `%APPDATA%\com.nisos.projectgoalmanager\`)
 ```
-config.json        tema, workspace recenti, preferiti per workspace, notifiche disattivate, IA locale (motore, indirizzo, modelli, banner chiuso)
+config.json        tema, workspace recenti, preferiti per workspace, notifiche disattivate, IA locale (motore, indirizzo, modelli, banner chiuso), task rinviati nella vista Oggi
 credentials.json   password dei workspace di rete ricordate su scelta dell'utente, cifrate con Windows DPAPI per l'account corrente (prefisso `dpapi:`; altrove AES-GCM)
 drive-auth.json    ID client Google e token OAuth (solo lettura), cifrati con AES-GCM
 offline/<idWorkspace>.json   copia di un workspace di rete per il lavoro fuori ufficio (se attiva su questo PC): workspace.json in chiaro + dati cifrati con la chiave dati del workspace, o con DPAPI se il workspace non è cifrato; progetti modificati offline con la loro «base» e voci di cronologia da inviare
@@ -442,6 +443,18 @@ Scopo: un'analisi più precisa dei progetti e altre funzioni assistite **senza s
   4. Ogni utente indica la sua email e se riceverla per menzioni, task assegnati e il punto della giornata. Le email partono dal PC di chi fa l'azione, solo a chi vede il progetto.
   5. Il punto della giornata: dopo l'ora scelta, il primo PC di un amministratore aperto lo manda una volta (segnaposto in `mail/`), con task in ritardo, in scadenza nei prossimi 3 giorni, completati nelle ultime 24 ore e domande aperte, solo dei progetti che ognuno vede.
 - **Team grandi**: vedi §4 (cronologia per mese e per PC, giornale delle modifiche, capitoli) e §6 (controllo adattivo).
+
+## 9h. Analisi, gestione e semplificazione (0.5.0)
+
+Ondata 1 del piano delle funzionalità (`PIANO-FUNZIONALITA.md` nella radice). Tutto si calcola dai dati che ci sono già; i soli campi nuovi hanno un valore predefinito, quindi i file delle versioni precedenti si leggono come prima.
+
+- **Inserimento rapido** (`services/quickAdd.ts`, `components/quick/`). Barra sopra la lista «Da fare» e titolo del dialog «Nuovo task». Si riconoscono `!priorità` (`!alta`, `!immediata`, `!1`…`!4`, anche in inglese), `@persona` (nome utente, nome visualizzato, primo nome o inizio non ambiguo; `@io`), `#etichetta` (nome senza spazi o inizio non ambiguo) e la scadenza. Una data vale solo dopo un indicatore (`entro`, `per`, `scade`, `by`, `due`, `^`) o nella forma «tra N giorni»: «Report di oggi» resta un titolo. I giorni della settimana indicano il prossimo, mai oggi; le date senza anno l'anno dopo se già passate; giorno/mese in italiano, mese/giorno in inglese. Una scadenza porta lo stato a Confermato, l'unico che la ammette. Ciò che non si riconosce resta nel titolo; la X su un'etichetta riconosciuta lo lascia nel titolo.
+- **Oggi** (`services/today.ts`, `views/TodayView.vue`, rotta `/w/today`, voce nella barra laterale con il numero di cose da guardare). Sezioni, in quest'ordine e con ogni task una volta sola: in ritardo, scadono oggi, aspettano una tua risposta (domande aperte senza risposta in cui sei menzionato o sui tuoi task), hanno risposto alle tue domande, urgenti, in scadenza nei 7 giorni. «Miei» sono i task assegnati a me e quelli non assegnati creati da me; in un workspace locale tutti. Si completa e si rinvia (domani, lunedì, tra una settimana) senza aprire il progetto. Il rinvio è per PC (`config.json`, campo `snoozed`: workspace → task → giorno) e non cambia la scadenza condivisa.
+- **Registro delle decisioni** (`services/decisions.ts`, `DecisionsDialog.vue`). Campo `decision: { answerId, rationale, at, by } | null` sulla domanda. Chi può risolvere la domanda (l'autore o un amministratore) segna una risposta come decisione con una motivazione facoltativa: la domanda si risolve e resta sempre visibile. Nell'intestazione del progetto «Decisioni N» apre il registro, dalla più recente, con ricerca e «Copia in Markdown». L'unione fuori ufficio porta la decisione presa sul portatile se in cartella nessuno l'ha cambiata.
+- **Attenzioni e tempi** (`services/insights.ts`, `ProjectInsights.vue`, pulsante «Attenzioni N» accanto ai contenitori). Segnali sui task da fare, uno per task e dal più grave: in ritardo, immediata senza assegnatario, domanda senza risposta da 3 giorni (grave dopo 6), assegnato a un utente non più nel workspace, confermato senza scadenza, fermo da 21 giorni senza modifiche, commenti o risposte. Tempi: mediane, sui completati degli ultimi 90 giorni (almeno 3), da creato a confermato, da confermato a completato, da creato a completato; età dei task da fare per fascia e stato.
+- **Git per task** (`services/gitLink.ts`, `stores/git.ts`, `GitTaskActivity.vue`). I commit si leggono anche con la chiusura automatica spenta (sempre in sola lettura). Nel dettaglio: i commit che citano `TODO-n` (con «chiude» se lo chiudono) e il nome del branch `todo-n-titolo` con «Copia il nome» e «Copia il comando» (`git switch -c …`). Il branch corrente si legge da `.git/HEAD`, senza eseguire git. Nella riga, l'icona del branch quando un commit degli ultimi 3 giorni cita il task o il suo branch è aperto su questo PC.
+- **Archivio dei completati** (`isArchived` in `services/items.ts`). I completati da più di 90 giorni stanno in fondo a «Completati», dietro «Mostra archiviati». Nulla si sposta sul disco: con i capitoli della 0.4.0 il file del progetto resta leggero, e spostarli in un altro file avrebbe complicato unione fuori ufficio, copie e capitoli senza un vero guadagno. La ricerca li trova e un task aperto da un link resta visibile.
+- **Palette dei comandi** (`services/commands.ts`, `GlobalSearch.vue`). In Ctrl+K: testo = ricerca, con i comandi che corrispondono in cima; `>` = solo comandi (Oggi, Panoramica, nuovo task, attenzioni, decisioni, roadmap e sezioni del progetto aperto, Analisi e Cronologia per gli amministratori, Membri in rete, Impostazioni, tema); `+` = nuovo task nel progetto aperto con l'inserimento rapido. I comandi rivolti al progetto passano per `ui.requestProject`.
 
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 

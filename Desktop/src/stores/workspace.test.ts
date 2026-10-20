@@ -195,6 +195,29 @@ describe('workspace: progetti ed elementi', () => {
     expect(ws.findItem(it.id)!.item.questions[0]!.resolved).toBe(false)
   })
 
+  it('decisioni: solo su una risposta esistente; la domanda si risolve; la decisione si toglie', async () => {
+    const ws = await openLocal()
+    const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
+    const it = await ws.addItem(p.id, { title: 'x' })
+    await ws.askQuestion(p.id, it.id, 'Quale database?')
+    let q = ws.findItem(it.id)!.item.questions[0]!
+    await ws.decideQuestion(p.id, it.id, q.id, 'ans_inesistente', 'boh')
+    expect(ws.findItem(it.id)!.item.questions[0]!.decision).toBeNull()
+
+    await ws.answerQuestion(p.id, it.id, q.id, 'PostgreSQL')
+    q = ws.findItem(it.id)!.item.questions[0]!
+    await ws.decideQuestion(p.id, it.id, q.id, q.answers[0]!.id, '  già in uso  ')
+    q = ws.findItem(it.id)!.item.questions[0]!
+    expect(q.decision).toMatchObject({ answerId: q.answers[0]!.id, rationale: 'già in uso', by: ws.currentUser!.id })
+    expect(q.resolved).toBe(true)
+    expect(q.resolvedAt).toBe(q.decision!.at)
+
+    await ws.decideQuestion(p.id, it.id, q.id, null)
+    q = ws.findItem(it.id)!.item.questions[0]!
+    expect(q.decision).toBeNull()
+    expect(q.resolved).toBe(true) // resta risolta: si riapre a parte
+  })
+
   it('allegati e cartelle di allegati', async () => {
     const ws = await openLocal()
     const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!

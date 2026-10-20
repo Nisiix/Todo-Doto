@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import dayjs from 'dayjs'
-import { applyFilter, compareTodo, countByBucket, dueState, firstLine, formatDue, isFilterActive, matchesSearch, searchAll, sortForBucket, spotlight } from './items'
+import { applyFilter, compareTodo, countByBucket, dueState, isArchived, firstLine, formatDue, isFilterActive, matchesSearch, searchAll, sortForBucket, spotlight } from './items'
 import { EMPTY_FILTER, type Item, type Project } from '@/types'
 
 const base: Item = {
@@ -152,5 +152,16 @@ describe('ricerca globale', () => {
     const hits = searchAll([many], 'chiave', 5)
     expect(hits).toHaveLength(1)
     expect(hits[0]!.items).toHaveLength(5)
+  })
+})
+
+describe('archivio dei completati', () => {
+  const now = dayjs('2026-10-20T12:00:00Z')
+  it('solo i completati da più di 90 giorni', () => {
+    expect(isArchived({ bucket: 'done', completedAt: '2026-07-01T10:00:00Z' }, now)).toBe(true)
+    expect(isArchived({ bucket: 'done', completedAt: '2026-08-01T10:00:00Z' }, now)).toBe(false)
+    expect(isArchived({ bucket: 'todo', completedAt: null }, now)).toBe(false)
+    expect(isArchived({ bucket: 'trash', completedAt: '2025-01-01T10:00:00Z' }, now)).toBe(false)
+    expect(isArchived({ bucket: 'done', completedAt: '2026-10-01T10:00:00Z' }, now, 7)).toBe(true)
   })
 })

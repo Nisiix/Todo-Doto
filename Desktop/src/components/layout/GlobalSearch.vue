@@ -1,15 +1,38 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { Loader2, Paperclip, Search, Sparkles } from 'lucide-vue-next'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  Activity,
+  BarChart3,
+  ChevronRight,
+  CornerDownLeft,
+  Gavel,
+  History,
+  LayoutDashboard,
+  Loader2,
+  Map as MapIcon,
+  Moon,
+  Paperclip,
+  Plus,
+  Search,
+  Settings,
+  Sparkles,
+  Sun,
+  Users,
+} from 'lucide-vue-next'
 import { useEventListener, watchDebounced } from '@vueuse/core'
 import { useAiStore, withAi } from '@/stores/ai'
 import { itemText, nearest, SEARCH_THRESHOLD } from '@/services/aiAssist'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { firstLine, searchAll, type SearchHit } from '@/services/items'
+import { matchCommands, parsePaletteQuery, type CommandDef } from '@/services/commands'
+import { sectionParam, type ProjectSection } from '@/services/sections'
+import { useQuickAdd } from '@/composables/useQuickAdd'
+import QuickAddChips from '@/components/quick/QuickAddChips.vue'
 import { BUCKET_LABEL, type Attachment, type Item, type Project } from '@/types'
 import { defineMessages } from '@/i18n'
+import { common } from '@/i18n/common'
 
 const m = defineMessages({
   it: {
@@ -19,6 +42,28 @@ const m = defineMessages({
     inTrash: 'nel cestino',
     attachment: 'allegato',
     meaning: 'Per significato',
+    placeholderLong: 'Cerca · > comandi · + nuovo task',
+    commands: 'Comandi',
+    addTo: (p: string) => `Aggiungi a ${p}`,
+    addNeedsProject: 'Apri un progetto per aggiungervi un task con +.',
+    addEmpty: 'Scrivi il task dopo il +: es. + Esportazione CSV !alta entro venerdì',
+    added: 'Task aggiunto',
+    noCommands: 'Nessun comando corrisponde.',
+    cmd: {
+      today: 'Vai a Oggi',
+      overview: 'Vai alla Panoramica',
+      newItem: (p: string) => `Nuovo task in ${p}`,
+      insights: (p: string) => `Attenzioni e tempi di ${p}`,
+      decisions: (p: string) => `Decisioni di ${p}`,
+      roadmap: (p: string) => `Roadmap per il cliente di ${p}`,
+      section: (s: string, p: string) => `Apri ${s} di ${p}`,
+      analytics: 'Apri Analisi',
+      audit: 'Apri Cronologia',
+      members: 'Apri Membri',
+      settings: 'Apri Impostazioni',
+      theme: 'Cambia tema (chiaro o scuro)',
+    },
+    sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Allegati' } as Record<ProjectSection, string>,
   },
   en: {
     placeholder: 'Search all projects',
@@ -27,6 +72,28 @@ const m = defineMessages({
     inTrash: 'in the trash',
     attachment: 'attachment',
     meaning: 'By meaning',
+    placeholderLong: 'Search · > commands · + new task',
+    commands: 'Commands',
+    addTo: (p: string) => `Add to ${p}`,
+    addNeedsProject: 'Open a project to add a task to it with +.',
+    addEmpty: 'Write the task after the +: e.g. + CSV export !high by friday',
+    added: 'Task added',
+    noCommands: 'No command matches.',
+    cmd: {
+      today: 'Go to Today',
+      overview: 'Go to the Overview',
+      newItem: (p: string) => `New task in ${p}`,
+      insights: (p: string) => `Attention and times of ${p}`,
+      decisions: (p: string) => `Decisions of ${p}`,
+      roadmap: (p: string) => `Client roadmap of ${p}`,
+      section: (s: string, p: string) => `Open ${s} of ${p}`,
+      analytics: 'Open Analytics',
+      audit: 'Open History',
+      members: 'Open Members',
+      settings: 'Open Settings',
+      theme: 'Switch theme (light or dark)',
+    },
+    sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Attachments' } as Record<ProjectSection, string>,
   },
 })
 
@@ -39,12 +106,71 @@ const m = defineMessages({
 const ws = useWorkspaceStore()
 const ui = useUiStore()
 const router = useRouter()
+const route = useRoute()
+
+// Palette: «> testo» solo comandi, «+ testo» nuovo task nel progetto aperto, altrimenti ricerca
+const query = computed(() => parsePaletteQuery(ui.search))
+const currentProject = computed(() => (route.name === 'project' ? (ws.projects[String(route.params.id)] ?? null) : null))
 
 const inputEl = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 const active = ref(0)
 
-const hits = computed<SearchHit[]>(() => searchAll([...ws.visibleProjects, ...ws.trashedProjects], ui.search))
+const hits = computed<SearchHit[]>(() => (query.value.mode === 'search' ? searchAll([...ws.visibleProjects, ...ws.trashedProjects], query.value.text) : []))
+
+type Command = CommandDef & { icon: typeof Search; run: () => void }
+const commands = computed<Command[]>(() => {
+  const p = currentProject.value
+  const live = p && !p.trashedAt
+  const list: (Command | false | null)[] = [
+    { id: 'today', label: m.cmd.today, keywords: ['oggi', 'today', 'giornata', 'agenda'], icon: Sun, run: () => void router.push({ name: 'today' }) },
+    { id: 'overview', label: m.cmd.overview, keywords: ['home', 'overview', 'panoramica'], icon: LayoutDashboard, run: () => void router.push({ name: 'workspace-home' }) },
+    live && { id: 'newItem', label: m.cmd.newItem(p.name), keywords: ['nuovo', 'crea', 'aggiungi', 'new', 'add', 'task'], icon: Plus, run: () => ui.requestProject('newItem', p.id) },
+    live && { id: 'insights', label: m.cmd.insights(p.name), keywords: ['attenzioni', 'ritardi', 'tempi', 'attention', 'overdue', 'times'], icon: Activity, run: () => ui.requestProject('insights', p.id) },
+    p && { id: 'decisions', label: m.cmd.decisions(p.name), keywords: ['decisioni', 'registro', 'decisions', 'log'], icon: Gavel, run: () => ui.requestProject('decisions', p.id) },
+    live && { id: 'roadmap', label: m.cmd.roadmap(p.name), keywords: ['roadmap', 'cliente', 'client', 'pdf'], icon: MapIcon, run: () => ui.requestProject('roadmap', p.id) },
+    ...(p
+      ? (['stack', 'todo', 'gantt', 'attachments'] as ProjectSection[]).map((sec) => ({
+          id: `section-${sec}`,
+          label: m.cmd.section(m.sections[sec], p.name),
+          keywords: [sec],
+          icon: ChevronRight,
+          run: () => void router.push({ name: 'project', params: { id: p.id, section: sectionParam(sec) } }),
+        }))
+      : []),
+    ws.isAdmin && { id: 'analytics', label: m.cmd.analytics, keywords: ['analisi', 'analytics', 'carico', 'statistiche'], icon: BarChart3, run: () => void router.push({ name: 'analytics' }) },
+    ws.isAdmin && { id: 'audit', label: m.cmd.audit, keywords: ['cronologia', 'audit', 'history', 'storico'], icon: History, run: () => void router.push({ name: 'audit' }) },
+    ws.isNetwork && { id: 'members', label: m.cmd.members, keywords: ['membri', 'utenti', 'members', 'users'], icon: Users, run: () => void router.push({ name: 'members' }) },
+    { id: 'settings', label: m.cmd.settings, keywords: ['impostazioni', 'settings', 'preferenze', 'opzioni'], icon: Settings, run: () => ui.openSettings() },
+    { id: 'theme', label: m.cmd.theme, keywords: ['tema', 'scuro', 'chiaro', 'dark', 'light', 'theme'], icon: Moon, run: () => ui.toggleTheme() },
+  ]
+  return list.filter((c): c is Command => !!c)
+})
+const matchedCommands = computed<Command[]>(() => {
+  const q = query.value
+  if (q.mode === 'commands') return matchCommands(commands.value, q.text)
+  if (q.mode === 'search' && q.text.length >= 2) return matchCommands(commands.value, q.text).slice(0, 4)
+  return []
+})
+
+// «+ testo»: il task si crea nel progetto aperto, con i comandi dell'inserimento rapido
+const addText = computed(() => (query.value.mode === 'add' ? query.value.text : ''))
+const { parsed: addParsed, keep: addKeep } = useQuickAdd(addText)
+const canAdd = computed(() => query.value.mode === 'add' && !!currentProject.value && !currentProject.value.trashedAt && !!addParsed.value.title)
+async function addTask() {
+  const p = currentProject.value
+  const r = addParsed.value
+  if (!p || !canAdd.value) return
+  const item = await ws.addItem(p.id, {
+    title: r.title,
+    ...(r.priority ? { priority: r.priority } : {}),
+    assigneeId: r.assigneeId,
+    labelId: r.labelId,
+    ...(r.dueDate ? { status: 'confermato' as const, dueDate: r.dueDate } : {}),
+  })
+  clear()
+  ui.toast(m.added, 'success', { label: common.actions.open, run: () => (ui.selectedItemId = item.id) }, 2500)
+}
 /**
  * Con l'IA locale attiva: anche i task vicini per significato (es. «login» trova
  * «pagina di accesso»), dopo i risultati per testo e senza ripeterli.
@@ -55,8 +181,10 @@ const semanticBusy = ref(false)
 let semanticRun = 0
 watchDebounced(
   () => ui.search,
-  async (q) => {
+  async (raw) => {
     const run = ++semanticRun
+    const parsedQuery = parsePaletteQuery(raw)
+    const q = parsedQuery.mode === 'search' ? parsedQuery.text : ''
     if (!ai.active || q.trim().length < 3) {
       semanticBusy.value = false
       semantic.value = []
@@ -76,8 +204,10 @@ watchDebounced(
 )
 
 /** Lista piatta delle voci selezionabili, nell'ordine in cui sono mostrate. */
-type Entry = { key: string; project: Project; item?: Item; attachment?: Attachment }
+type Entry = { key: string; project?: Project; item?: Item; attachment?: Attachment; command?: Command; add?: true }
 const entries = computed<Entry[]>(() => [
+  ...(canAdd.value ? [{ key: 'add', add: true as const }] : []),
+  ...matchedCommands.value.map((command) => ({ key: `cmd:${command.id}`, command })),
   ...hits.value.flatMap((h) => [
     ...(h.nameMatch ? [{ key: h.project.id, project: h.project }] : []),
     ...h.items.map((item) => ({ key: item.id, project: h.project, item })),
@@ -89,8 +219,15 @@ const show = computed(() => focused.value && ui.search.trim().length > 0)
 watch(entries, () => (active.value = 0))
 
 function open(entry: Entry) {
+  if (entry.add) return void addTask()
   focused.value = false
   inputEl.value?.blur()
+  if (entry.command) {
+    ui.search = ''
+    entry.command.run()
+    return
+  }
+  if (!entry.project) return
   const query = entry.item ? { item: entry.item.id } : {}
   router.push({ name: 'project', params: { id: entry.project.id, section: entry.attachment ? 'attachments' : '' }, query })
   if (entry.item) ui.selectedItemId = entry.item.id
@@ -134,7 +271,7 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
       ref="inputEl"
       v-model="ui.search"
       class="field field-sm h-8 pl-8 pr-14"
-      :placeholder="m.placeholder"
+      :placeholder="m.placeholderLong"
       role="combobox"
       :aria-label="m.placeholder"
       :aria-expanded="show"
@@ -154,7 +291,46 @@ const entryIndex = (key: string) => entries.value.findIndex((x) => x.key === key
       :aria-label="m.results"
       @mousedown.prevent
     >
-      <p v-if="!hits.length && !semantic.length && !semanticBusy" class="px-3 py-3 text-[13px] text-ink-3">{{ m.noResults(ui.search.trim()) }}</p>
+      <!-- + testo: nuovo task nel progetto aperto -->
+      <section v-if="query.mode === 'add'" class="py-1" data-palette-add>
+        <template v-if="currentProject && !currentProject.trashedAt">
+          <button
+            v-if="canAdd"
+            class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]"
+            :class="entryIndex('add') === active ? 'bg-accent-soft' : 'hover:bg-surface-2'"
+            role="option"
+            :aria-selected="entryIndex('add') === active"
+            @click="addTask()"
+          >
+            <Plus :size="14" class="shrink-0 text-accent-ink" />
+            <span class="shrink-0 text-ink-3">{{ m.addTo(currentProject.name) }}:</span>
+            <span class="min-w-0 flex-1 truncate font-medium">{{ addParsed.title }}</span>
+            <CornerDownLeft :size="13" class="shrink-0 text-ink-3" />
+          </button>
+          <QuickAddChips class="px-2 pb-1 pt-1" :parsed="addParsed" @remove="addKeep" />
+          <p v-if="!canAdd" class="px-3 py-2 text-[12.5px] text-ink-3">{{ m.addEmpty }}</p>
+        </template>
+        <p v-else class="px-3 py-2 text-[12.5px] text-ink-3">{{ m.addNeedsProject }}</p>
+      </section>
+      <!-- Comandi -->
+      <section v-if="matchedCommands.length" class="py-1" data-palette-commands>
+        <p class="px-2 py-1 text-[11.5px] font-semibold text-ink-3">{{ m.commands }}</p>
+        <button
+          v-for="c in matchedCommands"
+          :key="c.id"
+          class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px]"
+          :class="entryIndex(`cmd:${c.id}`) === active ? 'bg-accent-soft' : 'hover:bg-surface-2'"
+          role="option"
+          :aria-selected="entryIndex(`cmd:${c.id}`) === active"
+          :data-command="c.id"
+          @click="open({ key: `cmd:${c.id}`, command: c })"
+        >
+          <component :is="c.icon" :size="14" class="shrink-0 text-ink-3" />
+          <span class="min-w-0 flex-1 truncate">{{ c.label }}</span>
+        </button>
+      </section>
+      <p v-if="query.mode === 'commands' && !matchedCommands.length" class="px-3 py-3 text-[13px] text-ink-3">{{ m.noCommands }}</p>
+      <p v-if="query.mode === 'search' && !hits.length && !semantic.length && !semanticBusy && !matchedCommands.length" class="px-3 py-3 text-[13px] text-ink-3">{{ m.noResults(query.text) }}</p>
       <section v-for="h in hits" :key="h.project.id" class="py-1">
         <button
           class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[12px] font-semibold text-ink-2"

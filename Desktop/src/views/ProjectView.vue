@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Activity, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Activity, Archive, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -33,7 +33,7 @@ import { useGitStore } from '@/stores/git'
 import { useConfirm } from '@/composables/useConfirm'
 import { useSharing } from '@/composables/useSharing'
 import { BUCKET_LABEL, EMPTY_FILTER, projectVisibility, type Bucket, type ItemFilter, type Visibility } from '@/types'
-import { applyFilter, countByBucket, isFilterActive, sortForBucket } from '@/services/items'
+import { applyFilter, ARCHIVE_DAYS, countByBucket, isArchived, isFilterActive, sortForBucket } from '@/services/items'
 import { projectSection, type ProjectSection } from '@/services/sections'
 import { DATE, defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
@@ -74,6 +74,9 @@ const m = defineMessages({
     emptyTodo: 'Lista vuota. Premi «Nuovo task» (o il tasto N) per aggiungere la prima cosa da fare.',
     emptyDone: 'Ancora nessun elemento completato. Spunta il cerchio accanto a un elemento per portarlo qui.',
     emptyTrashList: 'Il cestino è vuoto. Gli elementi cestinati restano qui finché non li elimini definitivamente.',
+    showArchived: (n: number, d: number) => `Mostra ${plural(n, 'il completato', `i ${n} completati`)} da più di ${d} giorni`,
+    hideArchived: 'Nascondi l’archivio',
+    archivedHint: 'Restano nel progetto e la ricerca li trova: qui stanno da parte per tenere corta la lista',
   },
   en: {
     deleteMessage: (items: number, atts: number) => `${items} ${plural(items, 'item', 'items')} and ${atts} ${plural(atts, 'attachment', 'attachments')} will be deleted from the workspace for everyone. This cannot be undone. ${common.projectFiles.untouched}`,
@@ -110,6 +113,9 @@ const m = defineMessages({
     emptyTodo: 'Empty list. Press “New task” (or the N key) to add the first thing to do.',
     emptyDone: 'No completed items yet. Tick the circle next to an item to bring it here.',
     emptyTrashList: 'The trash is empty. Trashed items stay here until you delete them permanently.',
+    showArchived: (n: number, d: number) => `Show ${plural(n, 'the item', `the ${n} items`)} completed more than ${d} days ago`,
+    hideArchived: 'Hide the archive',
+    archivedHint: 'They stay in the project and search finds them: they are set aside here to keep the list short',
   },
 })
 
@@ -175,11 +181,20 @@ watch(() => [route.query.item, route.query.tab], applyQuery, { immediate: true }
 const counts = computed(() => countByBucket(project.value?.items ?? []))
 const filterActive = computed(() => isFilterActive(filter.value))
 
-const items = computed(() => {
+const allItems = computed(() => {
   if (!project.value) return []
   const bucket = tab.value
   const inBucket = project.value.items.filter((i) => i.bucket === bucket)
   return sortForBucket(applyFilter(inBucket, filter.value), bucket)
+})
+// Archivio dei completati: quelli vecchi stanno in fondo, dietro «Mostra archiviati» (un task aperto da un link resta visibile)
+const showArchived = ref(false)
+watch(() => props.id, () => (showArchived.value = false))
+const archived = computed(() => (tab.value === 'done' ? allItems.value.filter((i) => isArchived(i) && i.id !== ui.selectedItemId) : []))
+const items = computed(() => {
+  if (showArchived.value || !archived.value.length) return allItems.value
+  const hidden = new Set(archived.value.map((i) => i.id))
+  return allItems.value.filter((i) => !hidden.has(i.id))
 })
 
 const selected = computed(() => {
@@ -233,6 +248,24 @@ watch(showLabels, (o) => {
   backToNewItem = false
   showNewItem.value = true
 })
+// Richieste dalla palette dei comandi (Ctrl+K, «>»): eseguite quando questo progetto è aperto
+watch(
+  () => ui.projectRequest,
+  (r) => {
+    if (!r || r.projectId !== props.id || !project.value) return
+    ui.projectRequest = null
+    if (r.action === 'decisions') showDecisions.value = true
+    else if (r.action === 'roadmap') showRoadmap.value = !trashed.value
+    else {
+      if (section.value !== 'todo') void router.push({ name: 'project', params: { id: props.id } })
+      tab.value = 'todo'
+      if (r.action === 'insights') showInsights.value = true
+      else if (!trashed.value) showNewItem.value = true
+    }
+  },
+  { immediate: true },
+)
+
 async function deleteForever() {
   if (!project.value) return
   const ok = await confirm({
@@ -402,7 +435,17 @@ const tabs: { id: Bucket; label: string }[] = [
               <ItemRow v-for="it in items" :key="it.id" :item="it" :project-id="project.id" :read-only="trashed" />
             </TransitionGroup>
           </div>
-          <p v-if="!items.length" class="mt-6 max-w-md text-[13.5px] leading-relaxed text-ink-3">
+          <button
+            v-if="archived.length"
+            type="button"
+            class="mt-3 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12.5px] font-medium text-ink-3 hover:bg-surface-2 hover:text-ink-2"
+            :title="m.archivedHint"
+            data-archive-toggle
+            @click="showArchived = !showArchived"
+          >
+            <Archive :size="13" /> {{ showArchived ? m.hideArchived : m.showArchived(archived.length, ARCHIVE_DAYS) }}
+          </button>
+          <p v-if="!items.length && !archived.length" class="mt-6 max-w-md text-[13.5px] leading-relaxed text-ink-3">
             <template v-if="filterActive">{{ m.noMatch }}</template>
             <template v-else-if="tab === 'todo'">{{ m.emptyTodo }}</template>
             <template v-else-if="tab === 'done'">{{ m.emptyDone }}</template>
