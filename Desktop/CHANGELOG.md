@@ -2,6 +2,21 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.6.0 — 20 ottobre 2026
+
+- Dipendenze: un task «va fatto dopo» altri. Finché quelli non sono completati ha un lucchetto; se scade prima di chi lo blocca, un avviso lo dice. Nel Gantt le frecce collegano le barre e la catena critica è evidenziata. Quando il task si sblocca, chi lo ha in carico riceve una notifica.
+- Tappe: versioni o rilasci con data obiettivo, avanzamento, filtro e linea nel Gantt; nell'inserimento rapido «~v1.3». A tappa raggiunta, le note di versione si scrivono dai task completati e si copiano o si aggiungono al CHANGELOG.md del progetto.
+- Carico per settimana (Analisi): scadenze e ore stimate di ciascuno nelle prossime settimane, in tutti i progetti, con le collisioni e «Passa a…» con i consigliati. Stima in ore nel task o con «=3h».
+- Assenze e ore settimanali (Membri › Disponibilità): si vedono nell'elenco degli assegnatari, riducono il carico e segnalano i task che scadono mentre chi li ha è assente.
+- Salute dei progetti: un anello giallo o rosso nella barra laterale, con i motivi, e l'andamento settimana per settimana in Analisi.
+- PC pronti: in Analisi la matrice progetti × persone con lo stato del PC; nell'elenco degli assegnatari, se il PC della persona è pronto per il progetto.
+- Rapporto di stato interno per un periodo: completati, ritardi, prossime scadenze, tappe, decisioni, domande e attenzioni. Si copia in Markdown, si salva come pagina da stampare in PDF o si manda per email; l'introduzione la può scrivere l'IA locale.
+- Nota di passaggio: passando un task a un'altra persona, il dettaglio propone un riassunto per chi lo riceve, da aggiungere come commento.
+- Calendari delle scadenze (.ics) nella cartella Dati, per te e per ogni progetto, da aprire in Outlook o Thunderbird; si attivano dal menu del workspace.
+- Lista di controllo nei task e ripetizione settimanale o mensile: completandolo nasce il prossimo, con la lista da rifare.
+- Modelli di progetto: si salva un progetto come modello e se ne crea uno nuovo con Stack, cartelle degli allegati, tappe e task, con le date da oggi.
+- Pulizia guidata per gli amministratori: etichette mai usate, cartelle vuote, progetti fermi, allegati spariti, tappe da chiudere e cestini vecchi.
+
 ## 0.5.0 — 20 ottobre 2026
 
 - Inserimento rapido: sopra la lista si scrive «Esportazione CSV !alta @mario #bug entro venerdì» e Invio crea il task con priorità, assegnatario, etichetta e scadenza. Ciò che è riconosciuto si vede prima; la X lo lascia nel titolo. Funziona anche nel dialog «Nuovo task».

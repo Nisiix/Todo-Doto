@@ -453,6 +453,16 @@ Obiettivo: le funzioni di coordinamento per i workspace di rete. Con la raccoman
 
 1. G1 dipendenze · 2. G2 tappe e note di versione · 3. A7 rapporto di stato con PDF · 4. A5 calendario del carico (con stime facoltative) · 5. A6 matrice readiness · 6. G4 assenze · 7. A4 semaforo di salute · 8. S3 calendari di rete · 9. G7 modelli condivisi · 10. pulizia guidata · 11. I2 nota di passaggio.
 
+**Stato: fatta nella 0.6.0** (dettagli in `Desktop/PROGETTO.md` §9i). Differenze rispetto a quanto descritto sopra:
+
+- **G2 tappe**: il tag git della versione si propone come comando da copiare; l'app non esegue git.
+- **A5 carico**: la griglia sta in Analisi, quindi la vedono gli amministratori. Senza ore settimanali indicate il carico si conta in scadenze (oltre 5 a settimana è troppo).
+- **A7 rapporto**: «Invia per email» apre il programma di posta con il testo; l'invio diretto con Outlook o SMTP resta, per ora, solo della roadmap per il cliente.
+- **S3 calendari**: i file stanno nella cartella Dati e si aprono da percorso (Outlook, Thunderbird); Google Calendar li importa ma non li aggiorna. Con i dati cifrati non si creano.
+- **G7 modelli e liste**: la ripetizione nasce al completamento (dalla lista o dal dettaglio), non a calendario; un task chiuso da un commit non crea il successivo. I modelli li salvano gli amministratori.
+- **Pulizia guidata**: manca «utenti che non entrano da 90 giorni», per lo stesso motivo dell'ondata 1 (l'ultimo accesso non si registra).
+- **I2 nota di passaggio**: compare dopo il cambio di assegnatario dal dettaglio del task, non dalla riassegnazione nella griglia del carico.
+
 ### Ondata 3 · "Business" (5–7 settimane, con la verifica della licenza)
 
 1. A2 previsione (usa A5) · 2. G3 automazioni (usa G1, G2, A3) · 3. A8 confronto fra date · 4. I1 "Chiedi al progetto".
