@@ -179,6 +179,7 @@ async function submit() {
           v-model:label-id="labelId"
           v-model:assignee-id="assigneeId"
           id-prefix="i"
+          :project-id="projectId"
           wide
           @manage-labels="openLabels"
         />

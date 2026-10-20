@@ -5,6 +5,8 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { canHaveDueDate, formatDue } from '@/services/items'
 import { absenceOn } from '@/services/load'
+import { pcStatus } from '@/services/health'
+import { prereqsOf } from '@/services/readiness'
 import { useToday } from '@/composables/useToday'
 import dayjs from 'dayjs'
 import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, type Priority, type Status, type User } from '@/types'
@@ -29,6 +31,8 @@ const m = defineMessages({
     manageLabels: 'Gestisci etichette…',
     away: (from: string, to: string) => `assente ${from}–${to}`,
     awayOnDue: 'assente il giorno della scadenza',
+    pcReady: 'PC pronto',
+    pcMissing: (n: number) => (n === 1 ? 'al PC manca un programma' : `al PC mancano ${n} programmi`),
   },
   en: {
     priority: 'Priority',
@@ -48,6 +52,8 @@ const m = defineMessages({
     manageLabels: 'Manage labels…',
     away: (from: string, to: string) => `away ${from}–${to}`,
     awayOnDue: 'away on the due date',
+    pcReady: 'PC ready',
+    pcMissing: (n: number) => (n === 1 ? 'PC missing a program' : `PC missing ${n} programs`),
   },
 })
 
@@ -57,7 +63,8 @@ const m = defineMessages({
  * task" e nel dettaglio del task selezionato. `idPrefix` distingue gli id dei
  * campi (i- nel dialog, d- nel dettaglio).
  */
-withDefaults(defineProps<{ idPrefix: string; hints?: boolean; wide?: boolean }>(), { hints: true, wide: false })
+/** `projectId`: per mostrare accanto a ogni persona se il suo PC è pronto per il progetto (workspace di rete). */
+const props = withDefaults(defineProps<{ idPrefix: string; hints?: boolean; wide?: boolean; projectId?: string }>(), { hints: true, wide: false, projectId: undefined })
 const emit = defineEmits<{ manageLabels: [] }>()
 const priority = defineModel<Priority>('priority', { required: true })
 const status = defineModel<Status>('status', { required: true })
@@ -67,6 +74,14 @@ const assigneeId = defineModel<string | null>('assigneeId', { required: true })
 const ws = useWorkspaceStore()
 // Assenze: chi sarà assente nei prossimi 14 giorni (o nel giorno della scadenza) si vede già nell'elenco
 const { today } = useToday()
+/** PC pronto per il progetto (dalle verifiche in background), nei workspace di rete. */
+function pcText(u: User) {
+  const p = props.projectId ? ws.projects[props.projectId] : undefined
+  if (!p || !ws.isNetwork) return ''
+  const st = pcStatus(p.id, prereqsOf(p), ws.readiness[u.id])
+  if (!st || st.state === 'unknown') return ''
+  return st.state === 'ready' ? ` · ${m.pcReady}` : ` · ${m.pcMissing(st.missing.length)}`
+}
 function awayText(u: User) {
   const due = dueDate.value
   const onDue = due ? absenceOn(u.absences, due) : null
@@ -136,7 +151,7 @@ watch(status, (s) => {
       <label class="label flex items-center gap-1.5" :for="`${idPrefix}-assignee`"><UserRound :size="13" class="text-ink-3" /> {{ m.assignee }}</label>
       <select :id="`${idPrefix}-assignee`" class="field" :value="assigneeId ?? ''" @change="assigneeId = ($event.target as HTMLSelectElement).value || null">
         <option value="">{{ m.unassigned }}</option>
-        <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}{{ awayText(u) }}</option>
+        <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}{{ awayText(u) || pcText(u) }}</option>
       </select>
       <p v-if="hints" class="mt-1 text-[11.5px] text-ink-3">{{ m.assigneeHint }}</p>
     </div>

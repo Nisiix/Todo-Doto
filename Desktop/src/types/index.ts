@@ -523,6 +523,20 @@ export const PresenceFileSchema = z.object({
 export type PresenceFile = z.infer<typeof PresenceFileSchema>
 
 // ---------------------------------------------------------------------------
+// Salute dei progetti: istantanea settimanale (health/<lunedì>.json), una per
+// settimana, scritta dal primo PC che apre il workspace in quella settimana
+// ---------------------------------------------------------------------------
+
+export const HEALTH_LEVELS = ['green', 'yellow', 'red'] as const
+export type HealthLevel = (typeof HEALTH_LEVELS)[number]
+export const HealthWeekSchema = z.object({
+  week: z.string(),
+  at: iso,
+  projects: z.record(z.string(), z.enum(HEALTH_LEVELS)).default({}),
+})
+export type HealthWeek = z.infer<typeof HealthWeekSchema>
+
+// ---------------------------------------------------------------------------
 // Google Drive: struttura replicata della cartella scelta (solo metadati)
 // ---------------------------------------------------------------------------
 

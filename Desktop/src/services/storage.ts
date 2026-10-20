@@ -26,11 +26,13 @@ import {
   PresenceFileSchema,
   ProjectSchema,
   ReadinessFileSchema,
+  HealthWeekSchema,
   TreeFileSchema,
   UsersFileSchema,
   WorkspaceMetaSchema,
   type AuditFile,
   type DriveFile,
+  type HealthWeek,
   type PresenceFile,
   type Project,
   type ReadinessFile,
@@ -103,6 +105,8 @@ export const FILES = {
   mailDir: 'mail',
   /** Cartella predefinita delle copie di sicurezza (se non se ne sceglie un'altra). */
   backupsDir: 'backups',
+  /** Salute dei progetti, una istantanea per settimana (health/<lunedì>.json). */
+  healthDir: 'health',
 } as const
 
 export type Signature = Record<string, string> // path relativo -> "mtime:size"
@@ -783,6 +787,41 @@ export class WorkspaceStorage {
       }
     }
     return ok
+  }
+
+  // --- salute dei progetti: una istantanea per settimana ---------------------------
+
+  /**
+   * Scrive l'istantanea della settimana solo se non c'è ancora (creazione
+   * esclusiva: un solo PC la scrive, senza lock). Cifrata come gli altri file.
+   * Fuori dal giornale delle modifiche: gli altri PC la leggono quando serve.
+   */
+  async writeHealthWeek(f: HealthWeek): Promise<boolean> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.week)) throw new Error(`Settimana non valida: ${f.week}`)
+    const dir = await this.fs.join(this.root, FILES.healthDir)
+    await this.fs.mkdir(dir)
+    const json = JSON.stringify(f)
+    const text = this.encryptWrites && this.cipher ? await this.cipher.encryptText(json) : json
+    const ok = await this.fs.createExclusive(await this.fs.join(dir, `${f.week}.json`), text)
+    if (ok) {
+      // Si tiene poco più di un anno
+      const names = (await this.fs.readDir(dir).catch(() => [] as string[])).filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort()
+      for (const n of names.slice(0, Math.max(0, names.length - 60))) await this.fs.remove(await this.fs.join(dir, n)).catch(() => {})
+    }
+    return ok
+  }
+
+  /** Ultime istantanee settimanali, dalla più recente; quelle illeggibili si saltano. */
+  async readHealthHistory(limit = 12): Promise<HealthWeek[]> {
+    const dir = await this.fs.join(this.root, FILES.healthDir)
+    if (!(await this.fs.exists(dir))) return []
+    const names = (await this.fs.readDir(dir)).filter((n) => /^\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort().reverse().slice(0, limit)
+    const out: HealthWeek[] = []
+    for (const n of names) {
+      const f = await this.readJson(await this.fs.join(dir, n), (r) => HealthWeekSchema.parse(r)).catch(() => null)
+      if (f) out.push(f)
+    }
+    return out
   }
 
   // --- copie di sicurezza ---------------------------------------------------------

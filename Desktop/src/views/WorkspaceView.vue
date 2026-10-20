@@ -8,6 +8,7 @@ import { useGitHubStore } from '@/stores/github'
 import { useReadinessStore } from '@/stores/readiness'
 import { useOutboxStore } from '@/stores/outbox'
 import { useAiStore } from '@/stores/ai'
+import { useHealthStore } from '@/stores/health'
 
 // Progetti collegati a GitHub: lo stack si risincronizza da solo all'apertura (se attivo)
 const github = useGitHubStore()
@@ -19,6 +20,9 @@ useOutboxStore()
 // IA locale di questo PC: stato del motore (e, al primo avvio, ricerca di uno già installato)
 const ai = useAiStore()
 onMounted(() => void ai.start().catch(() => undefined))
+// Salute dei progetti: istantanea della settimana (se nessun PC l'ha già scritta) e andamento
+const health = useHealthStore()
+onMounted(() => void health.maybeSnapshot().catch(() => undefined))
 </script>
 
 <template>

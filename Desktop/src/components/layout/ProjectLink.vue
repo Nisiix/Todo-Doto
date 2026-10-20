@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useHealthStore } from '@/stores/health'
+import { HEALTH_COLOR, healthSummary } from '@/components/health/healthText'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { GanttChartSquare, Layers, ListChecks, Paperclip, Star, Trash2 } from 'lucide-vue-next'
@@ -39,6 +41,9 @@ const m = defineMessages({
  */
 const props = defineProps<{ project: Project; depth: number; hint?: string; sections?: boolean }>()
 const ws = useWorkspaceStore()
+// Semaforo: un anello giallo o rosso quando c'è qualcosa da guardare (il verde non si mostra)
+const healthStore = useHealthStore()
+const health = computed(() => healthStore.byProject[props.project.id] ?? null)
 const ui = useUiStore()
 const route = useRoute()
 
@@ -78,6 +83,14 @@ function trash() {
         <VisibilityDot v-if="ws.isNetwork" :project="project" />
         <Star v-if="ws.isFavorite(project.id)" :size="11" class="shrink-0 fill-p-media text-p-media" />
         <span v-if="urgent" class="h-1.5 w-1.5 shrink-0 rounded-full bg-p-immediata" :title="m.urgent" />
+        <span
+          v-if="health && health.level !== 'green' && !project.trashedAt"
+          class="h-2.5 w-2.5 shrink-0 rounded-full border-2"
+          :style="{ borderColor: HEALTH_COLOR[health.level] }"
+          :title="healthSummary(health)"
+          :aria-label="healthSummary(health)"
+          :data-health="health.level"
+        />
         <span class="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-ink-3" :class="{ 'group-hover:invisible group-focus-within:invisible': canTrash }">
           {{ hint ?? (openCount || '') }}
         </span>

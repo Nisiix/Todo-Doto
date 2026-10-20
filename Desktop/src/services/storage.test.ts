@@ -519,3 +519,19 @@ describe('WorkspaceStorage: tanti utenti sulla stessa cartella', () => {
     expect(await fs.exists('/grande2/projects')).toBe(false)
   })
 })
+
+describe('WorkspaceStorage: salute dei progetti', () => {
+  it('una istantanea per settimana: il secondo PC non la riscrive; lo storico dalla più recente', async () => {
+    const a = await freshWorkspace('/health-ws')
+    const b = await new WorkspaceStorage('/health-ws').init()
+    expect(await a.writeHealthWeek({ week: '2026-10-12', at: '2026-10-12T08:00:00Z', projects: { p1: 'green' } })).toBe(true)
+    expect(await b.writeHealthWeek({ week: '2026-10-12', at: '2026-10-12T09:00:00Z', projects: { p1: 'red' } })).toBe(false)
+    expect(await b.writeHealthWeek({ week: '2026-10-19', at: '2026-10-19T09:00:00Z', projects: { p1: 'yellow' } })).toBe(true)
+    const h = await a.readHealthHistory()
+    expect(h.map((x) => [x.week, x.projects.p1])).toEqual([
+      ['2026-10-19', 'yellow'],
+      ['2026-10-12', 'green'],
+    ])
+    await expect(a.writeHealthWeek({ week: '../x', at: '', projects: {} })).rejects.toThrow()
+  })
+})

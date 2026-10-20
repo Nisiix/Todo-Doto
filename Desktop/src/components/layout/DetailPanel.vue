@@ -214,6 +214,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
           v-model:assignee-id="assigneeId"
           class="mt-3"
           id-prefix="d"
+          :project-id="project.id"
           @manage-labels="emit('manageLabels')"
         />
         <div v-else class="mt-2 flex flex-wrap items-center gap-1.5">

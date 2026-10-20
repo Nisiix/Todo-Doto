@@ -204,3 +204,59 @@ test('carico e assenze: disponibilità, stima con =h, griglia per settimana, sca
   await expect(page.locator('[data-load-detail]')).toContainText('Report')
   await expect(page.locator('[data-load-detail] [data-in-absence]')).toBeVisible()
 })
+
+test('salute e PC pronti: anello nella barra laterale, andamento in Analisi, matrice dei PC, PC nell’elenco degli assegnatari', async ({ page }) => {
+  // Workspace di rete (le verifiche dei PC si condividono solo in rete)
+  const id = Math.random().toString(36).slice(2, 7)
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', 'Team')
+  await pick(`/rete/progetti-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick(`/rete/dati-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
+  await page.getByText('Condiviso in rete').click()
+  await page.fill('#ws-pw', 'segreto1')
+  await page.fill('#ws-pw2', 'segreto1')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Team' })).toBeVisible()
+  await createProject(page, 'Portale')
+  const projectId = (await page.evaluate(() => location.hash)).match(/\/p\/([^/?]+)/)![1]!
+
+  // Node.js manca su questo PC
+  await page.evaluate(() => Object.assign(window, { __pgmChecks: { 'node -v': { code: 9009, stdout: '', stderr: "'node' is not recognized", timedOut: false } } }))
+  await page.locator('aside').first().getByRole('link', { name: /^Stack( \d+)?$/ }).click()
+  await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+  await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+  await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Salva' }).click()
+  await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'missing')
+
+  await page.locator('aside').first().getByRole('link', { name: /^Todo( \d+)?$/ }).click()
+  await addTasks(page, ['Uno @io entro il 01/10/2026', 'Due entro il 02/10/2026', 'Tre entro il 03/10/2026'])
+  const ring = page.locator('aside').first().locator('[data-health]')
+  await expect(ring).toHaveAttribute('data-health', 'red')
+  await expect(ring).toHaveAttribute('title', /3 in ritardo/)
+  await expect(ring).toHaveAttribute('title', /1 PC non pronto/)
+
+  // Il PC si vede accanto al nome nell'elenco degli assegnatari
+  await openTask(page, 'Uno')
+  await expect(page.locator('#d-assignee option').nth(1)).toContainText('al PC manca un programma')
+  await page.keyboard.press('Escape')
+
+  // Una settimana passata «in salute», scritta come la scriverebbe un altro PC
+  await page.evaluate(
+    async ([dir, pid]) => {
+      const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+      await fs.writeTextAtomic(`${dir}/health/2026-01-05.json`, JSON.stringify({ week: '2026-01-05', at: '2026-01-05T09:00:00Z', projects: { [pid!]: 'green' } }))
+    },
+    [`/rete/dati-${id}`, projectId],
+  )
+  await page.evaluate(() => (location.hash = '#/w/analytics'))
+  const trend = page.locator('[data-health-trend] [data-health-row="Portale"]')
+  await expect(trend.locator('[data-health-now]')).toHaveAttribute('data-health-now', 'red')
+  await expect(trend).toContainText('3 in ritardo')
+  await expect(trend.locator('[title="In salute"]')).toHaveCount(1)
+  await expect(page.locator('[data-pc-matrix] [data-pc-row="Portale"] [data-pc-state]')).toHaveAttribute('data-pc-state', 'missing')
+})
