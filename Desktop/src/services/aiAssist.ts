@@ -215,6 +215,21 @@ export async function weeklySummary(cfg: AiConfig, facts: WeekFacts): Promise<We
 }
 
 // ---------------------------------------------------------------------------
+// 6b. Nota di passaggio di consegne (riscritta dai fatti del task)
+// ---------------------------------------------------------------------------
+
+const HandoffSchema = z.object({ text: z.string() })
+
+/** Riscrive la nota di passaggio in poche frasi, partendo SOLO dai fatti del task (la prima riga con @ resta). */
+export async function handoffSummary(cfg: AiConfig, facts: { task: string; notes: string; note: string }): Promise<string> {
+  const system = `Scrivi in ${LANG} una breve nota di passaggio di consegne per un collega che riceve un task: a che punto è, cosa resta, cosa aspetta e a chi chiedere. Usa SOLO i fatti forniti, niente di inventato. Massimo 6 frasi, tono diretto. Rispondi solo con JSON.`
+  const user = `TASK: ${clip(facts.task, 200)}\n\nDESCRIZIONE:\n${facts.notes || '-'}\n\nFATTI:\n${clip(facts.note, 2500)}`
+  const r = await chatJson(cfg, { system, user, schema: obj({ text: str(1200) }), validate: HandoffSchema, timeoutMs: 120_000, numCtx: 4096 })
+  const head = facts.note.split('\n')[0] ?? ''
+  return `${head}\n${r.text.trim().slice(0, 1200)}`
+}
+
+// ---------------------------------------------------------------------------
 // 7. Istruzioni per gli agenti di programmazione (AGENTS.md / CLAUDE.md)
 // ---------------------------------------------------------------------------
 

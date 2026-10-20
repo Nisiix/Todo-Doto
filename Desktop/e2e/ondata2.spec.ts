@@ -260,3 +260,76 @@ test('salute e PC pronti: anello nella barra laterale, andamento in Analisi, mat
   await expect(trend.locator('[title="In salute"]')).toHaveCount(1)
   await expect(page.locator('[data-pc-matrix] [data-pc-row="Portale"] [data-pc-state]')).toHaveAttribute('data-pc-state', 'missing')
 })
+
+/** Workspace di rete; restituisce la cartella Dati. */
+async function createNetworkWorkspace(page: Page, name = 'Team') {
+  const id = Math.random().toString(36).slice(2, 7)
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', name)
+  await pick(`/rete/progetti-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick(`/rete/dati-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
+  await page.getByText('Condiviso in rete').click()
+  await page.fill('#ws-pw', 'segreto1')
+  await page.fill('#ws-pw2', 'segreto1')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name })).toBeVisible()
+  return `/rete/dati-${id}`
+}
+
+/** Un collega entra nel workspace (come se si fosse unito dal suo PC). */
+async function addColleague(page: Page, dataDir: string, displayName: string) {
+  await page.evaluate(
+    async ([dir, name]) => {
+      const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string>; writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+      const f = JSON.parse(await fs.readText(`${dir}/users.json`))
+      f.users.push({ id: `usr_${name!.toLowerCase()}`, username: name!.toLowerCase(), hostname: 'PC-2', displayName: name, role: 'member', createdAt: new Date().toISOString() })
+      await fs.writeTextAtomic(`${dir}/users.json`, JSON.stringify(f))
+    },
+    [dataDir, displayName],
+  )
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+}
+
+test('rapporto di stato e nota di passaggio: periodo, Markdown, pagina; nota al nuovo assegnatario come commento', async ({ page }) => {
+  const dataDir = await createNetworkWorkspace(page)
+  await addColleague(page, dataDir, 'Anna')
+  await createProject(page, 'Portale')
+  await addTasks(page, ['Login @io', 'Pagina prezzi entro il 01/10/2026', 'Footer'])
+  await row(page, 'Footer').getByTitle('Segna come completato (C)').click()
+
+  // Rapporto: anteprima e Markdown
+  await page.locator('[data-report-open]').click()
+  await expect(page.locator('[data-sr-preview]')).toHaveAttribute('srcdoc', /Rapporto di stato/)
+  await expect(page.locator('[data-sr-preview]')).toHaveAttribute('srcdoc', /Pagina prezzi/)
+  await page.locator('[data-sr-intro]').fill('Settimana di avvio.')
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.locator('[data-sr-copy]').click()
+  const md = await page.evaluate(() => navigator.clipboard.readText())
+  expect(md).toContain('# Rapporto di stato · Portale')
+  expect(md).toContain('Settimana di avvio.')
+  expect(md).toContain('## Completati nel periodo')
+  expect(md).toContain('Footer')
+  expect(md).toContain('## In ritardo')
+  // Un periodo nel passato: nulla di completato
+  await page.locator('[data-sr-period]').selectOption('custom')
+  await page.locator('[data-sr-from]').fill('2026-01-01')
+  await page.locator('[data-sr-to]').fill('2026-01-31')
+  await expect(page.locator('[data-sr-preview]')).not.toHaveAttribute('srcdoc', /Completati nel periodo/)
+  await page.keyboard.press('Escape')
+
+  // Nota di passaggio: Login passa ad Anna
+  await openTask(page, 'Login')
+  await page.locator('#d-assignee').selectOption({ label: 'Anna' })
+  await page.locator('[data-detail-save]').getByRole('button', { name: 'Salva' }).click()
+  const note = page.locator('[data-handoff]')
+  await expect(note).toContainText('Lasci una nota a Anna?')
+  await expect(note.locator('[data-handoff-text]')).toHaveValue(/@Anna passaggio di consegne da /)
+  await expect(note.locator('[data-handoff-text]')).toHaveValue(/si parte da zero/)
+  await note.locator('[data-handoff-add]').click()
+  await expect(note).toHaveCount(0)
+  await expect(page.locator('aside').last()).toContainText('passaggio di consegne')
+})

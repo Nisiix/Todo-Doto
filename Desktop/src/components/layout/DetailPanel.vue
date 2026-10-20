@@ -12,6 +12,7 @@ import GitTaskHint from '@/components/detail/GitTaskHint.vue'
 import GitTaskActivity from '@/components/detail/GitTaskActivity.vue'
 import ItemDependencies from '@/components/detail/ItemDependencies.vue'
 import ItemPlanning from '@/components/detail/ItemPlanning.vue'
+import HandoffNote from '@/components/detail/HandoffNote.vue'
 import WorkingOn from '@/components/detail/WorkingOn.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
@@ -130,9 +131,14 @@ watch(
 )
 watch(title, () => requestAnimationFrame(autosizeTitle), { immediate: true })
 
+/** Passaggio di consegne: dopo aver passato il task da una persona a un'altra si propone una nota. */
+const handoff = ref<{ from: string; to: string } | null>(null)
 async function save() {
   const t = title.value.trim()
   if (!t) return
+  const from = props.item.assigneeId
+  const to = assigneeId.value
+  if (from && to && from !== to && to !== ws.currentUser?.id) handoff.value = { from, to }
   await ws.updateItem(props.project.id, props.item.id, {
     title: t,
     notes: notes.value,
@@ -226,6 +232,7 @@ const created = computed(() => `${ws.userName(props.item.createdBy)}, ${dayjs(pr
           </span>
         </div>
         <p class="mt-2 text-[12px] text-ink-3">{{ m.createdBy(created) }}</p>
+        <HandoffNote v-if="handoff && !locked" class="mt-3" :item="item" :project="project" :from-id="handoff.from" :to-id="handoff.to" @done="handoff = null" />
         <WorkingOn v-if="!readOnly" class="mt-3" :item="item" :project="project" />
         <GitTaskHint class="mt-3" :item="item" :project="project" />
         <GitTaskActivity class="mt-3" :item="item" :project="project" />

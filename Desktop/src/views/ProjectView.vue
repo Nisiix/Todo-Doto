@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Activity, Archive, Flag, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Activity, Archive, ClipboardList, Flag, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -12,6 +12,7 @@ import ItemDialog from '@/components/dialogs/ItemDialog.vue'
 import RoadmapDialog from '@/components/dialogs/RoadmapDialog.vue'
 import DecisionsDialog from '@/components/dialogs/DecisionsDialog.vue'
 import MilestonesDialog from '@/components/dialogs/MilestonesDialog.vue'
+import StatusReportDialog from '@/components/dialogs/StatusReportDialog.vue'
 import { projectDecisions } from '@/services/decisions'
 import StackDriftBanner from '@/components/project/StackDriftBanner.vue'
 import ProjectTeams from '@/components/project/ProjectTeams.vue'
@@ -67,6 +68,8 @@ const m = defineMessages({
     fromText: 'Da un testo',
     roadmap: 'Roadmap per il cliente',
     roadmapHint: 'Una pagina con cosa è fatto e cosa arriva, da mandare al cliente o stampare in PDF',
+    report: 'Rapporto',
+    reportHint: 'Rapporto di stato interno per un periodo: da copiare, salvare in PDF o mandare per email',
     milestones: 'Tappe',
     milestonesHint: 'Versioni e rilasci del progetto: avanzamento e note di versione',
     insights: 'Attenzioni',
@@ -108,6 +111,8 @@ const m = defineMessages({
     fromText: 'From a text',
     roadmap: 'Client roadmap',
     roadmapHint: 'A page with what is done and what is coming, to send to the client or print to PDF',
+    report: 'Report',
+    reportHint: 'Internal status report for a period: copy it, save it as PDF or send it by email',
     milestones: 'Milestones',
     milestonesHint: 'Project versions and releases: progress and release notes',
     insights: 'Attention',
@@ -237,6 +242,7 @@ const showFromText = ref(false)
 const showRoadmap = ref(false)
 const showDecisions = ref(false)
 const showMilestones = ref(false)
+const showReport = ref(false)
 const openMilestones = computed(() => project.value?.milestones.filter((x) => !x.closedAt).length ?? 0)
 /** «Mostra i task» di una tappa: lista Da fare filtrata per quella tappa. */
 function showMilestoneTasks(id: string) {
@@ -384,6 +390,9 @@ const tabs: { id: Bucket; label: string }[] = [
           <BaseButton v-if="decisionCount" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.decisionsHint" data-decisions-open @click="showDecisions = true">
             <Gavel :size="14" /> {{ m.decisions }} <span class="tabular-nums text-ink-3">{{ decisionCount }}</span>
           </BaseButton>
+          <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.reportHint" data-report-open @click="showReport = true">
+            <ClipboardList :size="14" /> {{ m.report }}
+          </BaseButton>
           <BaseButton v-if="!trashed" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.roadmapHint" data-roadmap-open @click="showRoadmap = true">
             <MapIcon :size="14" /> {{ m.roadmap }}
           </BaseButton>
@@ -482,6 +491,7 @@ const tabs: { id: Bucket; label: string }[] = [
     <TasksFromTextDialog v-model:open="showFromText" :project-id="project.id" />
     <RoadmapDialog v-model:open="showRoadmap" :project="project" />
     <DecisionsDialog v-model:open="showDecisions" :project="project" />
+    <StatusReportDialog v-model:open="showReport" :project="project" />
     <MilestonesDialog v-model:open="showMilestones" :project="project" :read-only="trashed" @show-tasks="showMilestoneTasks" />
   </template>
 </template>
