@@ -307,7 +307,7 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
     let fileStats = 0
     fs.stat = async (p: string) => {
       const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
-      if (n === '/rapido' || n === '/rapido/projects' || n === '/rapido/readiness') return { mtimeMs: dirTime, size: 0 }
+      if (n === '/rapido' || n === '/rapido/projects' || n === '/rapido/readiness' || n === '/rapido/presence') return { mtimeMs: dirTime, size: 0 }
       fileStats++
       return original(p)
     }
@@ -324,6 +324,33 @@ describe('WorkspaceStorage: rilevamento cambiamenti veloce (cartelle di rete)', 
       const after = await s.signature()
       expect(fileStats).toBeGreaterThan(0)
       expect(after['projects/prj_a']).not.toBe(first['projects/prj_a'])
+    } finally {
+      fs.stat = original
+    }
+  })
+  it('un cambiamento in presence/ rilegge solo quella cartella, non i progetti', async () => {
+    const fs = await getFs()
+    const s = await freshWorkspace('/sezioni')
+    for (const id of ['prj_a', 'prj_b', 'prj_c']) await s.writeProject({ ...project(id), name: id })
+    const times: Record<string, number> = { '/sezioni': 1, '/sezioni/projects': 1, '/sezioni/readiness': 1, '/sezioni/presence': 1 }
+    const original = fs.stat
+    const asked: string[] = []
+    fs.stat = async (p: string) => {
+      const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
+      if (n in times) return { mtimeMs: times[n]!, size: 0 }
+      asked.push(n)
+      return original(p)
+    }
+    try {
+      await s.signature()
+      asked.length = 0
+      await s.writePresence({ userId: 'usr_1', projectId: 'prj_a', itemId: 'itm_1', since: new Date().toISOString(), beat: new Date().toISOString() })
+      times['/sezioni/presence'] = 2
+      const sig = await s.signature()
+      expect(sig['presence/usr_1']).toBeTruthy()
+      expect(asked.some((x) => x.includes('/projects/'))).toBe(false)
+      expect(asked.some((x) => x.includes('/presence/'))).toBe(true)
+      expect((await s.readAllPresence())['usr_1']?.itemId).toBe('itm_1')
     } finally {
       fs.stat = original
     }

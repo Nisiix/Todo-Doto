@@ -2,13 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { HardDrive, ListPlus, Lock, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import VisibilityDot from '@/components/ui/VisibilityDot.vue'
 import ItemRow from '@/components/board/ItemRow.vue'
 import ItemDialog from '@/components/dialogs/ItemDialog.vue'
+import RoadmapDialog from '@/components/dialogs/RoadmapDialog.vue'
+import StackDriftBanner from '@/components/project/StackDriftBanner.vue'
 import FilterBar from '@/components/board/FilterBar.vue'
 import AttachmentsBoard from '@/components/board/AttachmentsBoard.vue'
 import DetailPanel from '@/components/layout/DetailPanel.vue'
@@ -55,6 +57,8 @@ const m = defineMessages({
     newItemKey: 'Nuovo task (N)',
     newItem: 'Nuovo task',
     fromText: 'Da un testo',
+    roadmap: 'Roadmap per il cliente',
+    roadmapHint: 'Una pagina con cosa è fatto e cosa arriva, da mandare al cliente o stampare in PDF',
     fromTextHint: 'Ricava i task da appunti, una mail o un verbale',
     noMatch: 'Nessun elemento corrisponde ai filtri.',
     emptyTodo: 'Lista vuota. Premi «Nuovo task» (o il tasto N) per aggiungere la prima cosa da fare.',
@@ -85,6 +89,8 @@ const m = defineMessages({
     newItemKey: 'New task (N)',
     newItem: 'New task',
     fromText: 'From a text',
+    roadmap: 'Client roadmap',
+    roadmapHint: 'A page with what is done and what is coming, to send to the client or print to PDF',
     fromTextHint: 'Pick out tasks from notes, an email or meeting minutes',
     noMatch: 'No items match the filters.',
     emptyTodo: 'Empty list. Press “New task” (or the N key) to add the first thing to do.',
@@ -193,6 +199,7 @@ const favorite = computed(() => ws.isFavorite(props.id))
 const showLabels = ref(false)
 const showNewItem = ref(false)
 const showFromText = ref(false)
+const showRoadmap = ref(false)
 // IA locale attiva su questo PC: compaiono le funzioni assistite (task da un testo)
 const ai = useAiStore()
 /** Etichette aperte dal nuovo task: alla chiusura si torna al nuovo task (con i dati già inseriti). */
@@ -303,7 +310,11 @@ const tabs: { id: Bucket; label: string }[] = [
             </div>
             <p v-if="project.description" class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">{{ project.description }}</p>
           </div>
+          <BaseButton v-if="!trashed" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.roadmapHint" data-roadmap-open @click="showRoadmap = true">
+            <MapIcon :size="14" /> {{ m.roadmap }}
+          </BaseButton>
         </div>
+        <StackDriftBanner v-if="!trashed" :project="project" />
 
         <template v-if="section === 'todo'">
           <div class="mt-4">
@@ -369,5 +380,6 @@ const tabs: { id: Bucket; label: string }[] = [
     <LabelsDialog v-model:open="showLabels" />
     <ItemDialog v-model:open="showNewItem" :project-id="project.id" @manage-labels="labelsFromNewItem" />
     <TasksFromTextDialog v-model:open="showFromText" :project-id="project.id" />
+    <RoadmapDialog v-model:open="showRoadmap" :project="project" />
   </template>
 </template>

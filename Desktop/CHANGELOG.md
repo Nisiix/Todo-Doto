@@ -2,6 +2,17 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.3.0 — 20 ottobre 2026
+
+- Todo Doto è gratuito: licenze e abbonamenti sono sospesi. Chi vuole può sostenere lo sviluppo con una donazione PayPal (Impostazioni › Generali e sito).
+- Chi lavora a cosa: nel dettaglio del task «Ci sto lavorando»; nella lista una pastiglia verde con chi ci lavora, senza spostare le colonne; nella nuova Panoramica l'elenco di tutto il team.
+- Roadmap per il cliente: una pagina con cosa è fatto e cosa arriva, senza descrizioni, commenti o dettagli interni, da mandare o stampare in PDF.
+- Configura questo PC: in un solo passaggio i programmi che servono a tutti i tuoi progetti, ognuno installato una volta sola.
+- Stack non aggiornato: se i file del progetto cambiano (es. una nuova versione di Node.js), un avviso propone di aggiornare lo Stack con un clic.
+- Portatile fuori ufficio: senza la cartella condivisa si continua a lavorare sulla copia del PC; al ritorno le modifiche si uniscono a quelle dei colleghi, campo per campo, e i conflitti si mostrano.
+- Cifratura dei dati sul disco per i workspace di rete (Impostazioni › Dati utente, amministratori): file, copie di sicurezza e copia fuori ufficio illeggibili senza la password.
+- Rilevamento dei cambiamenti più leggero sulle cartelle di rete: si interrogano solo le cartelle cambiate.
+
 ## 0.2.26 — 16 ottobre 2026
 
 - IA locale, gratuita e tutta sul PC (Ollama con Qwen 3 4B, o un server compatibile OpenAI come LM Studio): l'app comunica solo con il motore installato sul PC, mai con servizi esterni.

@@ -131,6 +131,15 @@ Azioni registrate: `item_created | item_completed | item_reopened | item_trashed
 ```
 Ogni PC scrive solo il file del proprio utente (niente conflitti). Si condividono esito e versione trovata, mai l'output dei comandi.
 
+### presence/<idUtente>.json — chi lavora a cosa (solo workspace di rete)
+```jsonc
+{ "userId": "usr_…", "projectId": "prj_…", "itemId": "itm_…", "since": "…", "beat": "…" }
+```
+Un file per utente, scritto solo da lui: «Ci sto lavorando» su un task (uno per volta; `itemId: null` = nessuno). Si rinnova ogni 10 minuti; oltre 30 minuti senza rinnovo (PC spento, app chiusa male) l'indicazione non si mostra più. Si toglie da sola completando o cestinando il task e chiudendo l'app.
+
+### Cifratura sul disco (facoltativa, workspace di rete)
+Con la cifratura attiva tutti i file della cartella Dati tranne `workspace.json` (utenti, cartelle, cronologia, Drive, progetti, configurazione dei PC, presenza, copie di sicurezza) sono cifrati con AES-GCM 256: testo `PGMENC1:` + base64(iv + dati). La **chiave dati** è casuale e sta in `workspace.json` avvolta con una chiave ricavata dalla password del workspace (PBKDF2-SHA256, campo `encryption`: `{ v, enabled, salt, iterations, wrapped }`). Cambiare la password riavvolge solo la chiave; attivare o disattivare la cifratura riscrive i file, che nel frattempo si leggono in entrambi i formati.
+
 ### backups/*.pgmbackup — copie di sicurezza
 JSON compresso (gzip) con workspace, utenti, cartelle ed etichette, Drive, cronologia e tutti i progetti. Nome `pgm-AAAAMMGG-hhmmss-<auto|manual|prerestore>.pgmbackup`; cartella predefinita `backups` nella cartella Dati, oppure quella scelta dall'admin. Mai i file dei progetti né le password ricordate.
 
@@ -173,6 +182,7 @@ JSON compresso (gzip) con workspace, utenti, cartelle ed etichette, Drive, crono
 config.json        tema, workspace recenti, preferiti per workspace, notifiche disattivate, IA locale (motore, indirizzo, modelli, banner chiuso)
 credentials.json   password dei workspace di rete ricordate su scelta dell'utente, cifrate con Windows DPAPI per l'account corrente (prefisso `dpapi:`; altrove AES-GCM)
 drive-auth.json    ID client Google e token OAuth (solo lettura), cifrati con AES-GCM
+offline/<idWorkspace>.json   copia di un workspace di rete per il lavoro fuori ufficio (se attiva su questo PC): workspace.json in chiaro + dati cifrati con la chiave dati del workspace, o con DPAPI se il workspace non è cifrato; progetti modificati offline con la loro «base» e voci di cronologia da inviare
 ```
 Le notifiche ricevute restano in localStorage, per workspace e utente.
 
@@ -232,7 +242,9 @@ Soluzione a tre livelli:
 2. **Watcher + polling.** Un watcher sulla cartella del workspace (plugin-fs `watch`) notifica i cambiamenti; dato che su SMB le notifiche possono non arrivare, ogni 4 s si confrontano anche `mtime`/`size` dei file. **Rete aziendale**: il controllo guarda prima solo la data di modifica della cartella del workspace e di `projects/` (ogni scrittura dell'app vi crea e rinomina file: il `.lock` e il temporaneo); se non sono cambiate non si interrogano i singoli file — 2 richieste invece di una per file — e la firma completa si ricalcola comunque ogni 30 s. I file si scrivono in JSON compatto (più piccoli da trasferire; quelli formattati delle versioni precedenti si leggono comunque). Il formato a un file per progetto con scrittura atomica resta: su una cartella condivisa è più sicuro di un database (SQLite e simili non sono affidabili sui lock di rete). Quando un file cambia, lo store ricarica **solo quel file** e la UI si aggiorna grazie alla reattività di Vue.
 3. **Segnalazione non invasiva.** Se il progetto aperto viene aggiornato da un altro utente, compare un toast "Aggiornato da Mario Rossi" e la riga modificata lampeggia; il pannello di dettaglio aperto viene ricaricato senza perdere il testo che si sta scrivendo (i campi in editing vengono riconciliati solo alla chiusura).
 
-Errori di rete (percorso non raggiungibile) → banner "Cartella non raggiungibile, riprovo…" con retry automatico; l'app non si blocca.
+La firma è divisa **per cartella** (radice, `projects/`, `readiness/`, `presence/`): si rileggono le date dei file solo nelle cartelle cambiate, così il rinnovo della presenza di un collega non fa interrogare tutti i progetti. Se la cartella del workspace non risponde la firma fallisce (non vale come «file cancellati»).
+
+Errori di rete (percorso non raggiungibile) → con la copia fuori ufficio attiva (predefinito) si continua a lavorare sulla copia di questo PC (vedi §9f), altrimenti banner "Cartella non raggiungibile, riprovo…" con retry automatico; l'app non si blocca.
 
 ---
 
@@ -393,7 +405,16 @@ Scopo: un'analisi più precisa dei progetti e altre funzioni assistite **senza s
   - **Riepilogo della settimana** (home del workspace): completati, nuovi, in ritardo e in scadenza dei progetti visibili, scritto a partire solo da questi dati; si copia.
   - **AGENTS.md / CLAUDE.md** (Strumenti AI, amministratori): istruzioni per gli agenti di programmazione scritte dallo Stack, da rileggere e modificare; si salvano nella cartella del progetto solo con "Salva" (se il file c'è già, dopo conferma).
 
+## 9f. Lavoro di squadra e fuori ufficio (0.3.0)
+
+- **Chi lavora a cosa** (workspace di rete). Nel dettaglio del task, **«Ci sto lavorando»**: un task per volta (sceglierne un altro sposta l'indicazione), «Ho smesso» per toglierla. Nella riga del task una pastiglia verde di altezza fissa con gli avatar (massimo due, poi «+N») accanto al titolo: la riga non cambia altezza e le colonne non si spostano, si accorcia solo il titolo. Nella **Panoramica** (nuova voce in cima alla barra laterale, con il numero di persone al lavoro) l'elenco «Chi lavora a cosa», con progetto e da quanto; clic per aprire il task. Niente indicazioni fantasma: si mostrano solo quelle rinnovate di recente, su task ancora da fare, in progetti che l'utente vede, di utenti del workspace.
+- **Roadmap per il cliente** (intestazione del progetto). Pagina HTML autonoma (stili inclusi, nessuno script né risorsa esterna) con avanzamento, attività pianificate per mese, da pianificare e completate di recente. Dei task solo la prima riga del titolo, l'etichetta e le date: mai descrizioni, commenti, domande, allegati, priorità o percorsi; le idee «da valutare» e gli assegnatari solo se richiesti. Anteprima nel dialog, si salva dove sceglie l'utente; per un PDF la si apre e si stampa.
+- **Configura questo PC** (Panoramica). Un solo elenco di ciò che manca a questo PC per tutti i progetti visibili, dalle verifiche dei prerequisiti: lo stesso programma chiesto da più progetti si installa una volta; versioni diverse che possono convivere (Python, JDK, .NET SDK) si installano tutte, altrimenti vince quella per la versione più alta. Installazione con winget dall'app, con fase e avanzamento, poi nuova verifica. Ciò che l'app non sa installare resta «da installare a mano» con il link allo Stack del progetto. Un avviso nella Panoramica segnala quanti programmi mancano e per quanti progetti.
+- **Stack non aggiornato**. Aprendo un progetto con uno Stack si rileggono in background i file della sua cartella (solo lettura, gli stessi di «Rileva dai file del progetto», al massimo ogni 10 minuti) e si confrontano con lo Stack salvato. Le differenze (versioni dichiarate, prerequisiti non più necessari, tecnologie, passi e variabili nuove) compaiono in un avviso nell'intestazione: l'amministratore aggiorna con un clic (con «Annulla»), chiunque può ignorarle su questo PC finché non ne compaiono di nuove.
+- **Portatile fuori ufficio** (workspace di rete; Impostazioni › Dati utente, «Tieni una copia del workspace su questo PC», attiva di default). Dopo ogni cambiamento l'app salva una copia del workspace nei propri dati sul PC (cifrata come il workspace, o con DPAPI). Se la cartella condivisa non risponde — all'apertura o mentre si lavora — si continua sulla copia: in alto «Fuori ufficio · N progetti da inviare». Si possono modificare task e progetti esistenti (stato, scadenze, commenti, nuovi task…); creare progetti, cambiare utenti, cartelle o impostazioni aspetta il ritorno. Quando la cartella torna raggiungibile (o all'apertura successiva in ufficio) le modifiche si uniscono **campo per campo** a quelle dei colleghi (`services/merge3.ts`): ciò che è cambiato solo da una parte si tiene; se lo stesso campo dello stesso task è cambiato da entrambe vince la versione condivisa e la propria compare nel resoconto «Modifiche fatte fuori ufficio»; commenti, domande e allegati si uniscono per id; i task creati offline ricevono un numero TODO libero; un task eliminato da un collega non torna. La cronologia scritta offline si aggiunge al ritorno.
+- **App gratuita**. Licenze e abbonamenti sono sospesi (codice commentato nel sito). Impostazioni › Generali e il sito hanno «Sostieni Todo Doto» con una donazione PayPal facoltativa.
+
 ## 10. Fuori ambito (prima versione) e possibili evoluzioni
 
 - Sincronizzazione cloud, notifiche push, app mobile.
-- Evoluzioni: Gantt/timeline delle scadenze, export PDF della roadmap, notifiche desktop sui tag `@utente`, cifratura dell'intero workspace.
+- Evoluzioni: notifiche desktop sui tag `@utente`, connessione VPN dalle impostazioni, riepiloghi via email o Teams, accesso con l'account di dominio (vedi PIANO-LANCIO.md).

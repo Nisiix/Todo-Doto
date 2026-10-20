@@ -70,6 +70,10 @@ const m = defineMessages({
     newPw: 'Nuova password',
     repeat: 'Ripeti',
     leaveEmpty: 'Lascia vuoto per non cambiarla.',
+    offTitle: 'Lavoro fuori ufficio',
+    offLabel: 'Tieni una copia del workspace su questo PC',
+    offHint: 'Se la cartella condivisa non si raggiunge (fuori ufficio, VPN spenta) continui a lavorare su task e progetti; al ritorno le modifiche si uniscono a quelle dei colleghi. La copia sta nei dati dell’app su questo PC ed è cifrata come il workspace (altrimenti protetta con l’account Windows).',
+    offPending: (n: number) => `${n === 1 ? '1 progetto ha' : `${n} progetti hanno`} modifiche ancora da inviare: la copia resta finché non tornano in rete.`,
     encTitle: 'Cifratura dei dati sul disco',
     encOn: 'Dati cifrati (AES-256): i file nella cartella Dati sono illeggibili senza la password del workspace, anche per chi accede alla cartella con altri programmi.',
     encOff: 'I file nella cartella Dati sono in chiaro: chi accede alla cartella con altri programmi può leggerli.',
@@ -133,6 +137,10 @@ const m = defineMessages({
     newPw: 'New password',
     repeat: 'Repeat',
     leaveEmpty: 'Leave empty to keep it.',
+    offTitle: 'Working away from the office',
+    offLabel: 'Keep a copy of the workspace on this PC',
+    offHint: 'If the shared folder is unreachable (away from the office, VPN off) you keep working on tasks and projects; when you are back the changes are merged with your colleagues’. The copy lives in the app data on this PC and is encrypted like the workspace (otherwise protected with the Windows account).',
+    offPending: (n: number) => `${n === 1 ? '1 project has' : `${n} projects have`} changes still to send: the copy stays until they are sent.`,
     encTitle: 'Data encryption on disk',
     encOn: 'Data encrypted (AES-256): the files in the data folder cannot be read without the workspace password, even by whoever opens the folder with other programs.',
     encOff: 'The files in the data folder are not encrypted: whoever opens the folder with other programs can read them.',
@@ -369,6 +377,16 @@ const themes: { value: Theme; label: string }[] = [
           <p v-if="pwMsg" class="mt-1 text-[13px] text-danger">{{ pwMsg }}</p>
           <p v-else class="mt-1 text-[12px] text-ink-3">{{ m.leaveEmpty }} {{ m.changePwHint }}</p>
         </template>
+      </section>
+
+      <section v-if="ws.isNetwork" aria-labelledby="s-off-title" data-offline-setting>
+        <span id="s-off-title" class="label">{{ m.offTitle }}</span>
+        <label class="flex items-center gap-2 text-[13.5px]">
+          <input type="checkbox" class="accent-accent" :checked="session.config.offlineCopy" data-offline-toggle @change="ws.setOfflineCopy(($event.target as HTMLInputElement).checked)" />
+          {{ m.offLabel }}
+        </label>
+        <p class="mt-1 text-[12px] leading-snug text-ink-3">{{ m.offHint }}</p>
+        <p v-if="ws.offlinePending" class="mt-1 text-[12px] font-medium text-p-media">{{ m.offPending(ws.offlinePending) }}</p>
       </section>
 
       <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-enc-title" data-encryption>

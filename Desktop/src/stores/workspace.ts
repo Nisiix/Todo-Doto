@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { WorkspaceStorage, type Signature } from '@/services/storage'
 import { hashPassword, verifyPassword } from '@/services/crypto'
 import { createEncryption, unwrapKey, wrapKey, type DataCipher } from '@/services/vault'
@@ -16,6 +16,8 @@ import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
 import { mergeStack } from '@/services/stackDoc'
+import { findOffline, readOffline, removeOffline, saveOffline, type OfflineFile } from '@/services/offlineCache'
+import { mergeProject, type MergeReport } from '@/services/merge3'
 import type {
   Attachment,
   AuditAction,
@@ -25,6 +27,7 @@ import type {
   Folder,
   Item,
   Label,
+  PresenceFile,
   Project,
   Question,
   ReadinessFile,
@@ -37,10 +40,27 @@ import type {
 import { common } from '@/i18n/common'
 import { compareText } from '@/i18n'
 
+/** Un collega (o l'utente corrente) che lavora a un task. */
+export interface WorkingEntry {
+  user: User
+  project: Project
+  item: Item
+  since: string
+}
+
+/** Esito dell'invio delle modifiche fatte fuori ufficio, progetto per progetto. */
+export interface OfflineSyncReport {
+  project: string
+  report: MergeReport
+}
+
 export type OpenResult = { ok: true } | { ok: false; needsPassword: true } | { ok: false; error: string }
 export type WsStatus = 'closed' | 'opening' | 'locked' | 'open' | 'unreachable'
 
 const POLL_MS = 4000
+/** «Ci sto lavorando»: rinnovo dell'indicazione e oltre quanto senza rinnovo non vale più. */
+export const PRESENCE_BEAT_MS = 10 * 60_000
+export const PRESENCE_STALE_MS = 30 * 60_000
 const BACKUP_FIRST_MS = 5000
 const BACKUP_CHECK_MS = 60 * 60_000
 
@@ -63,6 +83,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const backupBusy = ref(false)
   /** Esito delle verifiche dei prerequisiti sui PC degli utenti (solo workspace di rete). */
   const readiness = ref<Record<string, ReadinessFile>>({})
+  /** Chi lavora a cosa (workspace di rete): file presence/<idUtente>.json di ognuno. */
+  const presence = ref<Record<string, PresenceFile>>({})
+  /**
+   * Fuori ufficio (cartella condivisa non raggiungibile): per i progetti
+   * modificati su questo PC, com'erano all'ultimo allineamento. Al ritorno si
+   * uniscono le modifiche (merge3) e l'elenco si svuota.
+   */
+  const offlineBase = ref<Record<string, Project>>({})
+  /** Voci di cronologia scritte fuori ufficio, da aggiungere al ritorno. */
+  let pendingAudit: AuditEntry[] = []
+  /** Conflitti o task persi nell'ultimo invio delle modifiche fatte fuori ufficio (da mostrare). */
+  const offlineReport = ref<OfflineSyncReport[] | null>(null)
+  /** Aperto dalla copia su questo PC: la cartella condivisa non rispondeva. */
+  let fromCache: OfflineFile | null = null
+  /** Ora corrente, aggiornata ogni minuto: fa scadere le indicazioni non rinnovate. */
+  const presenceNow = ref(Date.now())
   const projects = ref<Record<string, Project>>({})
   const lastError = ref<string | null>(null)
   /** La password del workspace di rete è ricordata (cifrata) su questo PC per questo utente. */
@@ -79,6 +115,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   let signature: Signature = {}
   let pollTimer: number | null = null
+  let presenceTimer: number | null = null
   let backupTimer: number | null = null
   let unwatch: (() => void) | null = null
   let refreshing: Promise<void> | null = null
@@ -176,6 +213,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     try {
       const s = await openStorage(path)
       if (!(await WorkspaceStorage.isWorkspace(path))) {
+        // Cartella non raggiungibile (fuori ufficio, VPN spenta): si apre la copia di questo PC, se c'è
+        const cached = session.config.offlineCopy ? await findOffline(path) : null
+        if (cached && !(await reachable(path))) return await openFromCache(s, cached, opts.password)
         status.value = 'closed'
         return { ok: false, error: common.ws.notAWorkspace }
       }
@@ -209,8 +249,163 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     // eventuale copia vecchia (non più valida, visto che è stata richiesta).
     if (remember) await rememberPassword(meta.value.id, password, session.localSecret)
     else await forgetPassword(meta.value.id)
-    await finishOpen()
+    try {
+      if (fromCache) await finishOpenOffline(fromCache)
+      else await finishOpen()
+    } catch (e) {
+      const error = describe(e)
+      await close()
+      return { ok: false, error }
+    }
     return { ok: true }
+  }
+
+  // --- fuori ufficio: copia su questo PC ------------------------------------------------
+
+  const offlineAllowed = computed(() => isNetwork.value && session.config.offlineCopy)
+  const offlinePending = computed(() => Object.keys(offlineBase.value).length)
+  /** La cartella risponde? (non esiste o non si raggiunge = no) */
+  const reachable = async (path: string) => WorkspaceStorage.isWorkspace(path).catch(() => false)
+  const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T
+
+  async function openFromCache(s: WorkspaceStorage, f: OfflineFile, password?: string): Promise<OpenResult> {
+    storage.value = s
+    meta.value = f.meta
+    fromCache = f
+    if (f.meta.mode === 'network' && f.meta.auth) {
+      const candidate = password ?? (await recallPassword(f.meta.id, session.localSecret))
+      if (!candidate || !(await verifyPassword(candidate, f.meta.auth)) || !(await applyKey(candidate))) {
+        status.value = 'locked'
+        return { ok: false, needsPassword: true }
+      }
+    } else if (!(await applyKey(null))) throw new Error(common.ws.keyLost)
+    await finishOpenOffline(f)
+    return { ok: true }
+  }
+
+  async function finishOpenOffline(f: OfflineFile) {
+    const data = await readOffline(f, cipher)
+    if (!data) throw new Error(common.ws.offlineUnreadable)
+    users.value = data.users
+    if (!currentUser.value) throw new Error(common.ws.offlineUnreadable)
+    passwordRemembered.value = !!meta.value?.auth && (await hasRememberedPassword(meta.value.id))
+    tree.value = data.tree
+    projects.value = data.projects
+    offlineBase.value = data.base
+    pendingAudit = data.pendingAudit
+    audit.value = []
+    readiness.value = {}
+    presence.value = {}
+    backups.value = []
+    signature = {}
+    status.value = 'unreachable'
+    lastError.value = null
+    notifications.load(meta.value!.id, currentUser.value.id)
+    ui.toast(common.ws.openedOffline, 'warning', undefined, 8000)
+    startWatching()
+  }
+
+  // Copia su questo PC: dopo ogni cambiamento, con un attimo di ritardo (più modifiche, una scrittura)
+  let cacheTimer: ReturnType<typeof setTimeout> | null = null
+  function scheduleCache() {
+    if (!offlineAllowed.value || !storage.value || !meta.value) return
+    if (cacheTimer) clearTimeout(cacheTimer)
+    cacheTimer = setTimeout(() => void flushCache(), 1500)
+  }
+  async function flushCache() {
+    if (cacheTimer) clearTimeout(cacheTimer)
+    cacheTimer = null
+    const s = storage.value
+    if (!offlineAllowed.value || !s || !meta.value || !currentUser.value || (status.value !== 'open' && status.value !== 'unreachable')) return
+    await saveOffline(s.root, meta.value, { savedAt: nowIso(), users: users.value, tree: tree.value, projects: projects.value, base: offlineBase.value, pendingAudit }, cipher).catch(() => {})
+  }
+
+  /** Modifica di un progetto senza la cartella condivisa: sulla copia di questo PC, da inviare al ritorno. */
+  function mutateOffline(id: string, fn: (p: Project) => void | boolean): Project | undefined {
+    if (!offlineAllowed.value) {
+      ui.toast(common.ws.offlineUnavailable, 'warning', undefined, 6000)
+      return undefined
+    }
+    const cur = projects.value[id]
+    if (!cur) return undefined
+    const next = clone(cur)
+    if (fn(next) === false) return cur
+    if (!offlineBase.value[id]) offlineBase.value = { ...offlineBase.value, [id]: clone(cur) }
+    next.updatedAt = nowIso()
+    next.updatedBy = currentUser.value?.id ?? 'unknown'
+    projects.value[id] = next
+    void flushCache() // subito: il portatile può spegnersi da un momento all'altro
+    return next
+  }
+
+  /**
+   * Di nuovo in ufficio: le modifiche fatte fuori si uniscono, progetto per
+   * progetto, a quelle dei colleghi (sotto lock, rileggendo il file). Se la
+   * cartella cade a metà, ciò che non è stato inviato resta da inviare.
+   */
+  async function syncOffline(s: WorkspaceStorage): Promise<number> {
+    const me = currentUser.value?.id ?? 'unknown'
+    const reports: OfflineSyncReport[] = []
+    let sent = 0
+    for (const [id, base] of Object.entries(offlineBase.value)) {
+      const local = projects.value[id]
+      const name = local?.name ?? base.name
+      try {
+        if (!local) throw new Error('missing')
+        if (!(await s.listProjectIds()).includes(id)) {
+          reports.push({ project: name, report: { applied: 0, conflicts: [], dropped: local.items.filter((i) => JSON.stringify(i) !== JSON.stringify(base.items.find((b) => b.id === i.id))).map((i) => firstLine(i.title)) } })
+        } else {
+          let rep: MergeReport | null = null
+          const fresh = await s.mutateProject(id, me, (remote) => {
+            const r = mergeProject(base, local, remote)
+            rep = r.report
+            if (!r.report.applied) return false
+            const target = remote as unknown as Record<string, unknown>
+            for (const [k, v] of Object.entries(r.merged)) if (k !== 'version') target[k] = v
+          })
+          projects.value[id] = fresh
+          markLocalWrite(`projects/${id}`)
+          const report = rep as MergeReport | null
+          if (report) {
+            sent += report.applied
+            if (report.conflicts.length || report.dropped.length) reports.push({ project: name, report })
+          }
+        }
+        const rest = { ...offlineBase.value }
+        delete rest[id]
+        offlineBase.value = rest
+      } catch (e) {
+        if (!(await reachable(s.root))) {
+          status.value = 'unreachable'
+          lastError.value = describe(e)
+          await flushCache()
+          return -1
+        }
+        // Errore su un solo progetto: si tiene da inviare e si va avanti
+        lastError.value = describe(e)
+      }
+    }
+    if (pendingAudit.length) {
+      try {
+        audit.value = (await s.appendAudit(pendingAudit)).entries
+        markLocalWrite('audit.json')
+        pendingAudit = []
+      } catch {
+        /* si riprova al prossimo invio */
+      }
+    }
+    await flushCache()
+    if (sent) ui.toast(common.ws.offlineSent(sent), 'success', undefined, 6000)
+    if (reports.length) offlineReport.value = reports
+    return sent
+  }
+
+  /** Spegnendo la funzione si tolgono le copie da questo PC (ma non le modifiche da inviare). */
+  async function setOfflineCopy(on: boolean) {
+    session.config.offlineCopy = on
+    await session.saveConfig()
+    if (on) await flushCache()
+    else if (meta.value && !offlinePending.value) await removeOffline(meta.value.id).catch(() => {})
   }
 
   /**
@@ -244,6 +439,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     drive.value = await s.readDrive()
     audit.value = (await s.readAudit()).entries
     readiness.value = meta.value?.mode === 'network' ? await s.readAllReadiness().catch(() => ({})) : {}
+    presence.value = meta.value?.mode === 'network' ? await s.readAllPresence().catch(() => ({})) : {}
     backups.value = await s.listBackups(await s.backupDir(meta.value!)).catch(() => [])
     backupError.value = null
     const ids = await s.listProjectIds()
@@ -262,6 +458,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     // la si ricava da quelle dei progetti (e, per l'admin, la si memorizza)
     if (!meta.value!.projectsPath && isAdmin.value && inferredProjectsPath.value) await setProjectsPath(inferredProjectsPath.value)
     await session.touchRecent({ id: meta.value!.id, name: meta.value!.name, path: s.root, projectsPath: projectsRoot.value, mode: meta.value!.mode })
+    // Modifiche fatte fuori ufficio e non ancora inviate (l'app era stata chiusa senza rete): si inviano ora
+    if (offlineAllowed.value) {
+      const f = await findOffline(s.root).catch(() => null)
+      const data = f && f.meta.id === meta.value!.id ? await readOffline(f, cipher) : null
+      if (data && (Object.keys(data.base).length || data.pendingAudit.length)) {
+        offlineBase.value = data.base
+        pendingAudit = data.pendingAudit
+        for (const id of Object.keys(data.base)) if (data.projects[id]) projects.value[id] = data.projects[id]
+        await syncOffline(s)
+      }
+    }
+    scheduleCache()
     startWatching()
   }
 
@@ -279,7 +487,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   async function close() {
+    // Chi chiude non lavora più a nulla: lo si dice agli altri (se la cartella risponde)
+    if (myPresence.value?.itemId) await setWorkingOn(null).catch(() => {})
+    await flushCache()
     stopWatching()
+    fromCache = null
+    offlineBase.value = {}
+    pendingAudit = []
     storage.value = null
     sessionPassword = null
     cipher = null
@@ -290,6 +504,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     drive.value = { schema: 1, rootFolderId: null, rootName: '', syncedAt: null, syncedBy: null, nodes: [], oauthClientId: '', oauthClientSecret: '' }
     audit.value = []
     readiness.value = {}
+    presence.value = {}
     backups.value = []
     backupError.value = null
     notifications.clearSession()
@@ -345,12 +560,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }, BACKUP_FIRST_MS)
     void storage.value?.watch(() => void refresh()).then((u) => (unwatch = u))
     window.addEventListener('focus', onFocus)
+    presenceTimer = window.setInterval(() => {
+      presenceNow.value = Date.now()
+      const mine = myPresence.value
+      if (mine?.itemId && Date.now() - Date.parse(mine.beat) >= PRESENCE_BEAT_MS) void writeMyPresence({ ...mine, beat: nowIso() })
+    }, 60_000)
   }
   function stopWatching() {
     if (pollTimer) clearInterval(pollTimer)
     pollTimer = null
     if (backupTimer) clearTimeout(backupTimer)
     backupTimer = null
+    if (presenceTimer) clearInterval(presenceTimer)
+    presenceTimer = null
     unwatch?.()
     unwatch = null
     window.removeEventListener('focus', onFocus)
@@ -391,6 +613,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       }
       if (status.value === 'unreachable') {
         status.value = 'open'
+        fromCache = null
+        // Prima si inviano le modifiche fatte fuori ufficio, poi si leggono quelle degli altri
+        if (offlinePending.value || pendingAudit.length) {
+          const sent = await syncOffline(s)
+          if (sent === 0) ui.toast(common.ws.reachableAgain, 'success')
+          refreshQueued = true
+          return
+        }
         ui.toast(common.ws.reachableAgain, 'success')
       }
       // La cartella è raggiungibile e lo stato è allineato: da qui in poi le
@@ -438,6 +668,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           if (v) copy[id] = v
           else delete copy[id]
           readiness.value = copy
+        } else if (key.startsWith('presence/')) {
+          const id = key.slice('presence/'.length)
+          const v = next[key] ? await s.readPresence(id).catch(() => null) : null
+          if (stale()) continue
+          const copy = { ...presence.value }
+          if (v) copy[id] = v
+          else delete copy[id]
+          presence.value = copy
         } else if (key === 'audit.json') {
           const v = (await s.readAudit()).entries
           if (stale()) continue
@@ -468,6 +706,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       // I file saltati tengono la firma di prima: restano "da aggiornare" al prossimo giro
       for (const k of changedKeys) if (!(k in applied)) applied[k] = signature[k]
       signature = Object.fromEntries(Object.entries(applied).filter(([, v]) => v !== undefined)) as Signature
+      scheduleCache()
       if (remoteAuthors.size > 0) {
         const names = [...remoteAuthors].map(userName).join(', ')
         ui.toast(common.ws.updatedBy(names), 'info')
@@ -549,7 +788,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       return r
     } catch (e) {
       lastError.value = describe(e)
-      ui.toast(common.ws.saveFailed(lastError.value), 'error', undefined, 6000)
+      if (status.value === 'unreachable') ui.toast(common.ws.offlineUnavailable, 'warning', undefined, 6000)
+      else ui.toast(common.ws.saveFailed(lastError.value), 'error', undefined, 6000)
       return undefined
     }
   }
@@ -569,6 +809,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       itemTitle: item ? firstLine(item.title) : null,
       count,
     }
+    if (status.value === 'unreachable') {
+      if (offlineAllowed.value) pendingAudit.push(entry)
+      return
+    }
     try {
       audit.value = (await s.appendAudit([entry])).entries
       markLocalWrite('audit.json')
@@ -581,12 +825,24 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const s = storage.value
     const me = currentUser.value?.id ?? 'unknown'
     if (!s) return
-    return guard(async () => {
+    if (status.value === 'unreachable') return mutateOffline(id, fn)
+    try {
       const fresh = await s.mutateProject(id, me, fn)
       projects.value[id] = fresh
       markLocalWrite(`projects/${id}`) // forza il ricalcolo alla prossima firma senza segnalare "remoto"
+      lastError.value = null
+      scheduleCache()
       return fresh
-    })
+    } catch (e) {
+      lastError.value = describe(e)
+      // La cartella è appena caduta (VPN, Wi-Fi): si continua sulla copia di questo PC
+      if (offlineAllowed.value && storage.value === s && !(await reachable(s.root))) {
+        status.value = 'unreachable'
+        return mutateOffline(id, fn)
+      }
+      ui.toast(common.ws.saveFailed(lastError.value), 'error', undefined, 6000)
+      return undefined
+    }
   }
 
   /** Pubblica l'esito delle verifiche di questo PC (solo il file dell'utente corrente). */
@@ -601,6 +857,82 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       lastError.value = describe(e) // non bloccante: si riprova alla prossima verifica
     }
   }
+
+  // --- chi lavora a cosa ---------------------------------------------------------
+
+  const myPresence = computed(() => (currentUser.value ? (presence.value[currentUser.value.id] ?? null) : null))
+
+  async function writeMyPresence(f: PresenceFile) {
+    const s = storage.value
+    if (!s || !isNetwork.value || f.userId !== currentUser.value?.id) return false
+    try {
+      await s.writePresence(f)
+      presence.value = { ...presence.value, [f.userId]: f }
+      markLocalWrite(`presence/${f.userId}`)
+      return true
+    } catch (e) {
+      lastError.value = describe(e) // non bloccante: si riprova al prossimo rinnovo
+      return false
+    }
+  }
+
+  /**
+   * «Ci sto lavorando»: un solo task per volta (sceglierne un altro sposta
+   * l'indicazione), null per smettere. Solo nei workspace di rete.
+   */
+  async function setWorkingOn(target: { projectId: string; itemId: string } | null) {
+    const me = currentUser.value
+    if (!me || !isNetwork.value) return false
+    if (!target && !myPresence.value?.itemId) return true
+    const now = nowIso()
+    return writeMyPresence({
+      userId: me.id,
+      projectId: target?.projectId ?? null,
+      itemId: target?.itemId ?? null,
+      since: target ? (myPresence.value?.itemId === target.itemId ? (myPresence.value.since ?? now) : now) : null,
+      beat: now,
+    })
+  }
+
+  /**
+   * Indicazioni valide: rinnovate di recente, su un task che esiste ancora, da
+   * fare, in un progetto che l'utente corrente vede, di un utente del workspace.
+   * Le altre (task completato o cestinato, app chiusa male) si ignorano: nessuna
+   * indicazione «fantasma».
+   */
+  const workingEntries = computed<WorkingEntry[]>(() => {
+    if (!isNetwork.value) return []
+    const out: WorkingEntry[] = []
+    for (const f of Object.values(presence.value)) {
+      if (!f.itemId || !f.projectId) continue
+      if (presenceNow.value - Date.parse(f.beat) > PRESENCE_STALE_MS) continue
+      const user = usersById.value[f.userId]
+      const project = projects.value[f.projectId]
+      if (!user || !project || project.trashedAt || !canSee(project)) continue
+      const item = project.items.find((i) => i.id === f.itemId)
+      if (!item || item.bucket !== 'todo') continue
+      out.push({ user, project, item, since: f.since ?? f.beat })
+    }
+    return out.sort((a, b) => compareText(a.user.displayName, b.user.displayName))
+  })
+  /** Chi lavora a ogni task: itemId -> utenti (compreso quello corrente). */
+  const workingByItem = computed(() => {
+    const map: Record<string, WorkingEntry[]> = {}
+    for (const e of workingEntries.value) (map[e.item.id] ??= []).push(e)
+    return map
+  })
+  // Il task su cui si lavorava è stato completato, cestinato o eliminato: l'indicazione si toglie da sola
+  watch(
+    () => {
+      const mine = myPresence.value
+      if (!mine?.itemId || !mine.projectId || status.value !== 'open') return null
+      const item = projects.value[mine.projectId]?.items.find((i) => i.id === mine.itemId)
+      return item && item.bucket === 'todo' ? null : mine.itemId
+    },
+    (gone) => {
+      if (gone) void setWorkingOn(null)
+    },
+  )
 
   /** Sostituisce il file Drive del workspace (struttura sincronizzata). */
   async function writeDrive(d: DriveFile) {
@@ -1336,6 +1668,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     passwordRemembered,
     setEncryption,
     readiness,
+    presence,
+    offlinePending,
+    offlineReport,
+    offlineAllowed,
+    setOfflineCopy,
+    myPresence,
+    setWorkingOn,
+    workingEntries,
+    workingByItem,
     canUserSee,
     backups,
     backupError,

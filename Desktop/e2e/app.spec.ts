@@ -1879,3 +1879,170 @@ test('IA locale: task da un testo, task simili, ricerca per significato, riepilo
   await page.locator('[data-weekly-generate]').click()
   await expect(page.locator('[data-weekly-text]')).toContainText('Settimana dedicata all’avvio del Gestionale.')
 })
+
+/** Workspace di rete su un'unità simulata; restituisce la cartella Dati (per simularne la caduta). */
+async function createNetworkWorkspace(page: Page, name: string) {
+  const id = Math.random().toString(36).slice(2, 7)
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', name)
+  await pick(`/rete/progetti-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick(`/rete/dati-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
+  await page.getByText('Condiviso in rete').click()
+  await page.fill('#ws-pw', 'segreto1')
+  await page.fill('#ws-pw2', 'segreto1')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name })).toBeVisible()
+  return { data: `/rete/dati-${id}`, projects: `/rete/progetti-${id}` }
+}
+
+test('chi lavora a cosa: «Ci sto lavorando» nel dettaglio, pastiglia nella riga senza spostare le colonne, elenco nella panoramica', async ({ page }) => {
+  await createNetworkWorkspace(page, 'Studio')
+  await createProject(page, 'Portale')
+  await addItem(page, 'Pagina contatti')
+  await addItem(page, 'Menu mobile')
+  const row = rows(page).filter({ hasText: 'Pagina contatti' })
+  await row.click()
+  await page.locator('[data-working-start]').click()
+  await expect(page.locator('[data-working-mine]')).toContainText('Ci stai lavorando')
+  await expect(row.locator('[data-working-badge]')).toBeVisible()
+  await expect(row.locator('[data-working-badge]')).toHaveAttribute('title', /Ci sta lavorando: tu/)
+  // Altezza della riga invariata
+  expect((await row.boundingBox())!.height).toBeLessThanOrEqual(45)
+  // Un task per volta: scegliendone un altro l'indicazione si sposta
+  await rows(page).filter({ hasText: 'Menu mobile' }).click()
+  await expect(page.locator('[data-working-on]')).toHaveCount(1)
+  await expect(page.locator('[data-working-on]')).toContainText('Ora stai lavorando a «Pagina contatti»')
+  await page.locator('[data-working-start]').click()
+  await expect(row.locator('[data-working-badge]')).toHaveCount(0)
+  await expect(rows(page).filter({ hasText: 'Menu mobile' }).locator('[data-working-badge]')).toBeVisible()
+  // Panoramica: chi lavora a cosa, con il conteggio nella barra laterale
+  await expect(page.locator('[data-overview-link]')).toContainText('1')
+  await page.locator('[data-overview-link]').click()
+  await expect(page.locator('[data-working-list]')).toContainText('Menu mobile')
+  await expect(page.locator('[data-working-list]')).toContainText('Tu · Portale')
+  // Completato il task, l'indicazione si toglie da sola
+  await page.locator('[data-working-list]').getByText('Menu mobile').click()
+  await page.getByRole('button', { name: 'Completa', exact: true }).click()
+  await expect(page.locator('[data-overview-link]')).not.toContainText('1')
+})
+
+test('roadmap per il cliente: anteprima senza dettagli interni, opzioni e salvataggio della pagina', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Sito Rossi')
+  await addItem(page, 'Pagina contatti', 'alta', { notes: 'password del cliente: nascosta' })
+  await page.locator('[data-roadmap-open]').click()
+  const preview = page.frameLocator('[data-rm-preview]')
+  // Le idee «da valutare» restano fuori se non si chiede di includerle
+  await expect(preview.locator('h1')).toHaveText('Sito Rossi')
+  await expect(preview.locator('body')).not.toContainText('Pagina contatti')
+  await dialog(page).getByText('Includi le idee «da valutare»').click()
+  await expect(preview.locator('body')).toContainText('Pagina contatti')
+  await expect(preview.locator('body')).not.toContainText('password del cliente')
+  await expect(page.locator('[data-rm-counts]')).toContainText('1 senza data')
+  await page.locator('[data-rm-save]').click()
+  await expect(page.getByText('Roadmap salvata.')).toBeVisible()
+  const saved = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()
+    return fs.readText('/demo/roadmap-sito-rossi.html')
+  })
+  expect(saved).toContain('<h1>Sito Rossi</h1>')
+  expect(saved).not.toContain('<script')
+})
+
+test('configura questo PC: un programma chiesto da due progetti si installa una volta, poi i progetti sono pronti', async ({ page }) => {
+  await createLocalWorkspace(page, 'Ufficio')
+  for (const name of ['Portale', 'Gestionale']) {
+    await createProject(page, name)
+    await openSection(page, 'Stack')
+    await page.getByRole('button', { name: 'Aggiungi stack tecnologico' }).click()
+    await page.getByPlaceholder('Es. TypeScript, C#, Rust').fill('TypeScript')
+    await page.keyboard.press('Enter')
+    await fakeChecks(page, { 'node -v': { code: 9009, stderr: "'node' is not recognized as an internal or external command" } })
+    await page.getByRole('button', { name: 'Salva' }).click()
+    await expect(page.locator('[data-prereq="Node.js"]')).toHaveAttribute('data-status', 'missing')
+  }
+  await page.locator('[data-overview-link]').click()
+  await expect(page.locator('[data-pc-missing]')).toContainText('A questo PC manca un programma per 2 progetti')
+  let installs = 0
+  await page.exposeFunction('countInstall', () => installs++)
+  await page.evaluate(() =>
+    Object.assign(window, {
+      __pgmRun: async (cmd: string) => {
+        if (!cmd.startsWith('winget install --id OpenJS.NodeJS.LTS ')) return { lines: ['comando inatteso'], code: 1 }
+        await (window as unknown as { countInstall: () => Promise<void> }).countInstall()
+        const w = window as unknown as { __pgmChecks: Record<string, unknown> }
+        w.__pgmChecks['node -v'] = { code: 0, stdout: 'v22.11.0', stderr: '', timedOut: false }
+        return { lines: ['  ████  30.0 MB / 30.0 MB', 'Installazione riuscita'], code: 0 }
+      },
+    }),
+  )
+  await page.locator('[data-pc-missing]').click()
+  const box = page.locator('[data-pc-setup]')
+  await expect(box.locator('[data-pc-install]')).toHaveCount(1)
+  await expect(box.locator('[data-pc-install="OpenJS.NodeJS.LTS"]')).toContainText('per Gestionale, Portale')
+  await page.locator('[data-pc-install-all]').click()
+  await expect(box.locator('[data-pc-phase]')).toHaveAttribute('data-phase', 'done')
+  await expect(box.locator('[data-pc-ready]')).toContainText('Questo PC ha tutto quello che serve ai tuoi 2 progetti')
+  expect(installs).toBe(1)
+  await dialog(page).getByRole('button', { name: 'Chiudi' }).first().click()
+  await expect(page.locator('[data-pc-missing]')).toHaveCount(0)
+})
+
+test('stack non aggiornato: i file del progetto cambiano, l’avviso propone l’aggiornamento con un clic', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Portale')
+  await openSection(page, 'Stack')
+  const dir = (await page.locator('code', { hasText: /Portale$/ }).textContent())!.trim()
+  const write = (path: string, text: string) =>
+    page.evaluate(
+      async ([p, t]) => {
+        const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+        await fs.writeTextAtomic(p!, t!)
+      },
+      [path, text],
+    )
+  await write(`${dir}/package.json`, JSON.stringify({ engines: { node: '>=18' }, dependencies: { vue: '^3.5.0' } }))
+  await page.locator('[data-detect-hint]').getByRole('button', { name: 'Rileva dai file del progetto' }).click()
+  await expect(page.getByText('Prerequisito: Node.js')).toBeVisible()
+  await expect(page.locator('[data-stack-drift]')).toHaveCount(0)
+  // Il team passa a Node 22 e aggiunge Tailwind: riaprendo il progetto compare l'avviso
+  await write(`${dir}/package.json`, JSON.stringify({ engines: { node: '>=22' }, dependencies: { vue: '^3.5.0' }, devDependencies: { tailwindcss: '^4' } }))
+  await page.locator('[data-overview-link]').click()
+  await sidebar(page).getByRole('link', { name: 'Portale' }).first().click()
+  const banner = page.locator('[data-stack-drift]')
+  await expect(banner).toContainText('lo Stack non è più aggiornato')
+  await expect(banner.locator('[data-stack-drift-changes]')).toContainText('Node.js')
+  await expect(banner.locator('[data-stack-drift-changes]')).toContainText('22')
+  await banner.locator('[data-stack-drift-update]').click()
+  await expect(page.getByText('Stack aggiornato dai file del progetto.')).toBeVisible()
+  await expect(banner).toHaveCount(0)
+})
+
+test('portatile fuori ufficio: la cartella cade, si lavora sulla copia e al ritorno le modifiche si inviano da sole', async ({ page }) => {
+  const { data } = await createNetworkWorkspace(page, 'Studio')
+  await createProject(page, 'Portale')
+  await addItem(page, 'Pagina contatti')
+  await openSettings(page)
+  await expect(page.locator('[data-offline-setting]')).toContainText('Tieni una copia del workspace su questo PC')
+  await page.keyboard.press('Escape')
+  // VPN spenta: la cartella condivisa non risponde
+  await page.evaluate((d) => Object.assign(window, { __pgmUnreachable: [d] }), data)
+  await rows(page).filter({ hasText: 'Pagina contatti' }).click()
+  await page.locator('#d-priority').selectOption('alta')
+  await page.getByRole('button', { name: 'Salva', exact: true }).click()
+  await expect(page.locator('[data-offline-badge]')).toContainText('Fuori ufficio · 1 progetto da inviare')
+  // Di nuovo in rete: l'invio parte da solo
+  await page.evaluate(() => Object.assign(window, { __pgmUnreachable: [] }))
+  await expect(page.getByText('Di nuovo in rete: inviata la modifica fatta fuori ufficio.')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('[data-offline-badge]')).toHaveCount(0)
+  const remote = await page.evaluate(async (d) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readDir(p: string): Promise<string[]>; readText(p: string): Promise<string> }> }).__pgmFs()
+    const [name] = (await fs.readDir(`${d}/projects`)).filter((n) => n.endsWith('.json'))
+    return fs.readText(`${d}/projects/${name}`)
+  }, data)
+  expect(JSON.parse(remote).items[0].priority).toBe('alta')
+})

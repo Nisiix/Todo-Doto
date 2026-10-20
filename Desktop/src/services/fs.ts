@@ -287,7 +287,7 @@ function memoryFs(): FsApi {
   const notify = (p: string) => {
     for (const [dir, set] of listeners) if (p.startsWith(dir)) set.forEach((cb) => cb())
   }
-  return {
+  const api: FsApi = {
     async readText(p) {
       const f = files.get(norm(p))
       if (!f) throw new Error(common.fileNotFound(p))
@@ -424,6 +424,25 @@ function memoryFs(): FsApi {
       return null
     },
   }
+  // Test: cartella condivisa "non raggiungibile" (VPN spenta, fuori ufficio): window.__pgmUnreachable = ['/rete/dati']
+  const isDown = (p: string) => {
+    const list = typeof window !== 'undefined' ? (window as unknown as { __pgmUnreachable?: string[] }).__pgmUnreachable : undefined
+    const n = norm(p)
+    return !!list?.some((x) => n === norm(x) || n.startsWith(norm(x) + '/'))
+  }
+  const byPath = ['readText', 'readBinary', 'writeBinary', 'writeTextAtomic', 'createExclusive', 'exists', 'mkdir', 'listDir', 'readDir', 'remove', 'stat'] as const
+  for (const k of byPath) {
+    const original = api[k] as (p: string, ...rest: unknown[]) => Promise<unknown>
+    ;(api as unknown as Record<string, unknown>)[k] = async (p: string, ...rest: unknown[]) => {
+      if (isDown(p)) {
+        if (k === 'exists') return false
+        if (k === 'stat') return null
+        throw new Error(`Impossibile trovare il percorso di rete: ${p}`)
+      }
+      return original(p, ...rest)
+    }
+  }
+  return api
 }
 
 let apiPromise: Promise<FsApi> | null = null

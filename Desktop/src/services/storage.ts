@@ -23,6 +23,7 @@ import { getFs, type FileStat, type FsApi } from './fs'
 import {
   AuditFileSchema,
   DriveFileSchema,
+  PresenceFileSchema,
   ProjectSchema,
   ReadinessFileSchema,
   TreeFileSchema,
@@ -30,6 +31,7 @@ import {
   WorkspaceMetaSchema,
   type AuditFile,
   type DriveFile,
+  type PresenceFile,
   type Project,
   type ReadinessFile,
   type TreeFile,
@@ -91,11 +93,18 @@ export const FILES = {
   projectsDir: 'projects',
   /** Esito delle verifiche dei prerequisiti, un file per utente (readiness/<idUtente>.json). */
   readinessDir: 'readiness',
+  /** Chi lavora a cosa, un file per utente (presence/<idUtente>.json). */
+  presenceDir: 'presence',
   /** Cartella predefinita delle copie di sicurezza (se non se ne sceglie un'altra). */
   backupsDir: 'backups',
 } as const
 
 export type Signature = Record<string, string> // path relativo -> "mtime:size"
+const SECTIONS = ['root', 'projects', 'readiness', 'presence'] as const
+interface SectionCache {
+  at: number
+  parts: Record<(typeof SECTIONS)[number], { key: string; sig: Signature }>
+}
 
 /** Id ammessi per i file dei progetti: niente punti né separatori di percorso. */
 const SAFE_ID = /^[A-Za-z0-9_-]{1,80}$/
@@ -119,7 +128,7 @@ const isProjectFile = (fs: FsApi, path: string, name: string) => isOwnJson(fs, p
 
 export class WorkspaceStorage {
   private fs!: FsApi
-  private paths = { workspace: '', users: '', tree: '', drive: '', audit: '', projectsDir: '', readinessDir: '' }
+  private paths = { workspace: '', users: '', tree: '', drive: '', audit: '', projectsDir: '', readinessDir: '', presenceDir: '' }
   /** Coda per file: le mutazioni di questo processo sullo stesso file, una alla volta. */
   private queues = new Map<string, Promise<unknown>>()
   /** Chi tiene i lock creati da questa istanza (es. "mario@PC-UFFICIO"), mostrato a chi aspetta. */
@@ -151,6 +160,7 @@ export class WorkspaceStorage {
     this.paths.audit = await this.fs.join(this.root, FILES.audit)
     this.paths.projectsDir = await this.fs.join(this.root, FILES.projectsDir)
     this.paths.readinessDir = await this.fs.join(this.root, FILES.readinessDir)
+    this.paths.presenceDir = await this.fs.join(this.root, FILES.presenceDir)
     return this
   }
 
@@ -178,6 +188,13 @@ export class WorkspaceStorage {
       if (own(e.name) || (await isOwnJson(fs, path, e.name, 'userId'))) await fs.remove(path)
     }
     await fs.remove(readinessDir).catch(() => {}) // solo se vuota
+    const presenceDir = await fs.join(root, FILES.presenceDir)
+    for (const e of await fs.listDir(presenceDir).catch(() => [])) {
+      if (e.isDir) continue
+      const path = await fs.join(presenceDir, e.name)
+      if (own(e.name) || (await isOwnJson(fs, path, e.name, 'userId'))) await fs.remove(path)
+    }
+    await fs.remove(presenceDir).catch(() => {}) // solo se vuota
     // Copie di sicurezza nella cartella predefinita (quelle in altre cartelle restano)
     const backupsDir = await fs.join(root, FILES.backupsDir)
     for (const e of await fs.listDir(backupsDir).catch(() => [])) {
@@ -235,9 +252,10 @@ export class WorkspaceStorage {
     }
     for (const p of [this.paths.users, this.paths.tree, this.paths.drive, this.paths.audit]) await rewrite(p)
     for (const id of await this.listProjectIds()) await rewrite(await this.projectPath(id))
-    if (await this.fs.exists(this.paths.readinessDir)) {
-      for (const name of await this.fs.readDir(this.paths.readinessDir)) {
-        if (name.endsWith('.json') && isSafeId(name.slice(0, -5))) await rewrite(await this.fs.join(this.paths.readinessDir, name))
+    for (const dir of [this.paths.readinessDir, this.paths.presenceDir]) {
+      if (!(await this.fs.exists(dir))) continue
+      for (const name of await this.fs.readDir(dir)) {
+        if (name.endsWith('.json') && isSafeId(name.slice(0, -5))) await rewrite(await this.fs.join(dir, name))
       }
     }
   }
@@ -390,6 +408,36 @@ export class WorkspaceStorage {
   async writeReadiness(f: ReadinessFile) {
     await this.fs.mkdir(this.paths.readinessDir)
     const path = await this.readinessPath(f.userId)
+    await this.withLock(path, () => this.writeJson(path, f))
+  }
+
+  // --- chi lavora a cosa (un file per utente) ------------------------------------
+
+  private async presencePath(userId: string) {
+    if (!isSafeId(userId)) throw new Error(`Id utente non valido: ${userId}`)
+    return this.fs.join(this.paths.presenceDir, `${userId}.json`)
+  }
+  /** Indicazioni di tutti gli utenti; i file illeggibili o non validi si saltano. */
+  async readAllPresence(): Promise<Record<string, PresenceFile>> {
+    if (!(await this.fs.exists(this.paths.presenceDir))) return {}
+    const out: Record<string, PresenceFile> = {}
+    for (const name of await this.fs.readDir(this.paths.presenceDir)) {
+      if (!name.endsWith('.json') || !isSafeId(name.slice(0, -5))) continue
+      const f = await this.readPresence(name.slice(0, -5)).catch(() => null)
+      if (f) out[f.userId] = f
+    }
+    return out
+  }
+  async readPresence(userId: string): Promise<PresenceFile | null> {
+    const path = await this.presencePath(userId)
+    if (!(await this.fs.exists(path))) return null
+    const f = await this.readJson(path, (r) => PresenceFileSchema.parse(r))
+    return f.userId === userId ? f : null
+  }
+  /** Ognuno scrive solo il proprio file: niente lock condivisi né conflitti fra PC. */
+  async writePresence(f: PresenceFile) {
+    await this.fs.mkdir(this.paths.presenceDir)
+    const path = await this.presencePath(f.userId)
     await this.withLock(path, () => this.writeJson(path, f))
   }
 
@@ -551,47 +599,57 @@ export class WorkspaceStorage {
    *
    * Scorciatoia per le cartelle di rete: ogni scrittura dell'app crea e rinomina
    * file nella cartella che li contiene (il .lock e il file temporaneo), quindi
-   * ne cambia la data di modifica. Se le date della cartella del workspace, di
-   * projects/ e di readiness/ sono quelle dell'ultima firma completa, nulla è
-   * cambiato e la firma resta quella: 3 richieste invece di una per file. Per sicurezza la
+   * ne cambia la data di modifica. La firma è divisa in sezioni, una per
+   * cartella (radice, projects/, readiness/, presence/): si rileggono i file
+   * solo delle cartelle la cui data è cambiata. Quando non cambia nulla
+   * servono 4 richieste invece di una per file; quando un collega rinnova la
+   * sua presenza si rilegge solo presence/, non i progetti. Per sicurezza la
    * firma completa si ricalcola comunque ogni FULL_SIGNATURE_MS.
    */
   async signature(): Promise<Signature> {
-    const [root, projects, readiness] = await Promise.all([this.fs.stat(this.root), this.fs.stat(this.paths.projectsDir), this.fs.stat(this.paths.readinessDir)])
-    const key = root?.mtimeMs && projects?.mtimeMs ? `${root.mtimeMs}|${projects.mtimeMs}|${readiness?.mtimeMs ?? 0}` : ''
-    const q = this.quick
-    if (key && q && q.key === key && Date.now() - q.at < FULL_SIGNATURE_MS) return { ...q.sig }
-    const sig = await this.fullSignature()
-    this.quick = key ? { key, sig, at: Date.now() } : null
-    return { ...sig }
+    const dirs = [this.root, this.paths.projectsDir, this.paths.readinessDir, this.paths.presenceDir]
+    const stats = await Promise.all(dirs.map((d) => this.fs.stat(d)))
+    // Cartella del workspace non raggiungibile (rete, VPN): è un errore, non «tutti i file cancellati»
+    if (!stats[0] && !(await this.fs.exists(this.root))) throw new Error(`unreachable: ${this.root}`)
+    const full = !this.sections || Date.now() - this.sections.at >= FULL_SIGNATURE_MS || !stats[0]?.mtimeMs
+    const prev = full ? null : this.sections
+    const parts = await Promise.all(
+      SECTIONS.map(async (name, i) => {
+        const key = String(stats[i]?.mtimeMs ?? 0)
+        const old = prev?.parts[name]
+        // Cartella assente: resta tale finché non compare. Data non affidabile (0): si rilegge sempre
+        if (old && old.key === key && (stats[i] === null || stats[i]?.mtimeMs)) return old
+        return { key, sig: await this.sectionSignature(name) }
+      }),
+    )
+    this.sections = { at: full ? Date.now() : this.sections!.at, parts: Object.fromEntries(SECTIONS.map((n, i) => [n, parts[i]!])) as SectionCache['parts'] }
+    return Object.assign({}, ...parts.map((p) => p.sig)) as Signature
   }
-  /** Ultima firma completa e date delle cartelle a cui si riferisce (vedi signature()). */
-  private quick: { key: string; sig: Signature; at: number } | null = null
+  /** Ultime firme per sezione e date delle cartelle a cui si riferiscono (vedi signature()). */
+  private sections: SectionCache | null = null
 
-  private async fullSignature(): Promise<Signature> {
+  private async sectionSignature(name: (typeof SECTIONS)[number]): Promise<Signature> {
     const sig: Signature = {}
     const put = (key: string, s: FileStat | null) => {
       if (s) sig[key] = `${s.mtimeMs}:${s.size}`
     }
-    const [w, u, t, d, a] = await Promise.all([
-      this.fs.stat(this.paths.workspace),
-      this.fs.stat(this.paths.users),
-      this.fs.stat(this.paths.tree),
-      this.fs.stat(this.paths.drive),
-      this.fs.stat(this.paths.audit),
-    ])
-    put(FILES.workspace, w)
-    put(FILES.users, u)
-    put(FILES.tree, t)
-    put(FILES.drive, d)
-    put(FILES.audit, a)
-    const ids = await this.listProjectIds()
-    const stats = await Promise.all(ids.map(async (id) => [id, await this.fs.stat(await this.projectPath(id))] as const))
-    for (const [id, s] of stats) put(`${FILES.projectsDir}/${id}`, s)
-    if (await this.fs.exists(this.paths.readinessDir)) {
-      const users = (await this.fs.readDir(this.paths.readinessDir)).filter((n) => n.endsWith('.json') && isSafeId(n.slice(0, -5)))
-      const rs = await Promise.all(users.map(async (n) => [n.slice(0, -5), await this.fs.stat(await this.fs.join(this.paths.readinessDir, n))] as const))
-      for (const [id, st] of rs) put(`${FILES.readinessDir}/${id}`, st)
+    if (name === 'root') {
+      const files = [FILES.workspace, FILES.users, FILES.tree, FILES.drive, FILES.audit] as const
+      const paths = [this.paths.workspace, this.paths.users, this.paths.tree, this.paths.drive, this.paths.audit]
+      const st = await Promise.all(paths.map((p) => this.fs.stat(p)))
+      files.forEach((f, i) => put(f, st[i] ?? null))
+    } else if (name === 'projects') {
+      const ids = await this.listProjectIds()
+      const stats = await Promise.all(ids.map(async (id) => [id, await this.fs.stat(await this.projectPath(id))] as const))
+      for (const [id, s] of stats) put(`${FILES.projectsDir}/${id}`, s)
+    } else {
+      const dir = name === 'readiness' ? this.paths.readinessDir : this.paths.presenceDir
+      const prefix = name === 'readiness' ? FILES.readinessDir : FILES.presenceDir
+      if (await this.fs.exists(dir)) {
+        const users = (await this.fs.readDir(dir)).filter((n) => n.endsWith('.json') && isSafeId(n.slice(0, -5)))
+        const rs = await Promise.all(users.map(async (n) => [n.slice(0, -5), await this.fs.stat(await this.fs.join(dir, n))] as const))
+        for (const [id, st] of rs) put(`${prefix}/${id}`, st)
+      }
     }
     return sig
   }

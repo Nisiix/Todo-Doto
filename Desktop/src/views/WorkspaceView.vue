@@ -2,6 +2,7 @@
 import TopBar from '@/components/layout/TopBar.vue'
 import SideRail from '@/components/layout/SideRail.vue'
 import AiBanner from '@/components/layout/AiBanner.vue'
+import OfflineReportDialog from '@/components/dialogs/OfflineReportDialog.vue'
 import { onMounted } from 'vue'
 import { useGitHubStore } from '@/stores/github'
 import { useReadinessStore } from '@/stores/readiness'
@@ -27,5 +28,6 @@ onMounted(() => void ai.start().catch(() => undefined))
         <AiBanner />
       </main>
     </div>
+    <OfflineReportDialog />
   </div>
 </template>

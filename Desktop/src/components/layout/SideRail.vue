@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { FolderPlus, Plus, RotateCcw, Trash2, X } from 'lucide-vue-next'
+import { FolderPlus, LayoutDashboard, Plus, RotateCcw, Trash2, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
@@ -18,6 +18,9 @@ import { common } from '@/i18n/common'
 
 const m = defineMessages({
   it: {
+    overview: 'Panoramica',
+    overviewHint: 'Da tenere d’occhio, chi lavora a cosa, domande aperte, configurazione di questo PC',
+    working: (n: number) => `${n} ${n === 1 ? 'persona sta lavorando' : 'persone stanno lavorando'} a un task`,
     deleteFolderTitle: (n: string) => `Eliminare la cartella «${n}»?`,
     deleteFolderMessage: (inside: number) =>
       'È una cartella del workspace (solo organizzazione): verranno eliminate anche tutte le sottocartelle. ' +
@@ -45,6 +48,9 @@ const m = defineMessages({
     trashedActions: 'Azioni progetto cestinato',
   },
   en: {
+    overview: 'Overview',
+    overviewHint: 'What to keep an eye on, who’s working on what, open questions, setup of this PC',
+    working: (n: number) => `${n} ${n === 1 ? 'person is' : 'people are'} working on a task`,
     deleteFolderTitle: (n: string) => `Delete the folder “${n}”?`,
     deleteFolderMessage: (inside: number) =>
       'It is a workspace folder (for organizing only): all its subfolders will be deleted too. ' +
@@ -169,6 +175,20 @@ const trashMenu = (p: Project) => [
     </div>
 
     <div class="flex-1 overflow-y-auto px-2 pb-4 pt-3">
+      <RouterLink
+        :to="{ name: 'workspace-home' }"
+        class="mb-3 flex h-8 items-center gap-2 rounded-md px-2 text-[13.5px] font-medium text-ink-2 hover:bg-surface-2"
+        active-class=""
+        exact-active-class="bg-accent-soft/70 text-ink"
+        :title="m.overviewHint"
+        data-overview-link
+      >
+        <LayoutDashboard :size="15" />
+        <span class="flex-1">{{ m.overview }}</span>
+        <span v-if="ws.workingEntries.length" class="flex items-center gap-1 text-[11.5px] tabular-nums text-ok" :title="m.working(ws.workingEntries.length)">
+          <span class="h-1.5 w-1.5 rounded-full bg-ok" /> {{ ws.workingEntries.length }}
+        </span>
+      </RouterLink>
       <!-- Preferiti: la sezione c'è solo se almeno un progetto è segnato con la stella -->
       <section v-if="ws.favoriteProjects.length" class="mb-4" data-favorites>
         <h2 class="mb-1 px-1 text-[11.5px] font-semibold text-ink-3">{{ m.favorites }}</h2>

@@ -9,6 +9,7 @@ import DueDateField from './DueDateField.vue'
 import LabelSelect from './LabelSelect.vue'
 import LabelBadge from './LabelBadge.vue'
 import ItemRowActions from './ItemRowActions.vue'
+import WorkingBadge from './WorkingBadge.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
@@ -118,6 +119,8 @@ function onKeydown(e: KeyboardEvent) {
     <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="{ 'text-ink-3 line-through decoration-line-strong': item.bucket === 'done', 'text-ink-3': item.bucket === 'trash' }" :title="item.title">
       {{ firstLine(item.title) }}
     </span>
+    <!-- Chi ci sta lavorando (workspace di rete): pastiglia di altezza fissa, la riga non si sposta -->
+    <WorkingBadge v-if="item.bucket === 'todo'" :item-id="item.id" />
     <!-- L'etichetta resta visibile anche in modalità compatta: è un colore, non costa spazio -->
     <LabelBadge v-if="!editable || compact" :label-id="item.labelId" />
 

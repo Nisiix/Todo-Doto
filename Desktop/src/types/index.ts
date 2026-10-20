@@ -420,6 +420,22 @@ export const ReadinessFileSchema = z.object({
 export type ReadinessFile = z.infer<typeof ReadinessFileSchema>
 
 // ---------------------------------------------------------------------------
+// Chi lavora a cosa (workspace di rete): un file per utente, presence/<idUtente>.json
+// ---------------------------------------------------------------------------
+
+export const PresenceFileSchema = z.object({
+  userId: z.string(),
+  /** Task su cui l'utente ha detto «Ci sto lavorando»; null = nessuno. */
+  projectId: z.string().nullable().default(null),
+  itemId: z.string().nullable().default(null),
+  /** Da quando ci lavora. */
+  since: iso.nullable().default(null),
+  /** Ultimo rinnovo: oltre PRESENCE_STALE_MS l'indicazione non vale più (app chiusa male, PC spento). */
+  beat: iso,
+})
+export type PresenceFile = z.infer<typeof PresenceFileSchema>
+
+// ---------------------------------------------------------------------------
 // Google Drive: struttura replicata della cartella scelta (solo metadati)
 // ---------------------------------------------------------------------------
 
@@ -495,6 +511,8 @@ export const LocalConfigSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).default('system'),
   recent: z.array(RecentWorkspaceSchema).default([]),
   reopenLast: z.boolean().default(true),
+  /** Copia dei workspace di rete su questo PC, per lavorare quando la cartella condivisa non si raggiunge. */
+  offlineCopy: z.boolean().default(true),
   // workspaceId -> id dei progetti preferiti (scelta personale, per macchina)
   favorites: z.record(z.string(), z.array(z.string())).default({}),
   // tipi di notifica disattivati (tutti attivi se assenti)

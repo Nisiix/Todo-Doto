@@ -30,6 +30,9 @@ const m = defineMessages({
     backupOld: (days: number) => `Nessuna copia dei dati da ${days} giorni`,
     backupFailed: 'Copia dei dati non riuscita: vedi Impostazioni',
     unreachable: 'Cartella non raggiungibile, riprovo…',
+    offline: 'Fuori ufficio',
+    offlinePending: (n: number) => (n === 1 ? '1 progetto da inviare' : `${n} progetti da inviare`),
+    offlineHint: 'Cartella condivisa non raggiungibile: lavori sulla copia di questo PC. Puoi modificare task e progetti; le modifiche si inviano da sole quando torni in rete (anche con la VPN).',
     wsMembers: 'Membri del workspace',
     lightTheme: 'Tema chiaro (Ctrl+Shift+L)',
     darkTheme: 'Tema scuro (Ctrl+Shift+L)',
@@ -47,6 +50,9 @@ const m = defineMessages({
     backupOld: (days: number) => `No data backup for ${days} days`,
     backupFailed: 'Data backup failed: see Settings',
     unreachable: 'Folder unreachable, retrying…',
+    offline: 'Away from the office',
+    offlinePending: (n: number) => (n === 1 ? '1 project to send' : `${n} projects to send`),
+    offlineHint: 'Shared folder unreachable: you are working on this PC’s copy. You can change tasks and projects; the changes are sent by themselves when you are back on the network (VPN included).',
     wsMembers: 'Workspace members',
     lightTheme: 'Light theme (Ctrl+Shift+L)',
     darkTheme: 'Dark theme (Ctrl+Shift+L)',
@@ -113,7 +119,15 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     </BaseMenu>
 
     <span
-      v-if="ws.status === 'unreachable'"
+      v-if="ws.status === 'unreachable' && ws.offlineAllowed"
+      class="flex items-center gap-1.5 rounded-md bg-p-media/15 px-2 py-1 text-[12.5px] font-medium text-ink"
+      :title="m.offlineHint"
+      data-offline-badge
+    >
+      <WifiOff :size="14" class="text-p-media" /> {{ m.offline }}<template v-if="ws.offlinePending"> · {{ m.offlinePending(ws.offlinePending) }}</template>
+    </span>
+    <span
+      v-else-if="ws.status === 'unreachable'"
       class="flex items-center gap-1.5 rounded-md bg-danger/10 px-2 py-1 text-[12.5px] font-medium text-danger"
       :title="ws.lastError ?? ''"
     >
