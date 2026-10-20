@@ -155,7 +155,7 @@ const matchedCommands = computed<Command[]>(() => {
 
 // «+ testo»: il task si crea nel progetto aperto, con i comandi dell'inserimento rapido
 const addText = computed(() => (query.value.mode === 'add' ? query.value.text : ''))
-const { parsed: addParsed, keep: addKeep } = useQuickAdd(addText)
+const { parsed: addParsed, keep: addKeep } = useQuickAdd(addText, () => currentProject.value?.id)
 const canAdd = computed(() => query.value.mode === 'add' && !!currentProject.value && !currentProject.value.trashedAt && !!addParsed.value.title)
 async function addTask() {
   const p = currentProject.value
@@ -166,6 +166,7 @@ async function addTask() {
     ...(r.priority ? { priority: r.priority } : {}),
     assigneeId: r.assigneeId,
     labelId: r.labelId,
+    milestoneId: r.milestoneId,
     ...(r.dueDate ? { status: 'confermato' as const, dueDate: r.dueDate } : {}),
   })
   clear()

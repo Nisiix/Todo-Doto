@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Activity, Archive, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Activity, Archive, Flag, Gavel, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -11,6 +11,7 @@ import ItemRow from '@/components/board/ItemRow.vue'
 import ItemDialog from '@/components/dialogs/ItemDialog.vue'
 import RoadmapDialog from '@/components/dialogs/RoadmapDialog.vue'
 import DecisionsDialog from '@/components/dialogs/DecisionsDialog.vue'
+import MilestonesDialog from '@/components/dialogs/MilestonesDialog.vue'
 import { projectDecisions } from '@/services/decisions'
 import StackDriftBanner from '@/components/project/StackDriftBanner.vue'
 import ProjectTeams from '@/components/project/ProjectTeams.vue'
@@ -66,6 +67,8 @@ const m = defineMessages({
     fromText: 'Da un testo',
     roadmap: 'Roadmap per il cliente',
     roadmapHint: 'Una pagina con cosa è fatto e cosa arriva, da mandare al cliente o stampare in PDF',
+    milestones: 'Tappe',
+    milestonesHint: 'Versioni e rilasci del progetto: avanzamento e note di versione',
     insights: 'Attenzioni',
     insightsHint: 'Attenzioni e tempi del progetto: ritardi, urgenze senza nessuno, domande senza risposta, task fermi',
     decisions: 'Decisioni',
@@ -105,6 +108,8 @@ const m = defineMessages({
     fromText: 'From a text',
     roadmap: 'Client roadmap',
     roadmapHint: 'A page with what is done and what is coming, to send to the client or print to PDF',
+    milestones: 'Milestones',
+    milestonesHint: 'Project versions and releases: progress and release notes',
     insights: 'Attention',
     insightsHint: 'Project attention and times: overdue, unassigned urgent tasks, unanswered questions, stuck tasks',
     decisions: 'Decisions',
@@ -231,6 +236,14 @@ const showNewItem = ref(false)
 const showFromText = ref(false)
 const showRoadmap = ref(false)
 const showDecisions = ref(false)
+const showMilestones = ref(false)
+const openMilestones = computed(() => project.value?.milestones.filter((x) => !x.closedAt).length ?? 0)
+/** «Mostra i task» di una tappa: lista Da fare filtrata per quella tappa. */
+function showMilestoneTasks(id: string) {
+  if (section.value !== 'todo') void router.push({ name: 'project', params: { id: props.id } })
+  tab.value = 'todo'
+  filter.value = { ...EMPTY_FILTER, milestoneId: id }
+}
 // Attenzioni e tempi di ciclo (pannello sopra la lista «Da fare»)
 const showInsights = ref(false)
 const { nowIso } = useToday()
@@ -365,6 +378,9 @@ const tabs: { id: Bucket; label: string }[] = [
             </div>
             <p v-if="project.description" class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">{{ project.description }}</p>
           </div>
+          <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.milestonesHint" data-milestones-open @click="showMilestones = true">
+            <Flag :size="14" /> {{ m.milestones }} <span v-if="openMilestones" class="tabular-nums text-ink-3">{{ openMilestones }}</span>
+          </BaseButton>
           <BaseButton v-if="decisionCount" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.decisionsHint" data-decisions-open @click="showDecisions = true">
             <Gavel :size="14" /> {{ m.decisions }} <span class="tabular-nums text-ink-3">{{ decisionCount }}</span>
           </BaseButton>
@@ -376,7 +392,7 @@ const tabs: { id: Bucket; label: string }[] = [
 
         <template v-if="section === 'todo'">
           <div class="mt-4">
-            <FilterBar v-model="filter" />
+            <FilterBar v-model="filter" :milestones="project.milestones" />
           </div>
 
           <nav class="mt-3 flex items-end gap-1 border-b border-line" :aria-label="m.containers">
@@ -466,5 +482,6 @@ const tabs: { id: Bucket; label: string }[] = [
     <TasksFromTextDialog v-model:open="showFromText" :project-id="project.id" />
     <RoadmapDialog v-model:open="showRoadmap" :project="project" />
     <DecisionsDialog v-model:open="showDecisions" :project="project" />
+    <MilestonesDialog v-model:open="showMilestones" :project="project" :read-only="trashed" @show-tasks="showMilestoneTasks" />
   </template>
 </template>

@@ -106,3 +106,63 @@ test('dipendenze: lucchetto, conflitto di scadenza, niente cicli, frecce nel Gan
   await expect(row(page, 'API ordini').locator('[data-row-blocked]')).toHaveCount(0)
   await expect(row(page, 'Pagina ordini').locator('[data-row-blocked]')).toBeVisible()
 })
+
+test('tappe: avanzamento, task con ~, filtro, Gantt, note di versione e CHANGELOG.md', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await addLabels(page, ['Novità', 'Correzioni'])
+  // Progetto importato da una cartella: le note si possono aggiungere al suo CHANGELOG.md
+  await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeTextAtomic(p: string, t: string): Promise<void> }> }).__pgmFs()
+    await fs.writeTextAtomic('/esterni/negozio/package.json', JSON.stringify({ dependencies: { vue: '^3.5.0' } }))
+    await fs.writeTextAtomic('/esterni/negozio/CHANGELOG.md', '# Novità del negozio\n\n## v1.2 — ieri\n\n- Vecchio\n')
+  })
+  await page.getByRole('button', { name: 'Progetto' }).first().click()
+  await page.fill('#p-disk', '/esterni/negozio')
+  await expect(page.locator('[data-folder-kind]')).toHaveAttribute('data-kind', 'project')
+  await page.getByRole('button', { name: 'Importa progetto' }).click()
+  await expect(page.getByRole('heading', { name: 'negozio' })).toBeVisible()
+  await page.locator('aside').first().getByRole('link', { name: /^Todo( \d+)?$/ }).click()
+
+  await page.locator('[data-milestones-open]').click()
+  await page.locator('[data-milestone-name]').fill('v1.3')
+  await page.locator('[data-milestone-due]').fill('2030-12-01')
+  await page.locator('[data-milestone-save]').click()
+  await expect(page.locator('[data-milestone="v1.3"]')).toContainText('Nessun task legato')
+  await page.keyboard.press('Escape')
+
+  await addTasks(page, ['Carrello ~v1.3 #novità entro il 20/11/2030', 'Crash al pagamento ~v1 #correzioni', 'Fuori tappa'])
+  await expect(row(page, 'Carrello').locator('[data-row-milestone]')).toContainText('v1.3')
+  await row(page, 'Crash al pagamento').getByTitle('Segna come completato (C)').click()
+
+  // Avanzamento e «Mostra i task»
+  await page.locator('[data-milestones-open]').click()
+  await expect(page.locator('[data-milestone="v1.3"] [data-milestone-progress]')).toContainText('1 di 2 completati')
+  await page.locator('[data-milestone="v1.3"] [data-milestone-tasks]').click()
+  await expect(rows(page)).toHaveCount(1)
+  await expect(rows(page).first()).toContainText('Carrello')
+  await page.getByRole('button', { name: /^Completati/ }).click()
+  await expect(rows(page).first()).toContainText('Crash al pagamento')
+  await page.getByRole('button', { name: /^Da fare/ }).click()
+
+  // Gantt: linea della tappa
+  await page.locator('aside').first().getByRole('link', { name: /^Gantt( \d+)?$/ }).click()
+  await expect(page.locator('[data-gantt-milestone="v1.3"]')).toBeVisible()
+  await page.locator('aside').first().getByRole('link', { name: /^Todo( \d+)?$/ }).click()
+
+  // Raggiunta: note di versione per etichetta, da copiare o aggiungere al CHANGELOG.md
+  await page.locator('[data-milestones-open]').click()
+  await page.locator('[data-milestone="v1.3"] [data-milestone-close="close"]').click()
+  await expect(page.locator('[data-milestone="v1.3"]')).toContainText('raggiunta il')
+  await page.locator('[data-milestone="v1.3"] [data-milestone-notes]').click()
+  const text = page.locator('[data-release-text]')
+  await expect(text).toHaveValue(/## v1\.3 — /)
+  await expect(text).toHaveValue(/- Crash al pagamento — TODO-2/)
+  await expect(text).not.toHaveValue(/Carrello/)
+  await page.locator('[data-release-changelog]').click()
+  const changelog = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readText(p: string): Promise<string> }> }).__pgmFs()
+    return fs.readText('/esterni/negozio/CHANGELOG.md')
+  })
+  expect(changelog.indexOf('## v1.3')).toBeGreaterThan(changelog.indexOf('# Novità del negozio'))
+  expect(changelog.indexOf('## v1.3')).toBeLessThan(changelog.indexOf('## v1.2'))
+})

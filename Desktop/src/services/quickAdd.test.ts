@@ -11,6 +11,10 @@ const ctx = {
     { id: 'u2', username: 'mbianchi', displayName: 'Marta Bianchi' },
     { id: 'u3', username: 'lverdi', displayName: 'Luca Verdi' },
   ],
+  milestones: [
+    { id: 'm1', name: 'v1.3' },
+    { id: 'm2', name: 'Rilascio cliente' },
+  ],
   labels: [
     { id: 'l1', name: 'Bug' },
     { id: 'l2', name: 'Nuova funzione' },
@@ -135,6 +139,14 @@ describe('parseQuickAdd', () => {
     expect(r.title).toBe('Chiamare il fornitore.')
   })
 
+  it('tappa: nome intero o inizio, anche con il punto', () => {
+    const r = parseQuickAdd('Export ~v1.3 !alta', ctx)
+    expect(r.milestoneId).toBe('m1')
+    expect(r.title).toBe('Export')
+    expect(parseQuickAdd('Demo ~rilascio', ctx).milestoneId).toBe('m2')
+    expect(parseQuickAdd('Demo ~v2', ctx).milestoneId).toBeNull()
+  })
+
   it('le espressioni da ignorare restano nel titolo', () => {
     const r = parseQuickAdd('Rilascio per domani !alta', { ...ctx, ignore: ['Per Domani'] })
     expect(r.dueDate).toBeNull()
@@ -144,7 +156,7 @@ describe('parseQuickAdd', () => {
 
   it('testo senza comandi: invariato', () => {
     const r = parseQuickAdd('  Pagina di accesso  ', ctx)
-    expect(r).toMatchObject({ title: 'Pagina di accesso', priority: null, assigneeId: null, labelId: null, dueDate: null, tokens: [] })
+    expect(r).toMatchObject({ title: 'Pagina di accesso', priority: null, assigneeId: null, labelId: null, dueDate: null, milestoneId: null, tokens: [] })
   })
 })
 

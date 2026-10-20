@@ -36,6 +36,7 @@ const project = (id: string): Project => ({
   items: [],
   attachmentFolders: [],
   attachments: [],
+  milestones: [],
   stack: { ...EMPTY_STACK },
   aiTools: [],
   github: null,

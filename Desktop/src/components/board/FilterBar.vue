@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-vue-next'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { isFilterActive } from '@/services/items'
-import { EMPTY_FILTER, PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, type ItemFilter, type Priority, type Status } from '@/types'
+import { EMPTY_FILTER, PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, type ItemFilter, type Milestone, type Priority, type Status } from '@/types'
 import { DATE, defineMessages } from '@/i18n'
 
 const m = defineMessages({
@@ -23,6 +23,9 @@ const m = defineMessages({
     anyone: 'Chiunque',
     label: 'Etichetta',
     allLabels: 'Tutte',
+    milestone: 'Tappa',
+    allMilestones: 'Tutte',
+    noMilestone: 'Senza tappa',
     reset: 'Azzera filtri',
     remove: (what: string) => `Togli il filtro ${what}`,
     noneActive: 'Nessun filtro: vedi tutti gli elementi.',
@@ -46,6 +49,9 @@ const m = defineMessages({
     anyone: 'Anyone',
     label: 'Label',
     allLabels: 'All',
+    milestone: 'Milestone',
+    allMilestones: 'All',
+    noMilestone: 'No milestone',
     reset: 'Clear filters',
     remove: (what: string) => `Remove the filter ${what}`,
     noneActive: 'No filters: showing every item.',
@@ -62,6 +68,8 @@ const m = defineMessages({
  * raggruppa le scelte per tema: scadenza, stato, priorità, persone, etichetta.
  */
 const model = defineModel<ItemFilter>({ required: true })
+/** Tappe del progetto: se ci sono, compare il filtro per tappa. */
+const props = withDefaults(defineProps<{ milestones?: Milestone[] }>(), { milestones: () => [] })
 const ws = useWorkspaceStore()
 
 const OPEN_KEY = 'pgm:filters-open'
@@ -106,6 +114,12 @@ const chips = computed(() => {
   if (f.assigneeId) out.push({ key: 'a', label: `${m.assignee}: ${ws.userName(f.assigneeId)}`, clear: () => set('assigneeId', null) })
   if (f.createdBy) out.push({ key: 'c', label: `${m.author}: ${ws.userName(f.createdBy)}`, clear: () => set('createdBy', null) })
   if (f.labelId) out.push({ key: 'l', label: `${m.label}: ${ws.labelsById[f.labelId]?.name ?? '—'}`, clear: () => set('labelId', null) })
+  if (f.milestoneId)
+    out.push({
+      key: 'ms',
+      label: `${m.milestone}: ${f.milestoneId === '-' ? m.noMilestone : (props.milestones.find((x) => x.id === f.milestoneId)?.name ?? '—')}`,
+      clear: () => set('milestoneId', null),
+    })
   return out
 })
 
@@ -205,6 +219,15 @@ const chipOff = 'border-line bg-surface text-ink-2 hover:border-line-strong hove
         <select class="field field-sm h-7 w-44 py-0" :value="model.labelId ?? ''" :aria-label="m.label" @change="set('labelId', ($event.target as HTMLSelectElement).value || null)">
           <option value="">{{ m.allLabels }}</option>
           <option v-for="l in ws.tree.labels" :key="l.id" :value="l.id">{{ l.name }}</option>
+        </select>
+      </fieldset>
+
+      <fieldset v-if="milestones.length">
+        <legend class="label">{{ m.milestone }}</legend>
+        <select class="field field-sm h-7 w-44 py-0" :value="model.milestoneId ?? ''" :aria-label="m.milestone" data-filter-milestone @change="set('milestoneId', ($event.target as HTMLSelectElement).value || null)">
+          <option value="">{{ m.allMilestones }}</option>
+          <option value="-">{{ m.noMilestone }}</option>
+          <option v-for="ms in milestones" :key="ms.id" :value="ms.id">{{ ms.name }}</option>
         </select>
       </fieldset>
     </div>

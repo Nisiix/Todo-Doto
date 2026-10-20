@@ -9,7 +9,8 @@ import { locale } from '@/i18n'
  * riconosciuti nel testo, con gli utenti e le etichette del workspace.
  * `keep(token)` lascia quel comando nel titolo; svuotando il testo si riparte.
  */
-export function useQuickAdd(text: Readonly<Ref<string>>) {
+/** `projectId`: il progetto in cui si aggiunge il task, per le sue tappe (`~v1.3`). */
+export function useQuickAdd(text: Readonly<Ref<string>>, projectId: () => string | null | undefined = () => null) {
   const ws = useWorkspaceStore()
   const { today } = useToday()
   const ignore = ref<string[]>([])
@@ -20,6 +21,7 @@ export function useQuickAdd(text: Readonly<Ref<string>>) {
     parseQuickAdd(text.value, {
       users: ws.users,
       labels: ws.tree.labels,
+      milestones: (ws.projects[projectId() ?? '']?.milestones ?? []).filter((x) => !x.closedAt),
       meId: ws.currentUser?.id ?? null,
       today: today.value,
       dayFirst: locale === 'it',

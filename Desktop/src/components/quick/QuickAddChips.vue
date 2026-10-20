@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { CalendarDays, Flag, X } from 'lucide-vue-next'
+import { CalendarDays, Flag, Milestone as MilestoneIcon, X } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import LabelBadge from '@/components/board/LabelBadge.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -17,6 +17,7 @@ const m = defineMessages({
 defineProps<{ parsed: QuickAddResult }>()
 const emit = defineEmits<{ remove: [token: QuickToken] }>()
 const ws = useWorkspaceStore()
+const milestoneName = (id: string) => Object.values(ws.projects).flatMap((p) => p.milestones).find((x) => x.id === id)?.name ?? '—'
 </script>
 
 <template>
@@ -31,6 +32,7 @@ const ws = useWorkspaceStore()
       <template v-if="t.kind === 'priority'"><Flag :size="12" class="text-ink-3" /> {{ PRIORITY_LABEL[t.value as Priority] }}</template>
       <template v-else-if="t.kind === 'assignee'"><UserAvatar :name="ws.userName(t.value)" size="xs" /> {{ ws.userName(t.value) }}</template>
       <template v-else-if="t.kind === 'label'"><LabelBadge :label-id="t.value" /></template>
+      <template v-else-if="t.kind === 'milestone'"><MilestoneIcon :size="12" class="text-ink-3" /> {{ milestoneName(t.value) }}</template>
       <template v-else><CalendarDays :size="12" class="text-ink-3" /> {{ m.due }} {{ dayjs(t.value).format(DATE.dayMonth) }} · {{ STATUS_LABEL.confermato }}</template>
       <button type="button" class="-mr-1 rounded-full p-0.5 text-ink-3 hover:bg-surface-2 hover:text-ink" :title="m.remove" :aria-label="m.remove" @click="emit('remove', t)">
         <X :size="11" />

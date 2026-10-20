@@ -11,13 +11,13 @@ const m = defineMessages({
   it: {
     placeholder: 'Aggiungi un task… es. Esportazione CSV !alta @mario #bug entro venerdì',
     label: 'Aggiungi un task rapidamente',
-    hint: '!priorità · @persona · #etichetta · entro venerdì, per domani, ^15/11, tra 3 giorni · Invio per aggiungere',
+    hint: '!priorità · @persona · #etichetta · ~tappa · entro venerdì, per domani, ^15/11, tra 3 giorni · Invio per aggiungere',
     empty: 'Scrivi il titolo del task, non solo i comandi.',
   },
   en: {
     placeholder: 'Add a task… e.g. CSV export !high @mario #bug by friday',
     label: 'Quickly add a task',
-    hint: '!priority · @person · #label · by friday, by tomorrow, ^11/15, in 3 days · Enter to add',
+    hint: '!priority · @person · #label · ~milestone · by friday, by tomorrow, ^11/15, in 3 days · Enter to add',
     empty: 'Write the task title, not just the commands.',
   },
 })
@@ -31,7 +31,7 @@ const ws = useWorkspaceStore()
 const ui = useUiStore()
 const text = ref('')
 const busy = ref(false)
-const { parsed, keep } = useQuickAdd(text)
+const { parsed, keep } = useQuickAdd(text, () => props.projectId)
 
 async function submit() {
   const p = parsed.value
@@ -44,6 +44,7 @@ async function submit() {
       ...(p.priority ? { priority: p.priority } : {}),
       assigneeId: p.assigneeId,
       labelId: p.labelId,
+      milestoneId: p.milestoneId,
       ...(p.dueDate ? { status: 'confermato' as const, dueDate: p.dueDate } : {}),
     })
     text.value = ''

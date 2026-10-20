@@ -74,7 +74,8 @@ const assigneeId = ref<string | null>(null)
 const error = ref('')
 
 // Inserimento rapido anche nel titolo: !alta @mario #bug entro venerdì compilano i campi sotto
-const { parsed, keep } = useQuickAdd(title)
+const { parsed, keep } = useQuickAdd(title, () => props.projectId)
+const milestoneId = ref<string | null>(null)
 watch(
   () => parsed.value.tokens.map((t) => `${t.kind}:${t.value}`).join('|'),
   () => {
@@ -82,6 +83,7 @@ watch(
     if (p.priority) priority.value = p.priority
     if (p.assigneeId) assigneeId.value = p.assigneeId
     if (p.labelId) labelId.value = p.labelId
+    if (p.milestoneId) milestoneId.value = p.milestoneId
     if (p.dueDate) {
       status.value = 'confermato'
       dueDate.value = p.dueDate
@@ -122,6 +124,7 @@ watch(open, (o) => {
   dueDate.value = null
   labelId.value = null
   assigneeId.value = null
+  milestoneId.value = null
   error.value = ''
   similar.value = []
 })
@@ -137,6 +140,7 @@ async function submit() {
     dueDate: dueDate.value,
     labelId: labelId.value,
     assigneeId: assigneeId.value,
+    milestoneId: milestoneId.value,
   })
   open.value = false
   ui.toast(m.created, 'success', { label: common.actions.open, run: () => (ui.selectedItemId = item.id) }, 2500)

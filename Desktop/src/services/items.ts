@@ -79,7 +79,7 @@ export function matchesSearch(item: Item, query: string): boolean {
 }
 
 export const isFilterActive = (f: ItemFilter) =>
-  !!(f.from || f.to || f.statuses.length || f.priorities.length || f.assigneeId || f.createdBy || f.labelId)
+  !!(f.from || f.to || f.statuses.length || f.priorities.length || f.assigneeId || f.createdBy || f.labelId || f.milestoneId)
 
 /** Applica il filtro: le date agiscono sulla scadenza (chi non ne ha viene escluso). */
 export function applyFilter(items: Item[], f: ItemFilter): Item[] {
@@ -93,6 +93,7 @@ export function applyFilter(items: Item[], f: ItemFilter): Item[] {
     if (f.assigneeId && i.assigneeId !== f.assigneeId) return false
     if (f.createdBy && i.createdBy !== f.createdBy) return false
     if (f.labelId && i.labelId !== f.labelId) return false
+    if (f.milestoneId && (f.milestoneId === '-' ? !!i.milestoneId : i.milestoneId !== f.milestoneId)) return false
     return true
   })
 }

@@ -13,7 +13,7 @@ import { useOutboxStore } from './outbox'
 import { mailOutlook, mailSmtp, type MailMessage } from '@/services/office'
 import { openSecret, sealSecret } from '@/services/mail'
 import { diffProjects } from '@/services/changes'
-import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
+import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Milestone, type Stack, type Visibility } from '@/types'
 import { applyStatusRules, firstLine } from '@/services/items'
 import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
 import { pruneBlockers, wouldCycle } from '@/services/dependencies'
@@ -1094,6 +1094,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       items: [],
       attachmentFolders: [],
       attachments: [],
+      milestones: [],
       stack: { ...EMPTY_STACK },
       aiTools: [],
       github: null,
@@ -1384,6 +1385,26 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   const deleteQuestion = (projectId: string, itemId: string, questionId: string) =>
     mutateItem(projectId, itemId, (it) => void (it.questions = it.questions.filter((q) => q.id !== questionId)))
+
+  // --- tappe (versioni, rilasci) ------------------------------------------------------
+  const addMilestone = (projectId: string, data: Pick<Milestone, 'name' | 'dueDate' | 'notes'>) =>
+    mutateProject(projectId, (p) => {
+      p.milestones.push({ id: newId('mst'), name: data.name.trim(), dueDate: data.dueDate || null, notes: data.notes.trim(), closedAt: null, createdAt: nowIso() })
+    })
+
+  const updateMilestone = (projectId: string, milestoneId: string, data: Partial<Pick<Milestone, 'name' | 'dueDate' | 'notes' | 'closedAt'>>) =>
+    mutateProject(projectId, (p) => {
+      const ms = p.milestones.find((x) => x.id === milestoneId)
+      if (!ms) return false
+      Object.assign(ms, data, data.name !== undefined ? { name: data.name.trim() } : {})
+    })
+
+  /** Elimina la tappa: i suoi task restano, senza tappa. */
+  const removeMilestone = (projectId: string, milestoneId: string) =>
+    mutateProject(projectId, (p) => {
+      p.milestones = p.milestones.filter((x) => x.id !== milestoneId)
+      for (const i of p.items) if (i.milestoneId === milestoneId) i.milestoneId = null
+    })
 
   // --- allegati ---------------------------------------------------------------------
   const addAttachment = (projectId: string, data: Pick<Attachment, 'kind' | 'name' | 'target' | 'folderId'>) =>
@@ -1976,6 +1997,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     emptyProjectTrash,
     addItem,
     setBlockers,
+    addMilestone,
+    updateMilestone,
+    removeMilestone,
     updateItem,
     moveItem,
     deleteItemForever,

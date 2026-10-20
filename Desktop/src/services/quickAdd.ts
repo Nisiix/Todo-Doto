@@ -7,6 +7,7 @@
  *  - `!alta` `!immediata` `!1`…`!4`    priorità (anche in inglese: !high, !urgent…)
  *  - `@mario`                          assegnatario (nome utente, nome visualizzato o suo primo nome; `@io`/`@me` = me)
  *  - `#bug`                            etichetta (nome senza spazi, anche solo l'inizio se non è ambiguo)
+ *  - `~v1.3`                           tappa del progetto (tra quelle non raggiunte)
  *  - `entro venerdì`, `per domani`, `^15/11`, `tra 3 giorni`, `by friday`…   scadenza
  *
  * Una data si riconosce solo dopo un indicatore (entro, per, scade, by, due,
@@ -18,7 +19,7 @@
 import dayjs from 'dayjs'
 import type { Label, Priority, User } from '@/types'
 
-export type QuickTokenKind = 'priority' | 'assignee' | 'label' | 'due'
+export type QuickTokenKind = 'priority' | 'assignee' | 'label' | 'due' | 'milestone'
 
 export interface QuickToken {
   kind: QuickTokenKind
@@ -36,12 +37,15 @@ export interface QuickAddResult {
   assigneeId: string | null
   labelId: string | null
   dueDate: string | null
+  milestoneId: string | null
   tokens: QuickToken[]
 }
 
 export interface QuickAddContext {
   users: Pick<User, 'id' | 'username' | 'displayName'>[]
   labels: Pick<Label, 'id' | 'name'>[]
+  /** Tappe del progetto non ancora raggiunte, per `~v1.3`. */
+  milestones?: { id: string; name: string }[]
   /** Utente corrente, per `@io` / `@me`. */
   meId?: string | null
   /** Oggi, YYYY-MM-DD. */
@@ -201,6 +205,7 @@ const REL_RE = new RegExp(`(^|\\s)((?:tra|fra|in) \\d{1,3} (?:${UNITS}))${END}`,
 const PRIORITY_RE = /(^|\s)!([\p{L}\d]+)(?=$|[\s.,;:!?)])/gu
 const MENTION_RE = /(^|\s)@([\p{L}\p{N}._-]+)(?=$|[\s,;:!?)])/gu
 const LABEL_RE = /(^|\s)#([\p{L}\p{N}._/-]+)(?=$|[\s,;:!?)])/gu
+const MILESTONE_RE = /(^|\s)~([\p{L}\p{N}._/-]+)(?=$|[\s,;:!?)])/gu
 
 /** L'unico elemento che soddisfa la prima regola con almeno un risultato; null se nessuno o più d'uno. */
 function unique<T>(xs: T[], rules: ((x: T) => boolean)[]): T | null {
@@ -228,6 +233,12 @@ function findLabel(word: string, ctx: QuickAddContext): string | null {
   const w = fold(word)
   const l = unique(ctx.labels, [(l) => fold(l.name) === w, (l) => w.length >= 2 && fold(l.name).startsWith(w)])
   return l?.id ?? null
+}
+
+function findMilestone(word: string, ctx: QuickAddContext): string | null {
+  const w = fold(word)
+  const ms = unique(ctx.milestones ?? [], [(x) => fold(x.name) === w, (x) => fold(x.name).startsWith(w)])
+  return ms?.id ?? null
 }
 
 /**
@@ -264,6 +275,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   scan(PRIORITY_RE, 'priority', (m) => PRIORITY_WORDS[fold(m[2]!)] ?? null)
   scan(MENTION_RE, 'assignee', (m) => findUser(m[2]!, ctx))
   scan(LABEL_RE, 'label', (m) => findLabel(m[2]!, ctx))
+  scan(MILESTONE_RE, 'milestone', (m) => findMilestone(m[2]!, ctx))
   tokens.sort((a, b) => a.start - b.start)
   const get = (k: QuickTokenKind) => tokens.find((t) => t.kind === k)?.value ?? null
   return {
@@ -272,6 +284,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     assigneeId: get('assignee'),
     labelId: get('label'),
     dueDate: get('due'),
+    milestoneId: get('milestone'),
     tokens,
   }
 }

@@ -75,13 +75,18 @@ export function ganttGroups(
 }
 
 /** Giorni mostrati: da poco prima del primo inizio a poco dopo l'ultima scadenza, oggi compreso. */
-export function ganttRange(groups: GanttGroup[], today = dayjs(), pad = 3): { from: dayjs.Dayjs; days: number } {
+/** Periodo mostrato: da tutte le barre a oggi, più le date in `extra` (es. le tappe aperte), con un margine. */
+export function ganttRange(groups: GanttGroup[], today = dayjs(), pad = 3, extra: string[] = []): { from: dayjs.Dayjs; days: number } {
   const all = groups.flatMap((g) => g.bars)
   let from = today.startOf('day')
   let to = today.startOf('day')
   for (const b of all) {
     if (dayjs(b.start).isBefore(from)) from = dayjs(b.start)
     if (dayjs(b.end).isAfter(to)) to = dayjs(b.end)
+  }
+  for (const d of extra) {
+    if (dayjs(d).isBefore(from)) from = dayjs(d)
+    if (dayjs(d).isAfter(to)) to = dayjs(d)
   }
   from = from.subtract(pad, 'day')
   to = to.add(pad, 'day')

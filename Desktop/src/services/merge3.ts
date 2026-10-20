@@ -55,7 +55,7 @@ const ITEM_GROUPS: { field: string; keys: (keyof Item)[] }[] = [
   { field: 'checklist', keys: ['checklist'] },
 ]
 /** Campi del progetto che non si uniscono (li gestisce il salvataggio) o che hanno regole proprie. */
-const PROJECT_SKIP = new Set(['items', 'version', 'updatedAt', 'updatedBy', 'nextSeq', 'attachments', 'attachmentFolders', 'aiTools', 'schema', 'id'])
+const PROJECT_SKIP = new Set(['items', 'version', 'updatedAt', 'updatedBy', 'nextSeq', 'attachments', 'attachmentFolders', 'aiTools', 'milestones', 'schema', 'id'])
 
 function show(item: Item, keys: (keyof Item)[]) {
   return keys
@@ -179,6 +179,7 @@ export function mergeProject(base: Project, local: Project, remote: Project): { 
   merged.attachments = mergeList(base.attachments, local.attachments, remote.attachments)
   merged.attachmentFolders = mergeList(base.attachmentFolders, local.attachmentFolders, remote.attachmentFolders)
   merged.aiTools = mergeList(base.aiTools, local.aiTools, remote.aiTools)
+  merged.milestones = mergeList(base.milestones, local.milestones, remote.milestones)
 
   // Altri campi del progetto (descrizione, membri, stack…): interi
   const rec = (x: Project) => x as unknown as Record<string, unknown>

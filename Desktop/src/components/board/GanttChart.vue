@@ -108,7 +108,7 @@ const today = dayjs().startOf('day')
 // Solo i task da fare (i completati non entrano nel Gantt)
 const groups = computed(() => ganttGroups(filtered.value, groupBy.value, ws.tree.labels, { noLabel: m.noLabel }, { today }))
 const total = computed(() => groups.value.reduce((n, g) => n + g.bars.length, 0))
-const range = computed(() => ganttRange(groups.value, today))
+const range = computed(() => ganttRange(groups.value, today, 3, props.project.milestones.filter((x) => !x.closedAt && !!x.dueDate).map((x) => x.dueDate!)))
 /** Larghezza di un giorno in pixel. */
 const dayW = computed(() => (zoom.value === 'days' ? 30 : 9))
 const width = computed(() => range.value.days * dayW.value)
@@ -174,6 +174,14 @@ const links = computed(() => {
   }
   return out
 })
+
+/** Tappe aperte con una data obiettivo dentro il periodo mostrato: linea verticale tratteggiata. */
+const milestoneMarks = computed(() =>
+  props.project.milestones
+    .filter((x) => !x.closedAt && !!x.dueDate)
+    .map((x) => ({ id: x.id, name: x.name, left: offset(x.dueDate!) + dayW.value, late: x.dueDate! < today.format('YYYY-MM-DD') }))
+    .filter((x) => x.left >= 0 && x.left <= width.value),
+)
 
 // All'apertura il Gantt si posiziona su oggi
 const scroller = ref<HTMLElement | null>(null)
@@ -286,6 +294,9 @@ watch(zoom, scrollToToday)
               <div v-for="(d, i) in dayList" v-show="d.day() === 0 || d.day() === 6" :key="i" class="absolute inset-y-0 bg-surface-2/60" :style="{ left: `${i * dayW}px`, width: `${dayW}px` }" />
             </template>
             <div class="absolute inset-y-0 w-px bg-danger/70" :style="{ left: `${todayLeft}px` }" :title="m.today" data-gantt-today />
+            <div v-for="mk in milestoneMarks" :key="mk.id" class="absolute inset-y-0 border-l-2 border-dashed" :class="mk.late ? 'border-danger/60' : 'border-accent/60'" :style="{ left: `${mk.left}px` }" :data-gantt-milestone="mk.name">
+              <span class="absolute left-1 top-1 whitespace-nowrap rounded-full px-1.5 text-[10.5px] font-semibold" :class="mk.late ? 'bg-danger/10 text-danger' : 'bg-accent-soft text-accent-ink'">⚑ {{ mk.name }}</span>
+            </div>
           </div>
 
           <!-- Frecce delle dipendenze, sopra le righe e sotto la colonna dei nomi -->

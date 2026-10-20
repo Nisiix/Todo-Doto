@@ -228,6 +228,18 @@ export const ItemSchema = z.object({
 })
 export type Item = z.infer<typeof ItemSchema>
 
+/** Tappa del progetto: una versione o un rilascio, con data obiettivo (0.6.0). */
+export const MilestoneSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  dueDate: z.string().nullable().default(null), // YYYY-MM-DD
+  notes: z.string().default(''),
+  /** Raggiunta (chiusa): i task restano legati, la tappa esce dall'elenco delle aperte. */
+  closedAt: iso.nullable().default(null),
+  createdAt: iso.default(''),
+})
+export type Milestone = z.infer<typeof MilestoneSchema>
+
 export const AttachmentFolderSchema = z.object({ id: z.string(), name: z.string() })
 export type AttachmentFolder = z.infer<typeof AttachmentFolderSchema>
 
@@ -347,6 +359,8 @@ export const ProjectSchema = z.object({
   items: z.array(ItemSchema).default([]),
   attachmentFolders: z.array(AttachmentFolderSchema).default([]),
   attachments: z.array(AttachmentSchema).default([]),
+  /** Tappe (versioni, rilasci) a cui si legano i task (0.6.0). */
+  milestones: z.array(MilestoneSchema).default([]),
   stack: StackSchema.default(EMPTY_STACK),
   aiTools: z.array(AiToolSchema).default([]),
   /** Prossimo numero di task (i numeri non si riusano, nemmeno dopo un'eliminazione). */
@@ -604,8 +618,10 @@ export interface ItemFilter {
   assigneeId: string | null // assegnato a
   createdBy: string | null // creato da
   labelId: string | null
+  /** Tappa del progetto ('-' = senza tappa). */
+  milestoneId?: string | null
 }
-export const EMPTY_FILTER: ItemFilter = { from: null, to: null, statuses: [], priorities: [], assigneeId: null, createdBy: null, labelId: null }
+export const EMPTY_FILTER: ItemFilter = { from: null, to: null, statuses: [], priorities: [], assigneeId: null, createdBy: null, labelId: null, milestoneId: null }
 export type LocalConfig = z.infer<typeof LocalConfigSchema>
 
 export const CredentialsFileSchema = z.object({
