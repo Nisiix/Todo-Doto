@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { AtSign, Bell, CheckCheck, UserCheck, CheckCircle2, CircleHelp, FilePlus2, MessageSquare, NotebookPen, Reply, Trash2, Waypoints, Wrench, X } from 'lucide-vue-next'
+import { AtSign, Bell, CheckCheck, UserCheck, CheckCircle2, CircleHelp, FilePlus2, MessageSquare, NotebookPen, Reply, Trash2, Waypoints, Wrench, X, LockOpen } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -56,6 +56,7 @@ const ICON: Record<NotificationType, unknown> = {
   mention: AtSign,
   assigned: UserCheck,
   setup_incomplete: Wrench,
+  unblocked: LockOpen,
 }
 const list = computed(() => notif.items.slice(0, 80))
 const isSystem = (n: Notification) => !n.byId

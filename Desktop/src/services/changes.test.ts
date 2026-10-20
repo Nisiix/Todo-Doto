@@ -4,7 +4,7 @@ import type { Item, Project } from '@/types'
 
 const item = (over: Partial<Item>): Item => ({
   id: 'i1', title: 'Export XBRL\nriga 2', notes: '', priority: 'media', status: 'da_valutare', dueDate: null, labelId: null, assigneeId: null,
-  bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, confirmedAt: null, ...over,
+  bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], confirmedAt: null, ...over,
 })
 const project = (items: Item[], updatedBy = 'u2'): Project =>
   ({ id: 'p', name: 'P', items, updatedBy, members: [], attachments: [], attachmentFolders: [] }) as unknown as Project
@@ -48,5 +48,14 @@ describe('diffProjects: cosa è cambiato tra due versioni', () => {
   it('nessuna differenza → nessuna notifica', () => {
     const a = project([item({ id: 'x' })])
     expect(diffProjects(a, project([item({ id: 'x' })]))).toEqual([])
+  })
+
+  it('sblocco: completato l’ultimo bloccante, l’assegnatario del task bloccato lo sa', () => {
+    const a = project([item({ id: 'b1' }), item({ id: 't', blockedBy: ['b1'], assigneeId: 'u7' }), item({ id: 'n', blockedBy: ['b1'] })])
+    const b = project([item({ id: 'b1', bucket: 'done' }), item({ id: 't', blockedBy: ['b1'], assigneeId: 'u7' }), item({ id: 'n', blockedBy: ['b1'] })])
+    const unblocked = diffProjects(a, b).filter((c) => c.type === 'unblocked')
+    // il task senza assegnatario non genera nulla
+    expect(unblocked.map((c) => [c.itemId, c.mentions])).toEqual([['t', ['u7']]])
+    expect(unblocked[0]!.text).toContain('ora puoi partire')
   })
 })

@@ -4,7 +4,7 @@ import { EMPTY_STACK, type Item, type Project } from '@/types'
 
 const item = (over: Partial<Item>): Item => ({
   id: Math.random().toString(36).slice(2), title: 'x', notes: '', priority: 'media', status: 'da_valutare', dueDate: null, labelId: null, assigneeId: null,
-  bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, confirmedAt: null, ...over,
+  bucket: 'todo', createdAt: '', createdBy: 'u1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], confirmedAt: null, ...over,
 })
 const project = (name: string, items: Item[], trashedAt: string | null = null): Project =>
   ({ id: name, name, items, trashedAt, members: [], attachments: [], attachmentFolders: [], stack: EMPTY_STACK, aiTools: [] }) as unknown as Project

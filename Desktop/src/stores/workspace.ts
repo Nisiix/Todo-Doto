@@ -16,6 +16,7 @@ import { diffProjects } from '@/services/changes'
 import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { applyStatusRules, firstLine } from '@/services/items'
 import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
+import { pruneBlockers, wouldCycle } from '@/services/dependencies'
 import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
 import { explainFsError } from '@/services/fsErrors'
@@ -1209,6 +1210,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       questions: [],
       seq: 0,
       closedByCommit: null,
+      blockedBy: data.blockedBy ?? [],
+      milestoneId: data.milestoneId ?? null,
+      estimateHours: data.estimateHours ?? null,
+      checklist: data.checklist ?? [],
     }
     // Scadenza solo se Confermato; data di conferma per il Gantt
     applyStatusRules(item, item.createdAt)
@@ -1237,6 +1242,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       Object.assign(it, data)
       // Stato o scadenza cambiati: scadenza solo se Confermato (le altre modifiche non toccano i dati esistenti)
       if ('status' in data || 'dueDate' in data) applyStatusRules(it, nowIso())
+    })
+
+  /**
+   * Dipendenze: i task che vanno finiti prima di questo. Si tengono solo task
+   * dello stesso progetto e mai un ciclo (il controllo si ripete sul file aggiornato).
+   */
+  const setBlockers = (projectId: string, itemId: string, blockerIds: string[]) =>
+    mutateItem(projectId, itemId, (it, p) => {
+      const next: string[] = []
+      for (const id of blockerIds) {
+        if (next.includes(id) || !p.items.some((i) => i.id === id)) continue
+        if (wouldCycle(p.items.map((i) => (i.id === it.id ? { ...i, blockedBy: next } : i)), it.id, id)) continue
+        next.push(id)
+      }
+      if (JSON.stringify(next) === JSON.stringify(it.blockedBy)) return false
+      it.blockedBy = next
     })
 
   async function moveItem(projectId: string, itemId: string, bucket: Bucket) {
@@ -1276,6 +1297,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       if (idx < 0) return false
       removed = p.items[idx]
       p.items.splice(idx, 1)
+      pruneBlockers(p.items) // chi lo aspettava non lo aspetta più
     })
     if (r && removed) await record('item_deleted', r, removed)
     return r
@@ -1291,6 +1313,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const before = p.items.length
       p.items = p.items.filter((i) => i.bucket !== 'trash')
       count = before - p.items.length
+      pruneBlockers(p.items)
       return count > 0
     })
     if (r && count > 0) await record('trash_emptied', r, null, count)
@@ -1952,6 +1975,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     deleteProject,
     emptyProjectTrash,
     addItem,
+    setBlockers,
     updateItem,
     moveItem,
     deleteItemForever,

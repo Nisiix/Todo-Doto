@@ -39,6 +39,7 @@ export const common = defineMessages({
       mention: 'Qualcuno mi tagga con @',
       assigned: 'Un elemento viene assegnato a me',
       setup_incomplete: 'Al mio PC manca qualcosa per lavorare a un progetto',
+      unblocked: 'Un mio task non è più bloccato: si può partire',
     },
     /** Testi delle notifiche: seguono il nome di chi ha fatto l'azione. */
     activity: {
@@ -50,6 +51,7 @@ export const common = defineMessages({
       status: (s: string) => `ha cambiato lo stato in «${s}»`,
       notes: 'ha modificato la descrizione',
       assigned: 'ha assegnato l’elemento',
+      unblocked: 'ha completato l’ultimo task che bloccava questo: ora puoi partire',
       commented: (t: string) => `ha commentato: ${t}`,
       asked: (t: string) => `ha chiesto: ${t}`,
       answered: (t: string) => `ha risposto: ${t}`,
@@ -188,6 +190,7 @@ export const common = defineMessages({
       mention: 'Someone tags me with @',
       assigned: 'An item is assigned to me',
       setup_incomplete: 'My PC is missing something to work on a project',
+      unblocked: 'One of my tasks is no longer blocked: work can start',
     },
     activity: {
       created: 'added an item',
@@ -198,6 +201,7 @@ export const common = defineMessages({
       status: (s: string) => `changed the status to “${s}”`,
       notes: 'edited the description',
       assigned: 'assigned the item',
+      unblocked: 'completed the last task blocking this one: you can start now',
       commented: (t: string) => `commented: ${t}`,
       asked: (t: string) => `asked: ${t}`,
       answered: (t: string) => `answered: ${t}`,

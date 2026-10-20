@@ -32,7 +32,7 @@ afterEach(() => Object.assign(window, { __pgmAi: undefined }))
 
 const base: Item = {
   id: 'itm_a', title: 'A', notes: '', priority: 'media', status: 'da_valutare', dueDate: null, labelId: null, assigneeId: null, bucket: 'todo',
-  createdAt: '2026-10-01T00:00:00.000Z', createdBy: 'usr_1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, confirmedAt: null,
+  createdAt: '2026-10-01T00:00:00.000Z', createdBy: 'usr_1', completedAt: null, trashedAt: null, comments: [], questions: [], seq: 0, closedByCommit: null, blockedBy: [], milestoneId: null, estimateHours: null, checklist: [], confirmedAt: null,
 }
 const item = (over: Partial<Item>): Item => ({ ...base, ...over })
 

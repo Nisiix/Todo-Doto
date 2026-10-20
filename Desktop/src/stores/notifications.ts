@@ -153,11 +153,11 @@ export const useNotificationsStore = defineStore('notifications', () => {
       if (c.byId === meId) continue // le proprie azioni non si notificano
       const mentioned = meId !== null && c.mentions.includes(meId)
       let type: NotificationType
-      if (c.type === 'assigned') {
-        if (!mentioned) continue // l'assegnazione interessa solo l'assegnatario
-        type = 'assigned'
+      if (c.type === 'assigned' || c.type === 'unblocked') {
+        if (!mentioned) continue // assegnazione e sblocco interessano solo l'assegnatario
+        type = c.type
       } else type = mentioned ? 'mention' : c.type
-      if (!isEnabled(type) && !(mentioned && type !== 'assigned' && isEnabled('mention'))) continue
+      if (!isEnabled(type) && !(mentioned && type !== 'assigned' && type !== 'unblocked' && isEnabled('mention'))) continue
       fresh.push({
         id: nanoid(10),
         // Stessa versione del progetto, stesso tipo, stesso elemento e testo: è la stessa notizia

@@ -212,6 +212,14 @@ export const ItemSchema = z.object({
   questions: z.array(QuestionSchema).default([]),
   /** Numero progressivo nel progetto: il codice del task è TODO-<seq> (0 = da assegnare, vedi normalizeSeq). */
   seq: z.number().default(0),
+  /** Dipendenze: id dei task dello stesso progetto che vanno finiti prima di questo (0.6.0). */
+  blockedBy: z.array(z.string()).default([]),
+  /** Tappa del progetto (versione, rilascio) a cui appartiene il task (0.6.0). */
+  milestoneId: z.string().nullable().default(null),
+  /** Stima facoltativa in ore, per il carico per settimana (0.6.0). */
+  estimateHours: z.number().nullable().default(null),
+  /** Lista di controllo del task: voci da spuntare (0.6.0). */
+  checklist: z.array(z.object({ id: z.string(), text: z.string(), done: z.boolean().default(false) })).default([]),
   /** Completato in automatico da un commit git ("chiude TODO-12"). */
   closedByCommit: z
     .object({ hash: z.string(), author: z.string().default(''), date: z.string().default(''), subject: z.string().default('') })
@@ -421,6 +429,7 @@ export const NOTIFICATION_TYPES = [
   'mention',
   'assigned',
   'setup_incomplete',
+  'unblocked',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 export const NOTIFICATION_LABEL: Record<NotificationType, string> = common.notification

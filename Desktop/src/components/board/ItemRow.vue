@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import dayjs from 'dayjs'
-import { Check, CircleHelp, GitBranch, MessageSquare } from 'lucide-vue-next'
+import { Check, CircleHelp, GitBranch, Lock, MessageSquare } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import PrioritySelect from './PrioritySelect.vue'
 import StatusSelect from './StatusSelect.vue'
@@ -14,6 +14,8 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
 import { useItemActions } from '@/composables/useItemActions'
 import { useGitStore } from '@/stores/git'
+import { openBlockers } from '@/services/dependencies'
+import { taskCode } from '@/services/gitLink'
 import { dueState, firstLine, formatDue, openQuestions as openQuestionsOf } from '@/services/items'
 import { PRIORITY_LABEL, STATUS_LABEL, type Item, type Priority } from '@/types'
 import { DATE, defineMessages } from '@/i18n'
@@ -26,6 +28,7 @@ const m = defineMessages({
     openQuestions: 'Domande aperte',
     comments: 'Commenti',
     gitActive: 'In lavorazione secondo git: commit recenti che lo citano o il suo branch aperto su questo PC',
+    blockedBy: (list: string) => `Bloccato: prima va finito ${list}`,
     completed: 'completato',
     trashed: 'cestinato',
   },
@@ -36,6 +39,7 @@ const m = defineMessages({
     openQuestions: 'Open questions',
     comments: 'Comments',
     gitActive: 'In progress according to git: recent commits citing it or its branch checked out on this PC',
+    blockedBy: (list: string) => `Blocked: first finish ${list}`,
     completed: 'completed',
     trashed: 'trashed',
   },
@@ -46,9 +50,12 @@ const m = defineMessages({
  * modificabili in linea; le azioni (completa, cestina…) stanno in
  * ItemRowActions e nella tastiera (↑/↓ sposta, Invio apre, C completa, Canc cestina).
  */
-const git = useGitStore()
 const props = defineProps<{ item: Item; projectId: string; readOnly?: boolean }>()
 const ws = useWorkspaceStore()
+const git = useGitStore()
+/** Bloccanti ancora da fare (dipendenze): la riga mostra un lucchetto. */
+const blockers = computed(() => (props.item.bucket === 'todo' && props.item.blockedBy.length ? openBlockers(props.item, ws.projects[props.projectId]?.items ?? []) : []))
+const blockersText = computed(() => blockers.value.map((b) => (b.seq ? taskCode(b.seq) : firstLine(b.title))).join(', '))
 const ui = useUiStore()
 const actions = useItemActions(
   () => props.item,
@@ -125,6 +132,7 @@ function onKeydown(e: KeyboardEvent) {
     </span>
     <!-- Chi ci sta lavorando (workspace di rete): pastiglia di altezza fissa, la riga non si sposta -->
     <WorkingBadge v-if="item.bucket === 'todo'" :item-id="item.id" />
+    <span v-if="blockers.length" class="flex h-5 shrink-0 items-center gap-0.5 rounded-full bg-p-alta/10 px-1.5 text-[11px] font-medium text-p-alta" :title="m.blockedBy(blockersText)" data-row-blocked><Lock :size="11" /> {{ blockers.length }}</span>
     <span v-if="git.isActive(projectId, item)" class="flex h-5 shrink-0 items-center rounded-full bg-ok/10 px-1.5 text-ok" :title="m.gitActive" data-git-active><GitBranch :size="12" /></span>
     <!-- L'etichetta resta visibile anche in modalità compatta: è un colore, non costa spazio -->
     <LabelBadge v-if="!editable || compact" :label-id="item.labelId" />

@@ -20,6 +20,10 @@ const item = (over: Partial<Item>): Item => ({
   questions: [],
   seq: 0,
   closedByCommit: null,
+  blockedBy: [],
+  milestoneId: null,
+  estimateHours: null,
+  checklist: [],
   confirmedAt: null,
   ...over,
 })

@@ -4,6 +4,7 @@
  */
 import { STATUS_LABEL, type Item, type NotificationType, type Project } from '@/types'
 import { firstLine } from './items'
+import { newlyUnblocked } from './dependencies'
 import { common } from '@/i18n/common'
 
 export interface Change {
@@ -56,5 +57,8 @@ export function diffProjects(prev: Project, next: Project): Change[] {
         if (!oldA.has(a.id)) out.push({ ...base(it), type: 'answer', byId: a.authorId, text: A.answered(a.text), mentions: a.mentions })
     }
   }
+  // Dipendenze: l'ultimo bloccante è stato completato, chi ha il task può partire
+  for (const it of newlyUnblocked(prev.items, next.items))
+    if (it.assigneeId) out.push({ ...base(it), type: 'unblocked', text: A.unblocked, mentions: [it.assigneeId] })
   return out
 }

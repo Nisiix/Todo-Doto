@@ -23,7 +23,7 @@ import { normalizeSeq } from './gitLink'
 
 export interface MergeConflict {
   item: string | null
-  /** Campo (o gruppo di campi) in conflitto: title, notes, priority, status, label, assignee, bucket, project:<chiave>. */
+  /** Campo (o gruppo di campi) in conflitto: title, notes, priority, status, label, assignee, bucket, blockedBy, milestone, estimate, checklist, project:<chiave>. */
   field: string
   mine: string
   theirs: string
@@ -49,6 +49,10 @@ const ITEM_GROUPS: { field: string; keys: (keyof Item)[] }[] = [
   { field: 'label', keys: ['labelId'] },
   { field: 'assignee', keys: ['assigneeId'] },
   { field: 'bucket', keys: ['bucket', 'completedAt', 'trashedAt', 'closedByCommit'] },
+  { field: 'blockedBy', keys: ['blockedBy'] },
+  { field: 'milestone', keys: ['milestoneId'] },
+  { field: 'estimate', keys: ['estimateHours'] },
+  { field: 'checklist', keys: ['checklist'] },
 ]
 /** Campi del progetto che non si uniscono (li gestisce il salvataggio) o che hanno regole proprie. */
 const PROJECT_SKIP = new Set(['items', 'version', 'updatedAt', 'updatedBy', 'nextSeq', 'attachments', 'attachmentFolders', 'aiTools', 'schema', 'id'])

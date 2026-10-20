@@ -7,6 +7,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { firstLine } from '@/services/items'
 import { ganttGroups, ganttItems, ganttRange, type GanttBar, type GanttGroupBy } from '@/services/gantt'
+import { criticalChain } from '@/services/dependencies'
 import { DATE, defineMessages, localeTag, plural } from '@/i18n'
 import { PRIORITIES, PRIORITY_LABEL, PRIORITY_RANK, type Project } from '@/types'
 
@@ -37,6 +38,12 @@ const m = defineMessages({
     count: (n: number) => `${n} ${plural(n, 'task', 'task')}`,
     tip: (t: string, from: string, to: string, prio: string) => `${t}\n${from} → ${to} · priorità ${prio}`,
     overdue: 'Scaduto',
+    links: 'Dipendenze',
+    linkConflict: 'il task da finire prima scade dopo',
+    critical: 'Catena critica: la sequenza più lunga di task che si aspettano',
+    legendLink: 'va fatto prima',
+    legendConflict: 'scade dopo il task che lo aspetta',
+    legendCritical: 'catena critica',
   },
   en: {
     title: 'Gantt',
@@ -64,6 +71,12 @@ const m = defineMessages({
     count: (n: number) => `${n} ${plural(n, 'task', 'tasks')}`,
     tip: (t: string, from: string, to: string, prio: string) => `${t}\n${from} → ${to} · ${prio} priority`,
     overdue: 'Overdue',
+    links: 'Dependencies',
+    linkConflict: 'the task to finish first is due later',
+    critical: 'Critical chain: the longest sequence of tasks waiting for each other',
+    legendLink: 'must come first',
+    legendConflict: 'due after the task waiting for it',
+    legendCritical: 'critical chain',
   },
 })
 
@@ -123,6 +136,45 @@ const labelOf = (id: string | null) => (id ? ws.labelsById[id] : null)
 /** Un clic su un task lo apre nella lista Todo, con il dettaglio. */
 const open = (b: GanttBar) => router.push({ name: 'project', params: { id: props.project.id }, query: { item: b.item.id } })
 
+// --- Dipendenze: frecce dal task da finire prima a quello che lo aspetta ---------
+const GROUP_H = 32 // intestazione del gruppo (h-8)
+const ROW_H = 36 // riga di un task (h-9)
+/** Centro verticale di ogni barra e altezza totale delle righe. */
+const rows = computed(() => {
+  const y = new Map<string, number>()
+  let top = 0
+  for (const g of groups.value) {
+    top += GROUP_H
+    for (const b of g.bars) {
+      y.set(b.item.id, top + ROW_H / 2)
+      top += ROW_H
+    }
+  }
+  return { y, height: top }
+})
+const critical = computed(() => new Set(criticalChain(props.project.items).map((i) => i.id)))
+const startX = (b: GanttBar) => (b.milestone ? offset(b.end) + dayW.value / 2 - 7 : offset(b.start))
+const endX = (b: GanttBar) => (b.milestone ? offset(b.end) + dayW.value / 2 + 7 : offset(b.end) + dayW.value)
+const links = computed(() => {
+  const bars = new Map(groups.value.flatMap((g) => g.bars.map((b) => [b.item.id, b] as const)))
+  const out: { key: string; d: string; conflict: boolean; critical: boolean }[] = []
+  for (const b of bars.values()) {
+    for (const id of b.item.blockedBy) {
+      const a = bars.get(id)
+      if (!a) continue
+      const x1 = endX(a)
+      const y1 = rows.value.y.get(a.item.id)!
+      const x2 = startX(b) - 2
+      const y2 = rows.value.y.get(b.item.id)!
+      const mid = x1 + 8
+      // Se il task che aspetta comincia prima della fine del bloccante, la freccia torna indietro a metà tra le righe
+      const d = x2 - 8 >= mid ? `M${x1},${y1} H${mid} V${y2} H${x2}` : `M${x1},${y1} H${mid} V${(y1 + y2) / 2} H${x2 - 8} V${y2} H${x2}`
+      out.push({ key: `${a.item.id}>${b.item.id}`, d, conflict: a.end > b.end, critical: critical.value.has(a.item.id) && critical.value.has(b.item.id) })
+    }
+  }
+  return out
+})
+
 // All'apertura il Gantt si posiziona su oggi
 const scroller = ref<HTMLElement | null>(null)
 async function scrollToToday() {
@@ -148,6 +200,11 @@ watch(zoom, scrollToToday)
       <span class="flex items-center gap-2">
         <span class="text-ink-3">{{ m.zoom }}</span>
         <SegmentedControl v-model="zoom" :options="[{ value: 'days', label: m.days }, { value: 'weeks', label: m.weeks }]" />
+      </span>
+      <span v-if="links.length" class="flex items-center gap-3 text-[11.5px] text-ink-3" data-gantt-legend>
+        <span class="flex items-center gap-1"><svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--ink-3)" stroke-width="1.5" /></svg> {{ m.legendLink }}</span>
+        <span class="flex items-center gap-1"><svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--accent)" stroke-width="2" /></svg> {{ m.legendCritical }}</span>
+        <span class="flex items-center gap-1"><svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="var(--danger)" stroke-width="2" stroke-dasharray="4 3" /></svg> {{ m.legendConflict }}</span>
       </span>
       <span class="ml-auto text-[12px] text-ink-3" data-gantt-count>{{ m.count(total) }}</span>
     </div>
@@ -231,6 +288,34 @@ watch(zoom, scrollToToday)
             <div class="absolute inset-y-0 w-px bg-danger/70" :style="{ left: `${todayLeft}px` }" :title="m.today" data-gantt-today />
           </div>
 
+          <!-- Frecce delle dipendenze, sopra le righe e sotto la colonna dei nomi -->
+          <svg
+            v-if="links.length"
+            class="pointer-events-none absolute top-0 z-[5] overflow-visible"
+            :style="{ left: '280px', width: `${width}px`, height: `${rows.height}px` }"
+            :aria-label="m.links"
+            data-gantt-links
+          >
+            <defs>
+              <marker v-for="(c, k) in { n: 'var(--ink-3)', c: 'var(--accent)', x: 'var(--danger)' }" :id="`gantt-arrow-${k}`" :key="k" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0,0 L8,4 L0,8 z" :fill="c" />
+              </marker>
+            </defs>
+            <path
+              v-for="l in links"
+              :key="l.key"
+              :d="l.d"
+              fill="none"
+              :stroke="l.conflict ? 'var(--danger)' : l.critical ? 'var(--accent)' : 'var(--ink-3)'"
+              :stroke-width="l.critical || l.conflict ? 2 : 1.5"
+              :stroke-dasharray="l.conflict ? '4 3' : undefined"
+              :marker-end="`url(#gantt-arrow-${l.conflict ? 'x' : l.critical ? 'c' : 'n'})`"
+              :data-gantt-link="l.key"
+              :data-conflict="l.conflict ? '' : undefined"
+            >
+              <title>{{ l.conflict ? m.linkConflict : l.critical ? m.critical : m.links }}</title>
+            </path>
+          </svg>
           <section v-for="g in groups" :key="g.key" :data-gantt-group="g.title">
             <div class="sticky left-0 z-10 flex h-8 w-[280px] items-center gap-2 border-b border-line bg-surface-2 px-3 text-[12.5px] font-semibold">
               <span v-if="g.priority" class="h-2.5 w-2.5 shrink-0 rounded-full" :class="`bg-p-${g.priority}`" />
