@@ -1,0 +1,4 @@
+node_modules/
+build/
+# Rigenerabili con npm run frames
+frames/

@@ -53,7 +53,7 @@ Il repository è `Nisiix/Todo-Doto`: ogni push su `main` che tocca `Desktop/` av
 
 ### Schermate del sito
 
-`node scripts/screenshots.mjs` (oppure `… it` / `… en`) compila l'app nella lingua, inserisce dati di esempio generici dall'interfaccia (con Microsoft Edge tramite Playwright) e salva le schermate della landing in `../Web/assets/screens/<lingua>/`.
+`node scripts/screenshots.mjs` (oppure `… it` / `… en`) compila l'app nella lingua, inserisce dati di esempio generici dall'interfaccia (con Microsoft Edge tramite Playwright) e salva le schermate della landing in `../Web/assets/screens/<lingua>/`. Salva anche i fotogrammi dei video tutorial in `../Video/frames/<lingua>/` (vedi `../Video/README.md`).
 
 ## Struttura
 

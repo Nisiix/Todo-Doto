@@ -1,0 +1,15 @@
+{
+  "name": "todo-doto-tutorials",
+  "private": true,
+  "type": "module",
+  "description": "Video tutorial del sito (HyperFrames): composizioni HTML generate dai fotogrammi dell'app e renderizzate in MP4",
+  "scripts": {
+    "frames": "cd ../Desktop && node scripts/screenshots.mjs",
+    "build": "node build.mjs",
+    "render": "node build.mjs --render"
+  },
+  "devDependencies": {
+    "@fontsource/manrope": "5.2.8",
+    "gsap": "3.14.2"
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "$comment": "Video tutorial del sito. Ogni passo mostra un fotogramma dell'app (frames/<lingua>/<frame>.png) e inquadra la zona salvata in boxes.json. Testi brevi: restano sullo schermo circa 5 secondi. Un passo può indicare \"box\" (pixel della schermata 1600×1000) per inquadrare una zona diversa da quella salvata.",
+  "tutorials": [
+    {
+      "id": "getting-started",
+      "it": {
+        "kicker": "Tutorial 1",
+        "title": "Primi passi",
+        "subtitle": "Workspace, progetti e task in un minuto"
+      },
+      "en": {
+        "kicker": "Tutorial 1",
+        "title": "Getting started",
+        "subtitle": "Workspace, projects and tasks in a minute"
+      },
+      "steps": [
+        {
+          "frame": "welcome",
+          "it": "Avvia Todo Doto e crea un workspace: la cartella condivisa del tuo ufficio.",
+          "en": "Start Todo Doto and create a workspace: your office's shared folder."
+        },
+        {
+          "frame": "ws-create",
+          "it": "Scegli la cartella dei progetti e quella dei dati. In rete, tutti lavorano sugli stessi file.",
+          "en": "Pick the projects folder and the data folder. On a network share, everyone works on the same files."
+        },
+        {
+          "frame": "project-create",
+          "it": "Crea un progetto: il nome è quello della sua cartella sul disco.",
+          "en": "Create a project: its name is the name of its folder on disk."
+        },
+        {
+          "frame": "item-create",
+          "it": "Aggiungi i task con priorità, stato, scadenza, assegnatario ed etichetta.",
+          "en": "Add tasks with priority, status, due date, assignee and label."
+        },
+        {
+          "frame": "project-list",
+          "it": "La barra colorata cresce con la priorità: la lista si legge a colpo d’occhio.",
+          "en": "The colored bar grows with the priority: the list reads at a glance."
+        }
+      ]
+    },
+    {
+      "id": "tasks-and-team",
+      "it": {
+        "kicker": "Tutorial 2",
+        "title": "Task e lavoro di squadra",
+        "subtitle": "Filtri, domande, Gantt e ricerca"
+      },
+      "en": {
+        "kicker": "Tutorial 2",
+        "title": "Tasks and teamwork",
+        "subtitle": "Filters, questions, Gantt and search"
+      },
+      "steps": [
+        {
+          "frame": "filters",
+          "it": "Filtra per periodo, stato, priorità, «assegnato a», «creato da» ed etichetta.",
+          "en": "Filter by period, status, priority, “assigned to”, “created by” and label.",
+          "box": {
+            "x": 288,
+            "y": 156,
+            "w": 1280,
+            "h": 176
+          }
+        },
+        {
+          "frame": "item-detail",
+          "it": "Nel dettaglio del task: domande, risposte e commenti con @menzioni.",
+          "en": "In the task details: questions, answers and comments with @mentions."
+        },
+        {
+          "frame": "gantt",
+          "it": "Il Gantt mostra i task confermati con una scadenza, per etichetta o per priorità.",
+          "en": "The Gantt shows confirmed tasks with a due date, by label or by priority.",
+          "box": {
+            "x": 288,
+            "y": 290,
+            "w": 1280,
+            "h": 196
+          }
+        },
+        {
+          "frame": "search",
+          "it": "Ctrl+K cerca in tutti i progetti: task, nomi dei progetti e allegati.",
+          "en": "Ctrl+K searches every project: tasks, project names and attachments."
+        }
+      ]
+    },
+    {
+      "id": "stack-and-setup",
+      "it": {
+        "kicker": "Tutorial 3",
+        "title": "Stack e configurazione del PC",
+        "subtitle": "Chi entra nel progetto è pronto in pochi minuti"
+      },
+      "en": {
+        "kicker": "Tutorial 3",
+        "title": "Stack and PC setup",
+        "subtitle": "Newcomers are ready in minutes"
+      },
+      "steps": [
+        {
+          "frame": "stack-edit",
+          "it": "Descrivi lo stack: linguaggi, framework, prerequisiti, passi e variabili d’ambiente.",
+          "en": "Describe the stack: languages, frameworks, prerequisites, steps and environment variables."
+        },
+        {
+          "frame": "stack",
+          "it": "Oppure ricavalo dai file del progetto con «Rileva dai file del progetto».",
+          "en": "Or derive it from the project files with “Detect from the project files”.",
+          "box": {
+            "x": 286,
+            "y": 188,
+            "w": 200,
+            "h": 40
+          }
+        },
+        {
+          "frame": "stack-setup",
+          "it": "«Configura sul tuo PC»: l’app verifica i prerequisiti e segue i passi con te.",
+          "en": "“Set up on your PC”: the app checks the prerequisites and walks the steps with you."
+        },
+        {
+          "frame": "stack-template",
+          "it": "Un nuovo progetto può partire dallo stack di uno esistente.",
+          "en": "A new project can start from the stack of an existing one."
+        },
+        {
+          "frame": "ai-settings",
+          "it": "Con l’IA locale, gratuita e tutta sul tuo PC, l’analisi diventa ancora più precisa.",
+          "en": "With local AI, free and entirely on your PC, the analysis gets even more precise."
+        }
+      ]
+    }
+  ],
+  "outro": {
+    "it": {
+      "title": "Scarica Todo Doto",
+      "subtitle": "Gratis per uso personale · Windows 10/11",
+      "url": "projectgoalmanager.app"
+    },
+    "en": {
+      "title": "Download Todo Doto",
+      "subtitle": "Free for personal use · Windows 10/11",
+      "url": "projectgoalmanager.app"
+    }
+  }
+}

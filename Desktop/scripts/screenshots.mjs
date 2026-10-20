@@ -3,16 +3,19 @@
 //
 // Uso:   node scripts/screenshots.mjs            (italiano e inglese)
 //        node scripts/screenshots.mjs en         (una sola lingua)
+// Salva anche i fotogrammi dei video tutorial (../Video/frames/<lingua>/, con le
+// zone da inquadrare in boxes.json), usati da ../Video/build.mjs.
 // Browser: Microsoft Edge installato (channel msedge); per un altro Chromium
 // impostare PW_CHROMIUM_PATH=/percorso/chrome.
 import { spawn, execSync } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, '..', 'Web', 'assets', 'screens')
+const FRAMES = join(ROOT, '..', 'Video', 'frames')
 const VIEWPORT = { width: 1600, height: 1000 }
 
 const day = (offset) => {
@@ -43,7 +46,7 @@ const LANGS = {
       step: 'Passo', stepTitle: 'Titolo del passo, es. Installa le dipendenze', commands: 'Uno o più comandi, uno per riga (es. npm install)',
       envVar: 'Variabile', varName: 'NOME_VARIABILE', varExample: 'valore di esempio', varNotes: 'A cosa serve / dove si prende', markStepDone: 'Segna come fatto', file: 'File', filePath: 'Percorso, es. package.json o src/main.ts', fileContent: 'Contenuto del file', copyFrom: (n) => `Copia da «${n}»`,
       aiSection: 'Strumenti AI', newTool: 'Nuovo strumento', connector: 'Connettore', skill: 'Skill', pastePh: '…oppure incolla',
-      audit: 'Cronologia operazioni', analytics: 'Analisi',
+      audit: 'Cronologia operazioni', analytics: 'Analisi', setupTitle: 'Configura sul tuo PC',
     },
     data: {
       ws: 'Roadmap di test',
@@ -110,7 +113,7 @@ const LANGS = {
       step: 'Step', stepTitle: 'Step title, e.g. Install the dependencies', commands: 'One or more commands, one per line (e.g. npm install)',
       envVar: 'Variable', varName: 'VARIABLE_NAME', varExample: 'example value', varNotes: 'What it is for / where to get it', markStepDone: 'Mark as done', file: 'File', filePath: 'Path, e.g. package.json or src/main.ts', fileContent: 'File content', copyFrom: (n) => `Copy from “${n}”`,
       aiSection: 'AI tools', newTool: 'New tool', connector: 'Connector', skill: 'Skill', pastePh: '…or paste',
-      audit: 'Activity log', analytics: 'Analytics',
+      audit: 'Activity log', analytics: 'Analytics', setupTitle: 'Set up on your PC',
     },
     data: {
       ws: 'Test roadmap',
@@ -192,6 +195,20 @@ async function capture(lang) {
   const browser = await chromium.launch(process.env.PW_CHROMIUM_PATH ? { executablePath: process.env.PW_CHROMIUM_PATH, args: [`--lang=${tag}`] } : { channel: 'msedge', args: [`--lang=${tag}`] })
   try {
     const context = await browser.newContext({ viewport: VIEWPORT, locale: tag, colorScheme: 'light' })
+    // "PC" con il banner dell'IA locale già chiuso e un motore simulato (Ollama con i modelli consigliati)
+    await context.addInitScript(() => {
+      Object.assign(window, {
+        __pgmSeedFiles: { '/appdata/config.json': JSON.stringify({ ai: { bannerDismissed: true, autoDetectDone: true } }) },
+        __pgmAi: {
+          request(req) {
+            const path = new URL(req.url).pathname
+            if (path === '/api/tags') return { status: 200, body: JSON.stringify({ models: [{ name: 'qwen3:4b' }, { name: 'nomic-embed-text:latest' }] }) }
+            if (path === '/api/version') return { status: 200, body: '{"version":"0.12.6"}' }
+            return { status: 404, body: '{}' }
+          },
+        },
+      })
+    })
     const page = await context.newPage()
     page.setDefaultTimeout(10_000)
     const dir = join(OUT, lang)
@@ -211,6 +228,19 @@ async function capture(lang) {
       await page.screenshot({ path: join(dir, `${name}.png`) })
       console.log(`  ${lang}/${name}.png`)
     }
+    // Fotogrammi dei tutorial: schermata + zona da inquadrare (in pixel della schermata)
+    const frameDir = join(FRAMES, lang)
+    mkdirSync(frameDir, { recursive: true })
+    const boxes = {}
+    const frame = async (name, focus, { settle = 350 } = {}) => {
+      await page.mouse.move(VIEWPORT.width - 2, VIEWPORT.height - 2)
+      await page.waitForTimeout(settle)
+      const box = focus ? await focus.boundingBox().catch(() => null) : null
+      boxes[name] = box ? { x: Math.round(box.x), y: Math.round(box.y), w: Math.round(box.width), h: Math.round(box.height) } : null
+      await page.screenshot({ path: join(frameDir, `${name}.png`) })
+      writeFileSync(join(frameDir, 'boxes.json'), JSON.stringify({ viewport: VIEWPORT, boxes }, null, 2))
+      console.log(`  frame ${lang}/${name}.png`)
+    }
     const wsMenu = async (item) => {
       await page.getByRole('button', { name: D.ws }).first().click()
       await page.getByRole('menuitem', { name: item }).click()
@@ -223,12 +253,15 @@ async function capture(lang) {
 
     // --- workspace, nome visibile, etichette, cartella ---------------------------
     await page.goto(url)
+    await page.getByRole('button', { name: T.createWs }).first().waitFor()
+    await frame('welcome', page.getByRole('button', { name: T.createWs }).first())
     await page.getByRole('button', { name: T.createWs }).first().click()
     await page.fill('#ws-name', D.ws)
     // Cartella dei progetti e cartella Dati Todo Doto: con i pulsanti Sfoglia del dialog
     // (nel browser il filesystem è in memoria: i percorsi digitati non esisterebbero)
     await page.getByRole('button', { name: T.pickProjects }).click()
     await page.getByRole('button', { name: T.pickData }).click()
+    await frame('ws-create', dialog())
     await page.getByRole('button', { name: T.createWs }).last().click()
     await page.getByRole('heading', { name: D.ws }).waitFor()
 
@@ -263,6 +296,7 @@ async function capture(lang) {
         await page.getByText(T.newProjectHere).click()
       } else await page.getByRole('button', { name: T.project, exact: true }).click()
       await page.fill('#p-name', name)
+      if (name === D.main.name) await frame('project-create', dialog())
       await page.getByRole('button', { name: T.createProject }).click()
       await page.getByRole('heading', { name, level: 1 }).waitFor()
     }
@@ -280,6 +314,7 @@ async function capture(lang) {
     const addItem = async (it) => {
       await page.getByRole('button', { name: T.newItem }).click()
       await fillItem(it)
+      if (it === D.items[1]) await frame('item-create', dialog())
       await dialog().getByRole('button', { name: T.create, exact: true }).click()
       await dialog().waitFor({ state: 'hidden' })
       if (it.complete) await rows().filter({ hasText: it.title }).getByTitle(T.markDone).click()
@@ -307,12 +342,22 @@ async function capture(lang) {
 
     // 1) Lista del progetto (hero)
     await shot('project-list')
+    await frame('project-list', rows().first().locator('xpath=..'))
+    await page.getByRole('button', { name: /^(Filtri|Filters)/ }).click()
+    await frame('filters', page.locator('main header'))
+    await page.getByRole('button', { name: /^(Filtri|Filters)/ }).click()
 
     // 2) Dettaglio con domanda e commento
     await rows().filter({ hasText: D.detailItem }).getByText(D.detailItem).click()
     await page.getByText(D.answerText).waitFor()
     await shot('project-detail')
+    await frame('item-detail', page.getByText(D.answerText).locator('xpath=ancestor::section[1]'))
     await page.getByTitle(T.closeEsc).click()
+
+    // Gantt dei task confermati con scadenza
+    await openSection('Gantt')
+    await page.waitForTimeout(400)
+    await frame('gantt', page.locator('main .overflow-y-auto').first())
 
     // 3) Allegati (sezione del progetto nel sottomenu della barra laterale)
     await openSection(T.attachmentsTab)
@@ -369,10 +414,17 @@ async function capture(lang) {
       await page.getByPlaceholder(T.filePath).last().fill(path)
       await page.getByPlaceholder(T.fileContent).last().fill(content)
     }
+    await page.locator('form').first().evaluate((f) => f.scrollIntoView({ block: 'start' }))
+    await frame('stack-edit', page.locator('form').first())
     await page.getByRole('button', { name: T.save, exact: true }).click()
     await page.getByTitle(T.markStepDone).first().click()
     await page.getByTitle(T.markStepDone).first().click()
     await shot('stack')
+    await page.evaluate(() => document.querySelectorAll('main .overflow-y-auto').forEach((e) => (e.scrollTop = 0)))
+    await frame('stack', page.locator('main h2').first())
+    const setup = page.getByRole('heading', { name: T.setupTitle, level: 3 }).locator('xpath=ancestor::section[1]')
+    await setup.evaluate((el) => el.scrollIntoView({ block: 'start' }))
+    await frame('stack-setup', setup)
 
     // 4b) Nuovo progetto che parte da questo stack: nel dialog del progetto si sceglie «Copia da …»
     await page.getByRole('button', { name: T.project, exact: true }).click()
@@ -381,6 +433,7 @@ async function capture(lang) {
     await page.waitForTimeout(300)
     await page.screenshot({ path: join(dir, 'stack-template.png') })
     console.log(`  ${lang}/stack-template.png`)
+    await frame('stack-template', dialog())
     await page.keyboard.press('Escape')
     await dialog().waitFor({ state: 'hidden' })
 
@@ -415,7 +468,19 @@ async function capture(lang) {
     await page.waitForTimeout(300)
     await page.screenshot({ path: join(dir, 'search.png') })
     console.log(`  ${lang}/search.png`)
+    await frame('search', page.getByRole('listbox'), { settle: 100 })
     await page.keyboard.press('Escape')
+
+    // Impostazioni › IA locale: prova della connessione con il motore (simulato)
+    await page.locator('[data-workspace-menu]').click()
+    await page.getByRole('menuitem', { name: T.settings }).click()
+    await page.locator('[data-settings-tab="ai"]').click()
+    // Attivandola, l'app trova da sola il motore e i modelli
+    await page.locator('[data-ai-enabled]').check()
+    await page.locator('[data-ai-status]').waitFor()
+    await frame('ai-settings', dialog())
+    await page.keyboard.press('Escape')
+    await dialog().waitFor({ state: 'hidden' })
 
     // 9) Nuovo elemento, tema scuro
     await page.keyboard.press('Control+Shift+L')
