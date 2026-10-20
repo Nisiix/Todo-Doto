@@ -634,7 +634,8 @@ test('sezioni del progetto: Stack con procedura guidata e strumenti AI; Analisi 
   await page.getByRole('menuitem', { name: 'Analisi' }).click()
   await expect(page.getByRole('heading', { name: 'Analisi' })).toBeVisible()
   await expect(page.getByText('Carico per utente')).toBeVisible()
-  await expect(page.getByRole('main').getByText('Stack test')).toBeVisible()
+  // Il progetto compare nella salute dei progetti e nella tabella per progetto
+  await expect(page.getByRole('main').getByText('Stack test')).toHaveCount(2)
 })
 
 test('stack come modello: cartella creata con il progetto, import dello stack da un altro progetto', async ({ page }) => {
