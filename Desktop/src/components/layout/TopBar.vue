@@ -14,6 +14,7 @@ import NotificationsPanel from './NotificationsPanel.vue'
 import GlobalSearch from './GlobalSearch.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useUiStore } from '@/stores/ui'
+import { useVpnStore } from '@/stores/vpn'
 import { defineMessages } from '@/i18n'
 
 const m = defineMessages({
@@ -31,6 +32,8 @@ const m = defineMessages({
     backupFailed: 'Copia dei dati non riuscita: vedi Impostazioni',
     unreachable: 'Cartella non raggiungibile, riprovo…',
     offline: 'Fuori ufficio',
+    vpnConnect: (n: string) => `Collega ${n}`,
+    vpnFailed: 'Collegamento alla VPN non riuscito: vedi Impostazioni › Dati utente.',
     offlinePending: (n: number) => (n === 1 ? '1 progetto da inviare' : `${n} progetti da inviare`),
     offlineHint: 'Cartella condivisa non raggiungibile: lavori sulla copia di questo PC. Puoi modificare task e progetti; le modifiche si inviano da sole quando torni in rete (anche con la VPN).',
     wsMembers: 'Membri del workspace',
@@ -51,6 +54,8 @@ const m = defineMessages({
     backupFailed: 'Data backup failed: see Settings',
     unreachable: 'Folder unreachable, retrying…',
     offline: 'Away from the office',
+    vpnConnect: (n: string) => `Connect ${n}`,
+    vpnFailed: 'VPN connection failed: see Settings › User data.',
     offlinePending: (n: number) => (n === 1 ? '1 project to send' : `${n} projects to send`),
     offlineHint: 'Shared folder unreachable: you are working on this PC’s copy. You can change tasks and projects; the changes are sent by themselves when you are back on the network (VPN included).',
     wsMembers: 'Workspace members',
@@ -61,6 +66,15 @@ const m = defineMessages({
 
 const ws = useWorkspaceStore()
 const ui = useUiStore()
+const vpn = useVpnStore()
+/** VPN scelta per questo workspace su questo PC (per collegarla dal badge «Fuori ufficio»). */
+const vpnName = computed(() => vpn.prefFor(ws.meta?.id)?.name ?? '')
+async function connectVpn() {
+  const r = await vpn.connect(vpnName.value)
+  if (r.ok) void ws.refresh()
+  else if (r.needsCredentials) void vpn.openWindowsVpn()
+  else ui.toast(m.vpnFailed, 'error', undefined, 6000)
+}
 const router = useRouter()
 const showLabels = ref(false)
 const showShortcuts = ref(false)
@@ -126,6 +140,16 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     >
       <WifiOff :size="14" class="text-p-media" /> {{ m.offline }}<template v-if="ws.offlinePending"> · {{ m.offlinePending(ws.offlinePending) }}</template>
     </span>
+    <button
+      v-if="ws.status === 'unreachable' && vpnName"
+      type="button"
+      class="rounded-md border border-line px-2 py-1 text-[12px] font-medium hover:bg-surface-2 disabled:opacity-50"
+      :disabled="vpn.connecting"
+      data-vpn-badge
+      @click="connectVpn"
+    >
+      {{ m.vpnConnect(vpnName) }}
+    </button>
     <span
       v-else-if="ws.status === 'unreachable'"
       class="flex items-center gap-1.5 rounded-md bg-danger/10 px-2 py-1 text-[12.5px] font-medium text-danger"

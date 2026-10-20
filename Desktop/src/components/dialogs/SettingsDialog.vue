@@ -6,6 +6,8 @@ import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, Heart, KeyRound, Lock, 
 import { useConfirm } from '@/composables/useConfirm'
 import { getFs } from '@/services/fs'
 import { DONATE_URL } from '@/services/branding'
+import VpnSettings from './VpnSettings.vue'
+import DomainLoginSettings from './DomainLoginSettings.vue'
 import dayjs from 'dayjs'
 import RestoreDialog from './RestoreDialog.vue'
 import AiSettings from './AiSettings.vue'
@@ -388,6 +390,10 @@ const themes: { value: Theme; label: string }[] = [
         <p class="mt-1 text-[12px] leading-snug text-ink-3">{{ m.offHint }}</p>
         <p v-if="ws.offlinePending" class="mt-1 text-[12px] font-medium text-p-media">{{ m.offPending(ws.offlinePending) }}</p>
       </section>
+
+      <VpnSettings v-if="ws.isNetwork" />
+
+      <DomainLoginSettings v-if="ws.isNetwork" />
 
       <section v-if="ws.isNetwork && ws.meta?.auth" aria-labelledby="s-enc-title" data-encryption>
         <span id="s-enc-title" class="label">{{ m.encTitle }}</span>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LockBusyError, WorkspaceStorage } from './storage'
 import { getFs } from './fs'
-import { EMPTY_STACK, type Item, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
+import { EMPTY_STACK, MAIL_DEFAULTS, type Item, type Project, type UsersFile, type WorkspaceMeta } from '@/types'
 
 const meta: WorkspaceMeta = {
   schema: 1,
@@ -14,9 +14,11 @@ const meta: WorkspaceMeta = {
   projectsPath: '',
   backup: { enabled: true, dir: '' },
   encryption: null,
+  domainLogin: { enabled: false, adminGroups: [], cleanerGroups: [] },
+  mail: MAIL_DEFAULTS,
 }
 const users: UsersFile = {
-  users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt }],
+  users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt, sid: '', domain: '', email: '', mailOn: [] }],
 }
 const project = (id: string): Project => ({
   schema: 1,

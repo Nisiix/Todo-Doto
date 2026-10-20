@@ -76,8 +76,8 @@ describe('configurazione dei PC', () => {
 
     // Un collega su un altro PC, con Node installato, e un terzo a cui manca: scrivono i loro file
     await ws.storage!.mutateUsers((f) => {
-      f.users.push({ id: 'usr_bruno', username: 'bruno', hostname: 'PC2', displayName: 'Bruno', role: 'member', createdAt: '' })
-      f.users.push({ id: 'usr_carla', username: 'carla', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' })
+      f.users.push({ id: 'usr_bruno', username: 'bruno', hostname: 'PC2', displayName: 'Bruno', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] })
+      f.users.push({ id: 'usr_carla', username: 'carla', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] })
     })
     const other = await new WorkspaceStorage('/rete').init()
     const mine = ws.readiness[me.id]!.projects[p.id]!

@@ -36,8 +36,16 @@ export const UserSchema = z.object({
   displayName: z.string(),
   role: z.enum(ROLES),
   createdAt: iso,
+  /** Account di dominio (Active Directory / Entra ID): SID e dominio, per riconoscere la stessa persona su più PC. */
+  sid: z.string().default(''),
+  domain: z.string().default(''),
+  /** Email per i messaggi del workspace (menzioni, assegnazioni, riepilogo), facoltativa. */
+  email: z.string().default(''),
+  /** Per cosa ricevere un'email: menzioni, task assegnati, riepilogo del mattino. */
+  mailOn: z.array(z.enum(['mention', 'assigned', 'digest'])).default([]),
 })
 export type User = z.infer<typeof UserSchema>
+export type MailTopic = User['mailOn'][number]
 
 export const UsersFileSchema = z.object({ users: z.array(UserSchema).default([]) })
 export type UsersFile = z.infer<typeof UsersFileSchema>
@@ -55,6 +63,30 @@ export const EncryptionInfoSchema = z.object({
   wrapped: z.string(),
 })
 export type EncryptionInfo = z.infer<typeof EncryptionInfoSchema>
+
+export const MailSettingsSchema = z.object({
+  /** off = solo «Invia per email» (mailto); outlook = Outlook del PC di chi invia; smtp = server aziendale. */
+  method: z.enum(['off', 'outlook', 'smtp']).default('off'),
+  smtp: z
+    .object({
+      host: z.string().default(''),
+      port: z.number().default(587),
+      security: z.enum(['starttls', 'tls', 'none']).default('starttls'),
+      from: z.string().default(''),
+      user: z.string().default(''),
+      /** Password cifrata con una chiave ricavata dalla password del workspace (vedi services/mail.ts). */
+      secret: z.string().default(''),
+    })
+    .default({ host: '', port: 587, security: 'starttls', from: '', user: '', secret: '' }),
+  /** Riepilogo del mattino: ora (0-23) dopo la quale il primo PC di un amministratore lo invia. */
+  digest: z.object({ enabled: z.boolean().default(false), hour: z.number().min(0).max(23).default(8) }).default({ enabled: false, hour: 8 }),
+})
+export type MailSettings = z.infer<typeof MailSettingsSchema>
+export const MAIL_DEFAULTS: MailSettings = {
+  method: 'off',
+  smtp: { host: '', port: 587, security: 'starttls', from: '', user: '', secret: '' },
+  digest: { enabled: false, hour: 8 },
+}
 
 export const WorkspaceMetaSchema = z.object({
   schema: z.number().default(1),
@@ -76,6 +108,16 @@ export const WorkspaceMetaSchema = z.object({
    */
   backup: z.object({ enabled: z.boolean().default(true), dir: z.string().default('') }).default({ enabled: true, dir: '' }),
   encryption: EncryptionInfoSchema.nullable().default(null),
+  /**
+   * Accesso con l'account di dominio: gli utenti si riconoscono dal SID
+   * dell'account Windows (stessa persona su più PC = un utente) e, se indicati,
+   * i ruoli si ricavano dai gruppi di Active Directory.
+   */
+  domainLogin: z
+    .object({ enabled: z.boolean().default(false), adminGroups: z.array(z.string()).default([]), cleanerGroups: z.array(z.string()).default([]) })
+    .default({ enabled: false, adminGroups: [], cleanerGroups: [] }),
+  /** Email del workspace (Outlook del PC o server SMTP aziendale) e riepilogo del mattino. */
+  mail: MailSettingsSchema.default(MAIL_DEFAULTS),
 })
 export type WorkspaceMeta = z.infer<typeof WorkspaceMetaSchema>
 
@@ -513,6 +555,8 @@ export const LocalConfigSchema = z.object({
   reopenLast: z.boolean().default(true),
   /** Copia dei workspace di rete su questo PC, per lavorare quando la cartella condivisa non si raggiunge. */
   offlineCopy: z.boolean().default(true),
+  /** VPN di Windows da usare per ogni workspace (id → nome) e se collegarla da sola quando la cartella non risponde. */
+  vpn: z.record(z.string(), z.object({ name: z.string(), auto: z.boolean().default(true) })).default({}),
   // workspaceId -> id dei progetti preferiti (scelta personale, per macchina)
   favorites: z.record(z.string(), z.array(z.string())).default({}),
   // tipi di notifica disattivati (tutti attivi se assenti)
@@ -542,6 +586,10 @@ export type CredentialsFile = z.infer<typeof CredentialsFileSchema>
 export interface Identity {
   username: string
   hostname: string
+  /** Account di dominio (solo PC in dominio o Entra ID; vuoti altrimenti). */
+  domain?: string
+  sid?: string
+  groups?: string[]
 }
 
 export type ChangeEvent =

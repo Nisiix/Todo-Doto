@@ -14,7 +14,7 @@ async function setup(path: string) {
   const p = (await ws.createProject({ name: 'Sito', description: '', folderId: null, members: [] }))!
   const a = (await ws.addItem(p.id, { title: 'Pagina contatti' }))!
   const b = (await ws.addItem(p.id, { title: 'Menu mobile' }))!
-  await ws.storage!.mutateUsers((f) => f.users.push({ id: 'usr_c', username: 'carla', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }))
+  await ws.storage!.mutateUsers((f) => f.users.push({ id: 'usr_c', username: 'carla', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }))
   await ws.refresh()
   return { ws, p, a, b }
 }

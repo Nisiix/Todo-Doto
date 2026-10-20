@@ -9,6 +9,7 @@ import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { accountLabel } from '@/services/domain'
 import { useConfirm } from '@/composables/useConfirm'
 import { useSharing } from '@/composables/useSharing'
 import { projectVisibility, ROLE_LABEL, type Role, type User } from '@/types'
@@ -30,6 +31,7 @@ const m = defineMessages({
     localLead: 'Workspace locale: sei l’unico utente. Per lavorare con i colleghi crea un workspace condiviso in rete.',
     cleanerHint: 'Può spostare nel cestino qualsiasi elemento, anche non assegnato a lui',
     userSince: (u: string, h: string, d: string) => `${u} su ${h} · dal ${d}`,
+    domainSince: (acc: string, d: string) => `Account di dominio ${acc} · dal ${d}`,
     restricted: (n: number) => `${n} ${plural(n, 'progetto riservato', 'progetti riservati')}`,
     permissions: 'Gestione permessi',
     permissionsHint: 'Chi può vedere ciascun progetto, utente per utente',
@@ -48,6 +50,7 @@ const m = defineMessages({
     localLead: 'Local workspace: you are the only user. To work with colleagues, create a workspace shared on the network.',
     cleanerHint: 'Can move any item to the trash, even when not assigned to them',
     userSince: (u: string, h: string, d: string) => `${u} on ${h} · since ${d}`,
+    domainSince: (acc: string, d: string) => `Domain account ${acc} · since ${d}`,
     restricted: (n: number) => `${n} restricted ${plural(n, 'project', 'projects')}`,
     permissions: 'Manage permissions',
     permissionsHint: 'Who can see each project, user by user',
@@ -127,7 +130,7 @@ const menu = (u: User) => [
             <span v-if="u.role === 'admin'" class="flex items-center gap-1 rounded-full bg-accent-soft px-1.5 py-px text-[11px] font-semibold text-accent-ink"><Shield :size="11" /> {{ ROLE_LABEL.admin }}</span>
             <span v-else-if="u.role === 'cleaner'" class="flex items-center gap-1 rounded-full bg-p-media/20 px-1.5 py-px text-[11px] font-semibold text-ink-2" :title="m.cleanerHint"><Eraser :size="11" /> {{ ROLE_LABEL.cleaner }}</span>
           </div>
-          <span class="block text-[12px] text-ink-3">{{ m.userSince(u.username, u.hostname, dayjs(u.createdAt).format(DATE.date)) }}</span>
+          <span class="block text-[12px] text-ink-3">{{ u.sid && u.domain ? m.domainSince(accountLabel(u), dayjs(u.createdAt).format(DATE.date)) : m.userSince(u.username, u.hostname, dayjs(u.createdAt).format(DATE.date)) }}</span>
         </div>
         <span class="text-[12px] tabular-nums text-ink-3">{{ projectsOf(u) ? m.restricted(projectsOf(u)) : '' }}</span>
         <BaseMenu v-if="ws.isAdmin && u.id !== ws.currentUser?.id" :items="menu(u)">

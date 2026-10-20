@@ -282,7 +282,7 @@ describe('workspace: visibilità per membri', () => {
     const ws = useWorkspaceStore()
     expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
     await ws.storage!.mutateUsers((f) =>
-      f.users.push({ id: 'usr_other', username: 'altro', hostname: 'PC2', displayName: 'Altro', role: 'member', createdAt: '' }),
+      f.users.push({ id: 'usr_other', username: 'altro', hostname: 'PC2', displayName: 'Altro', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }),
     )
     await ws.refresh()
     return ws
@@ -331,7 +331,7 @@ describe('workspace: aggiornamento da modifiche esterne', () => {
     const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'originale' })
     await ws.storage!.mutateUsers((f) =>
-      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }),
+      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }),
     )
 
     // Un altro client scrive sullo stesso workspace
@@ -439,7 +439,7 @@ describe('workspace: cronologia e permessi di eliminazione', () => {
     expect((await ws.create({ path: '/net', name: 'Rete', mode: 'network', password: 'segreto1' })).ok).toBe(true)
     const me = ws.currentUser!
     await ws.storage!.mutateUsers((f) =>
-      f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' }),
+      f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }),
     )
     await ws.refresh()
     const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
@@ -481,7 +481,7 @@ describe('workspace: notifiche dalle modifiche remote', () => {
     const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'Export' })
     await ws.storage!.mutateUsers((f) =>
-      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }),
+      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }),
     )
     await notif.setEnabled('comment', false)
 
@@ -513,7 +513,7 @@ describe('workspace: notifiche dalle modifiche remote', () => {
     const p = (await ws.createProject({ name: 'P', description: '', folderId: null, members: [] }))!
     const it = await ws.addItem(p.id, { title: 'Export' })
     await ws.storage!.mutateUsers((f) =>
-      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '' }),
+      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }),
     )
     await ws.close() // chiudendo, l'ultimo istante "visto" resta registrato
 
@@ -578,7 +578,7 @@ describe('workspace: aggiornamento in background e scritture locali', () => {
     await useSessionStore().init()
     const ws = useWorkspaceStore()
     await ws.create({ path: '/race', name: 'Rete', mode: 'network', password: 'segreto1' })
-    await ws.storage!.mutateUsers((f) => void f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '' }))
+    await ws.storage!.mutateUsers((f) => void f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }))
     await ws.refresh()
     await ws.createProject({ name: 'Primo', description: '', folderId: null, members: [] })
     const second = (await ws.createProject({ name: 'Secondo', description: '', folderId: null, members: ['usr_b'] }))!
@@ -611,7 +611,7 @@ describe('workspace: visibilità dei progetti (pubblica / limitata)', () => {
     const ws = useWorkspaceStore()
     await ws.create({ path: '/vis', name: 'Rete', mode: 'network', password: 'segreto1' })
     const me = ws.currentUser!
-    await ws.storage!.mutateUsers((f) => void f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'admin', createdAt: '' }))
+    await ws.storage!.mutateUsers((f) => void f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'admin', createdAt: '', sid: '', domain: '', email: '', mailOn: [] }))
     await ws.refresh()
     return { ws, me }
   }
@@ -675,7 +675,7 @@ describe('workspace: progetti e cartelle solo dagli amministratori', () => {
     const folder = ws.tree.folders[0]!
     const me = ws.currentUser!
     await ws.storage!.mutateUsers((f) => {
-      f.users.push({ id: 'usr_admin', username: 'boss', hostname: 'PC9', displayName: 'Boss', role: 'admin', createdAt: '' })
+      f.users.push({ id: 'usr_admin', username: 'boss', hostname: 'PC9', displayName: 'Boss', role: 'admin', createdAt: '', sid: '', domain: '', email: '', mailOn: [] })
       f.users.find((u) => u.id === me.id)!.role = 'member'
     })
     await ws.refresh()

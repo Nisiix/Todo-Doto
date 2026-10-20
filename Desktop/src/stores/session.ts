@@ -2,12 +2,13 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { getFs } from '@/services/fs'
 import { loadConfig, saveConfig } from '@/services/config'
+import { domainIdentity } from '@/services/office'
 import { DEFAULT_AI_CONFIG, type Identity, type LocalConfig, type RecentWorkspace } from '@/types'
 
 /** Identità locale (SO) e configurazione per macchina. */
 export const useSessionStore = defineStore('session', () => {
   const identity = ref<Identity>({ username: '', hostname: '' })
-  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, offlineCopy: true, favorites: {}, mutedNotifications: [], ai: { ...DEFAULT_AI_CONFIG } })
+  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, offlineCopy: true, vpn: {}, favorites: {}, mutedNotifications: [], ai: { ...DEFAULT_AI_CONFIG } })
   const ready = ref(false)
 
   /** Chiave con cui si cifrano le password memorizzate in locale. */
@@ -17,6 +18,13 @@ export const useSessionStore = defineStore('session', () => {
     if (ready.value) return
     const fs = await getFs()
     identity.value = await fs.identity()
+    // Account di dominio (PC in Active Directory o Entra ID): per l'accesso aziendale, se il workspace lo usa
+    try {
+      const d = await domainIdentity()
+      if (d.sid && d.domain) identity.value = { ...identity.value, domain: d.domain, sid: d.sid, groups: d.groups }
+    } catch {
+      /* account locale o sistema senza dominio */
+    }
     config.value = await loadConfig()
     ready.value = true
   }

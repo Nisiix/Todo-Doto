@@ -15,6 +15,7 @@ mod secrets;
 mod git;
 mod ai;
 mod ollama;
+mod office;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -516,7 +517,12 @@ pub fn run() {
             ollama::ollama_info,
             ollama::ollama_start,
             ollama::ollama_install,
-            ollama::ollama_install_cancel
+            ollama::ollama_install_cancel,
+            office::vpn_list,
+            office::vpn_connect,
+            office::domain_identity,
+            office::mail_outlook,
+            office::mail_smtp
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio di Todo Doto");

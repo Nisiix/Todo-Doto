@@ -33,12 +33,17 @@
         { "url": "https://*.googleapis.com/*" },
         { "url": "https://oauth2.googleapis.com/*" },
         { "url": "https://accounts.google.com/*" },
-        { "url": "https://api.github.com/*" }
+        { "url": "https://api.github.com/*" },
+        { "url": "https://*.logic.azure.com/*" },
+        { "url": "https://*.logic.azure.com:443/*" },
+        { "url": "https://*.webhook.office.com/*" },
+        { "url": "https://*.powerplatform.com/*" },
+        { "url": "https://*.powerautomate.com/*" }
       ]
     },
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "mailto:*" }]
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "mailto:*" }, { "url": "ms-settings:network-vpn" }]
     },
     {
       "identifier": "opener:allow-open-path",

@@ -27,6 +27,8 @@ whoami = "1"
 reqwest = { version = "0.12", default-features = false }
 url = "2"
 tokio = { version = "1", features = ["time"] }
+# Riepiloghi via email (facoltativi): SMTP aziendale; su Windows TLS con SChannel e i certificati di sistema
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "hostname", "builder"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56"

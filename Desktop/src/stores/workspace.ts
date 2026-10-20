@@ -8,8 +8,9 @@ import { newId, nowIso } from '@/services/ids'
 import { useSessionStore } from './session'
 import { useUiStore } from './ui'
 import { useNotificationsStore } from './notifications'
+import { useVpnStore } from './vpn'
 import { diffProjects } from '@/services/changes'
-import { EMPTY_STACK, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
+import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Stack, type Visibility } from '@/types'
 import { applyStatusRules, firstLine } from '@/services/items'
 import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
 import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
@@ -18,6 +19,7 @@ import { explainFsError } from '@/services/fsErrors'
 import { mergeStack } from '@/services/stackDoc'
 import { findOffline, readOffline, removeOffline, saveOffline, type OfflineFile } from '@/services/offlineCache'
 import { mergeProject, type MergeReport } from '@/services/merge3'
+import { inGroup, roleFromGroups } from '@/services/domain'
 import type {
   Attachment,
   AuditAction,
@@ -129,9 +131,15 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   // --- derivati -------------------------------------------------------------
   const identityKey = computed(() => `${session.identity.username}@${session.identity.hostname}`.toLowerCase())
-  const currentUser = computed(
-    () => users.value.find((u) => `${u.username}@${u.hostname}`.toLowerCase() === identityKey.value) ?? null,
-  )
+  const currentUser = computed(() => {
+    // Con l'accesso di dominio la stessa persona è lo stesso utente su qualunque PC
+    const sid = session.identity.sid
+    if (sid && meta.value?.domainLogin.enabled) {
+      const bySid = users.value.find((u) => u.sid === sid)
+      if (bySid) return bySid
+    }
+    return users.value.find((u) => `${u.username}@${u.hostname}`.toLowerCase() === identityKey.value) ?? null
+  })
   const isAdmin = computed(() => meta.value?.mode === 'local' || currentUser.value?.role === 'admin')
   const isNetwork = computed(() => meta.value?.mode === 'network')
   /** Cartella dei progetti ricavata dalle cartelle dei progetti (per i workspace che non l'hanno salvata). */
@@ -212,7 +220,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     status.value = 'opening'
     try {
       const s = await openStorage(path)
-      if (!(await WorkspaceStorage.isWorkspace(path))) {
+      let isWs = await WorkspaceStorage.isWorkspace(path)
+      // Cartella che non risponde: prima la VPN dell'ufficio, se scelta su questo PC
+      if (!isWs && (await useVpnStore().autoConnectForPath(path).catch(() => false))) isWs = await WorkspaceStorage.isWorkspace(path)
+      if (!isWs) {
         // Cartella non raggiungibile (fuori ufficio, VPN spenta): si apre la copia di questo PC, se c'è
         const cached = session.config.offlineCopy ? await findOffline(path) : null
         if (cached && !(await reachable(path))) return await openFromCache(s, cached, opts.password)
@@ -473,17 +484,57 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     startWatching()
   }
 
-  async function ensureCurrentUser() {
-    if (currentUser.value) return
-    const u: User = {
+  /** Nuovo utente per l'identità di questo PC (con l'account di dominio, se c'è). */
+  function newUserForIdentity(role: Role): User {
+    const id = session.identity
+    return {
       id: newId('usr'),
-      username: session.identity.username,
-      hostname: session.identity.hostname,
-      displayName: session.identity.username,
-      role: users.value.length === 0 ? 'admin' : 'member',
+      username: id.username,
+      hostname: id.hostname,
+      displayName: id.username,
+      role,
       createdAt: nowIso(),
+      sid: id.sid ?? '',
+      domain: id.domain ?? '',
+      email: '',
+      mailOn: [],
     }
-    users.value = (await storage.value!.mutateUsers((f) => f.users.push(u))).users
+  }
+
+  async function ensureCurrentUser() {
+    if (!currentUser.value) {
+      const u = newUserForIdentity(users.value.length === 0 ? 'admin' : 'member')
+      users.value = (await storage.value!.mutateUsers((f) => f.users.push(u))).users
+    }
+    await syncDomainAccount()
+  }
+
+  /**
+   * Accesso con l'account di dominio: il proprio utente prende il SID
+   * dell'account (se nessun altro l'ha già) e, se l'amministratore ha indicato
+   * dei gruppi, il ruolo che i gruppi di Active Directory gli danno. Si cambia
+   * solo il proprio utente; l'ultimo amministratore non perde mai il ruolo.
+   */
+  async function syncDomainAccount() {
+    const s = storage.value
+    const me = currentUser.value
+    const dl = meta.value?.domainLogin
+    const id = session.identity
+    if (!s || !me || !dl?.enabled || !id.sid) return
+    const patch: Partial<User> = {}
+    if (me.sid !== id.sid && !users.value.some((u) => u.id !== me.id && u.sid === id.sid)) Object.assign(patch, { sid: id.sid, domain: id.domain ?? '' })
+    const role = roleFromGroups(dl, id.groups ?? [])
+    const admins = users.value.filter((u) => u.role === 'admin')
+    if (role && role !== me.role && !(me.role === 'admin' && admins.length <= 1)) patch.role = role
+    if (!Object.keys(patch).length) return
+    try {
+      users.value = (await s.mutateUsers((f) => {
+        const u = f.users.find((x) => x.id === me.id)
+        if (u) Object.assign(u, patch)
+      })).users
+    } catch (e) {
+      lastError.value = describe(e)
+    }
   }
 
   async function close() {
@@ -521,14 +572,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       if (await WorkspaceStorage.isWorkspace(opts.path)) {
         return { ok: false, error: common.ws.alreadyExists }
       }
-      const admin: User = {
-        id: newId('usr'),
-        username: session.identity.username,
-        hostname: session.identity.hostname,
-        displayName: session.identity.username,
-        role: 'admin',
-        createdAt: nowIso(),
-      }
+      const admin = newUserForIdentity('admin')
       const m: WorkspaceMeta = {
         schema: 1,
         id: newId('ws'),
@@ -540,6 +584,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         projectsPath: opts.projectsPath?.trim() ?? '',
         backup: { enabled: true, dir: '' },
         encryption: null,
+        domainLogin: { enabled: false, adminGroups: [], cleanerGroups: [] },
+        mail: structuredClone(MAIL_DEFAULTS),
       }
       await s.create(m, { users: [admin] })
       if (m.auth && opts.password && opts.rememberPassword !== false) await rememberPassword(m.id, opts.password, session.localSecret)
@@ -639,7 +685,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           const v = await s.readMeta()
           if (stale()) continue
           const before = meta.value?.encryption ?? null
+          const domainBefore = JSON.stringify(meta.value?.domainLogin ?? null)
           meta.value = v
+          if (JSON.stringify(v.domainLogin) !== domainBefore) void syncDomainAccount()
           // Cifratura attivata, disattivata o chiave riavvolta da un amministratore
           if (JSON.stringify(before) !== JSON.stringify(v.encryption)) {
             const ok = v.encryption && cipher ? (s.setCipher(cipher, v.encryption.enabled), true) : await applyKey(sessionPassword)
@@ -722,7 +770,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         status.value = 'unreachable'
         lastError.value = describe(e)
       }
+      if (status.value === 'unreachable') void tryVpn()
     }
+  }
+
+  /** Cartella condivisa non raggiungibile: si prova a collegare la VPN scelta (al massimo ogni 2 minuti). */
+  async function tryVpn() {
+    if (!isNetwork.value || !meta.value) return
+    if (await useVpnStore().autoConnect(meta.value.id).catch(() => false)) void refresh()
   }
 
   /** La chiave dati non è più valida (password cambiata altrove): si chiude e si chiede di riaprire. */
@@ -1649,6 +1704,28 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
 
+  /**
+   * Accesso con l'account di dominio (solo amministratori). Per attivarlo serve
+   * un account di dominio su questo PC; se si indicano gruppi degli
+   * amministratori, chi lo attiva deve farne parte (altrimenti perderebbe il ruolo).
+   */
+  async function setDomainLogin(next: WorkspaceMeta['domainLogin']): Promise<'ok' | 'noDomain' | 'notInAdminGroup' | 'failed'> {
+    const s = storage.value
+    if (!s || !isAdmin.value) return 'failed'
+    const id = session.identity
+    const clean = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))]
+    const value = { enabled: next.enabled, adminGroups: clean(next.adminGroups), cleanerGroups: clean(next.cleanerGroups) }
+    if (value.enabled && !id.sid) return 'noDomain'
+    if (value.enabled && value.adminGroups.length && !value.adminGroups.some((g) => inGroup(id.groups ?? [], g))) return 'notInAdminGroup'
+    const r = await guard(async () => {
+      meta.value = await s.mutateMeta((x) => void (x.domainLogin = value))
+      markLocalWrite('workspace.json')
+      await syncDomainAccount()
+      return true
+    })
+    return r ? 'ok' : 'failed'
+  }
+
   /** Toglie da questo PC la password ricordata: al prossimo accesso verrà richiesta. */
   async function forgetCredentials() {
     if (!meta.value) return
@@ -1667,6 +1744,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     lastError,
     passwordRemembered,
     setEncryption,
+    setDomainLogin,
     readiness,
     presence,
     offlinePending,

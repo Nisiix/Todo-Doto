@@ -5,7 +5,7 @@ import type { Prerequisite, ReadinessFile, User } from '@/types'
 
 const pre = (id: string, name: string, version = ''): Prerequisite => ({ id, name, version, url: '', check: '' })
 const res = (status: CheckResult['status'], version = ''): CheckResult => ({ status, version, command: 'x', output: '' })
-const user = (id: string, name: string, role: User['role'] = 'member'): User => ({ id, username: id, hostname: 'PC', displayName: name, role, createdAt: '' })
+const user = (id: string, name: string, role: User['role'] = 'member'): User => ({ id, username: id, hostname: 'PC', displayName: name, role, createdAt: '', sid: '', domain: '', email: '', mailOn: [] })
 
 const node = pre('p1', 'Node.js', '20+')
 const dotnet = pre('p2', '.NET SDK', '8')
