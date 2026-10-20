@@ -8,6 +8,7 @@
  *  - `@mario`                          assegnatario (nome utente, nome visualizzato o suo primo nome; `@io`/`@me` = me)
  *  - `#bug`                            etichetta (nome senza spazi, anche solo l'inizio se non è ambiguo)
  *  - `~v1.3`                           tappa del progetto (tra quelle non raggiunte)
+ *  - `=3h`, `=1,5h`, `=2g`             stima (ore; un giorno vale 8 ore)
  *  - `entro venerdì`, `per domani`, `^15/11`, `tra 3 giorni`, `by friday`…   scadenza
  *
  * Una data si riconosce solo dopo un indicatore (entro, per, scade, by, due,
@@ -19,7 +20,7 @@
 import dayjs from 'dayjs'
 import type { Label, Priority, User } from '@/types'
 
-export type QuickTokenKind = 'priority' | 'assignee' | 'label' | 'due' | 'milestone'
+export type QuickTokenKind = 'priority' | 'assignee' | 'label' | 'due' | 'milestone' | 'estimate'
 
 export interface QuickToken {
   kind: QuickTokenKind
@@ -38,6 +39,8 @@ export interface QuickAddResult {
   labelId: string | null
   dueDate: string | null
   milestoneId: string | null
+  /** Stima in ore. */
+  estimateHours: number | null
   tokens: QuickToken[]
 }
 
@@ -205,6 +208,7 @@ const REL_RE = new RegExp(`(^|\\s)((?:tra|fra|in) \\d{1,3} (?:${UNITS}))${END}`,
 const PRIORITY_RE = /(^|\s)!([\p{L}\d]+)(?=$|[\s.,;:!?)])/gu
 const MENTION_RE = /(^|\s)@([\p{L}\p{N}._-]+)(?=$|[\s,;:!?)])/gu
 const LABEL_RE = /(^|\s)#([\p{L}\p{N}._/-]+)(?=$|[\s,;:!?)])/gu
+const ESTIMATE_RE = /(^|\s)=(\d{1,3}(?:[.,]\d)?)\s?(h|ore|ora|g|gg|giorni|giorno|d|days?)?(?=$|[\s,;:!?)])/giu
 const MILESTONE_RE = /(^|\s)~([\p{L}\p{N}._/-]+)(?=$|[\s,;:!?)])/gu
 
 /** L'unico elemento che soddisfa la prima regola con almeno un risultato; null se nessuno o più d'uno. */
@@ -276,6 +280,12 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
   scan(MENTION_RE, 'assignee', (m) => findUser(m[2]!, ctx))
   scan(LABEL_RE, 'label', (m) => findLabel(m[2]!, ctx))
   scan(MILESTONE_RE, 'milestone', (m) => findMilestone(m[2]!, ctx))
+  scan(ESTIMATE_RE, 'estimate', (m) => {
+    const n = Number(m[2]!.replace(',', '.'))
+    const perDay = /^(g|gg|giorni|giorno|d|day|days)$/i.test(m[3] ?? '')
+    const hours = Math.round(n * (perDay ? 8 : 1) * 10) / 10
+    return hours > 0 ? String(hours) : null
+  })
   tokens.sort((a, b) => a.start - b.start)
   const get = (k: QuickTokenKind) => tokens.find((t) => t.kind === k)?.value ?? null
   return {
@@ -285,6 +295,7 @@ export function parseQuickAdd(input: string, ctx: QuickAddContext): QuickAddResu
     labelId: get('label'),
     dueDate: get('due'),
     milestoneId: get('milestone'),
+    estimateHours: get('estimate') === null ? null : Number(get('estimate')),
     tokens,
   }
 }

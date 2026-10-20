@@ -247,7 +247,7 @@ function showMilestoneTasks(id: string) {
 // Attenzioni e tempi di ciclo (pannello sopra la lista «Da fare»)
 const showInsights = ref(false)
 const { nowIso } = useToday()
-const signals = computed(() => (project.value ? projectSignals(project.value, { userIds: ws.users.map((u) => u.id), now: nowIso.value }) : []))
+const signals = computed(() => (project.value ? projectSignals(project.value, { userIds: ws.users.map((u) => u.id), now: nowIso.value, absences: Object.fromEntries(ws.users.map((u) => [u.id, u.absences])) }) : []))
 const highSignals = computed(() => signals.value.filter((x) => x.severity === 'high').length)
 const decisionCount = computed(() => (project.value ? projectDecisions(project.value).length : 0))
 // IA locale attiva su questo PC: compaiono le funzioni assistite (task da un testo)

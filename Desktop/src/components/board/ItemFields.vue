@@ -3,8 +3,11 @@ import { computed, watch } from 'vue'
 import { CalendarDays, CircleDot, Flag, Tag, UserRound, X } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { canHaveDueDate } from '@/services/items'
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, type Priority, type Status } from '@/types'
+import { canHaveDueDate, formatDue } from '@/services/items'
+import { absenceOn } from '@/services/load'
+import { useToday } from '@/composables/useToday'
+import dayjs from 'dayjs'
+import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, type Priority, type Status, type User } from '@/types'
 import { defineMessages } from '@/i18n'
 
 const m = defineMessages({
@@ -24,6 +27,8 @@ const m = defineMessages({
     labelHint: 'Per raggruppare e filtrare i task.',
     noLabel: 'Nessuna',
     manageLabels: 'Gestisci etichette…',
+    away: (from: string, to: string) => `assente ${from}–${to}`,
+    awayOnDue: 'assente il giorno della scadenza',
   },
   en: {
     priority: 'Priority',
@@ -41,6 +46,8 @@ const m = defineMessages({
     labelHint: 'To group and filter tasks.',
     noLabel: 'None',
     manageLabels: 'Manage labels…',
+    away: (from: string, to: string) => `away ${from}–${to}`,
+    awayOnDue: 'away on the due date',
   },
 })
 
@@ -58,6 +65,16 @@ const dueDate = defineModel<string | null>('dueDate', { required: true })
 const labelId = defineModel<string | null>('labelId', { required: true })
 const assigneeId = defineModel<string | null>('assigneeId', { required: true })
 const ws = useWorkspaceStore()
+// Assenze: chi sarà assente nei prossimi 14 giorni (o nel giorno della scadenza) si vede già nell'elenco
+const { today } = useToday()
+function awayText(u: User) {
+  const due = dueDate.value
+  const onDue = due ? absenceOn(u.absences, due) : null
+  if (onDue) return ` · ${m.awayOnDue}`
+  const limit = dayjs(today.value).add(14, 'day').format('YYYY-MM-DD')
+  const a = u.absences.find((x) => x.to >= today.value && x.from <= limit)
+  return a ? ` · ${m.away(formatDue(a.from), formatDue(a.to))}` : ''
+}
 
 /** Pallini dei valori scelti, come nella lista. */
 const statusDot: Record<Status, string> = {
@@ -119,7 +136,7 @@ watch(status, (s) => {
       <label class="label flex items-center gap-1.5" :for="`${idPrefix}-assignee`"><UserRound :size="13" class="text-ink-3" /> {{ m.assignee }}</label>
       <select :id="`${idPrefix}-assignee`" class="field" :value="assigneeId ?? ''" @change="assigneeId = ($event.target as HTMLSelectElement).value || null">
         <option value="">{{ m.unassigned }}</option>
-        <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
+        <option v-for="u in ws.users" :key="u.id" :value="u.id">{{ u.displayName }}{{ awayText(u) }}</option>
       </select>
       <p v-if="hints" class="mt-1 text-[11.5px] text-ink-3">{{ m.assigneeHint }}</p>
     </div>

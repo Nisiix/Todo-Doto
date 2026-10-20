@@ -77,7 +77,7 @@ export function cycleStats(items: Item[], now = new Date().toISOString(), window
 // Attenzioni
 // ---------------------------------------------------------------------------
 
-export const SIGNAL_KINDS = ['overdue', 'urgent_unassigned', 'unanswered', 'removed_assignee', 'confirmed_no_due', 'stale'] as const
+export const SIGNAL_KINDS = ['overdue', 'urgent_unassigned', 'unanswered', 'removed_assignee', 'due_in_absence', 'confirmed_no_due', 'stale'] as const
 export type SignalKind = (typeof SIGNAL_KINDS)[number]
 export type Severity = 'high' | 'medium' | 'low'
 
@@ -99,6 +99,8 @@ export interface SignalOptions {
   questionDays?: number
   /** Giorni senza alcuna attività prima di segnalare un task fermo. */
   staleDays?: number
+  /** Assenze per utente: un task che scade mentre chi lo ha è assente va passato a qualcun altro. */
+  absences?: Record<string, { from: string; to: string }[]>
 }
 
 /** Ultima attività su un task: modifica, commento, domanda o risposta. */
@@ -138,6 +140,8 @@ export function projectSignals(project: Pick<Project, 'items'>, opts: SignalOpti
       if (waited >= qDays) add({ kind: 'unanswered', severity: waited >= qDays * 2 ? 'high' : 'medium', days: Math.floor(waited), questionId: q.id })
     }
     if (users && i.assigneeId && !users.has(i.assigneeId)) add({ kind: 'removed_assignee', severity: 'medium', days: 0 })
+    if (i.assigneeId && i.dueDate && i.dueDate >= today && opts.absences?.[i.assigneeId]?.some((a) => a.from <= i.dueDate! && i.dueDate! <= a.to))
+      add({ kind: 'due_in_absence', severity: 'medium', days: Math.round(days(`${today}T00:00:00`, `${i.dueDate}T00:00:00`)) })
     if (i.status === 'confermato' && !i.dueDate) add({ kind: 'confirmed_no_due', severity: 'low', days: i.confirmedAt ? Math.floor(days(i.confirmedAt, now)) : 0 })
     const idle = days(lastActivity(i), now)
     if (idle >= staleDays) add({ kind: 'stale', severity: idle >= staleDays * 3 ? 'medium' : 'low', days: Math.floor(idle) })

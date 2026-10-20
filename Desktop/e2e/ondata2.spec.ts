@@ -166,3 +166,41 @@ test('tappe: avanzamento, task con ~, filtro, Gantt, note di versione e CHANGELO
   expect(changelog.indexOf('## v1.3')).toBeGreaterThan(changelog.indexOf('# Novità del negozio'))
   expect(changelog.indexOf('## v1.3')).toBeLessThan(changelog.indexOf('## v1.2'))
 })
+
+test('carico e assenze: disponibilità, stima con =h, griglia per settimana, scadenza durante le ferie', async ({ page }) => {
+  await page.clock.install({ time: new Date('2026-10-21T09:00:00') }) // mercoledì
+  await createLocalWorkspace(page)
+  await createProject(page, 'Portale')
+
+  // Disponibilità: 10 ore a settimana, ferie dal 26 al 30 ottobre
+  await page.evaluate(() => (location.hash = '#/w/members'))
+  await page.locator('[data-availability-open]').first().click()
+  await page.locator('#av-hours').fill('10')
+  await page.locator('[data-absence-add]').click()
+  await page.locator('[data-absence-from]').fill('2026-10-26')
+  await page.locator('[data-absence-to]').fill('2026-10-30')
+  await page.locator('[data-availability-save]').click()
+  await expect(page.locator('[data-member-absence]')).toContainText('assente dal 26 ott al 30 ott')
+
+  await page.locator('aside').first().getByText('Portale', { exact: true }).click()
+  await addTasks(page, ['Analisi =12h @io entro il 23/10/2026', 'Report =2h @io entro il 28/10/2026', 'Bozza @io =1,5h'])
+  await openTask(page, 'Analisi')
+  await expect(page.locator('#d-estimate')).toHaveValue('12')
+  // Nell'elenco degli assegnatari l'assenza si vede
+  await expect(page.locator('#d-assignee option').nth(1)).toContainText('assente 26 ott–30 ott')
+  await page.keyboard.press('Escape')
+
+  // Attenzioni: il report scade durante le ferie
+  await page.locator('[data-insights-toggle]').click()
+  await expect(page.locator('[data-signal="due_in_absence"]')).toContainText('Report')
+
+  // Analisi: troppo carico la prima settimana (12 h su 10), ferie la seconda
+  await page.evaluate(() => (location.hash = '#/w/analytics'))
+  const grid = page.locator('[data-load-grid]')
+  await expect(grid.locator('[data-load-cell="2026-10-19"]').first()).toHaveAttribute('data-level', 'over')
+  await expect(grid.locator('[data-load-cell="2026-10-19"]').first()).toContainText('12 h')
+  await expect(grid.locator('[data-load-cell="2026-10-26"]').first()).toContainText('assente 5 g')
+  await grid.locator('[data-load-cell="2026-10-26"]').first().click()
+  await expect(page.locator('[data-load-detail]')).toContainText('Report')
+  await expect(page.locator('[data-load-detail] [data-in-absence]')).toBeVisible()
+})

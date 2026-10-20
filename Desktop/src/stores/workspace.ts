@@ -510,7 +510,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       sid: id.sid ?? '',
       domain: id.domain ?? '',
       email: '',
-      mailOn: [],
+      mailOn: [], weeklyHours: 0, absences: [],
     }
   }
 
@@ -1563,6 +1563,24 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     })
   }
 
+  /** Disponibilità: ore a settimana e assenze. Le cambia la persona stessa o un amministratore. */
+  async function setAvailability(userId: string, data: Pick<User, 'weeklyHours' | 'absences'>) {
+    const s = storage.value
+    if (!s || (!isAdmin.value && currentUser.value?.id !== userId)) return
+    const absences = data.absences
+      .filter((a) => a.from && a.to)
+      .map((a) => (a.from <= a.to ? a : { ...a, from: a.to, to: a.from }))
+      .sort((a, b) => a.from.localeCompare(b.from))
+    await guard(async () => {
+      users.value = (
+        await s.mutateUsers((f) => {
+          const u = f.users.find((x) => x.id === userId)
+          if (u) Object.assign(u, { weeklyHours: Math.max(0, Math.min(80, Math.round(data.weeklyHours || 0))), absences })
+        })
+      ).users
+    })
+  }
+
   async function removeUser(userId: string) {
     const s = storage.value
     if (!s || !isAdmin.value || userId === currentUser.value?.id) return
@@ -2030,6 +2048,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setUserRole,
     renameSelf,
     removeUser,
+    setAvailability,
     changePassword,
     renameWorkspace,
     setProjectsPath,

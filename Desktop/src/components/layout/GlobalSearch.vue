@@ -167,6 +167,7 @@ async function addTask() {
     assigneeId: r.assigneeId,
     labelId: r.labelId,
     milestoneId: r.milestoneId,
+    estimateHours: r.estimateHours,
     ...(r.dueDate ? { status: 'confermato' as const, dueDate: r.dueDate } : {}),
   })
   clear()

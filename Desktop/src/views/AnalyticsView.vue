@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import dayjs from 'dayjs'
 import { BarChart3 } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
+import LoadGrid from '@/components/analytics/LoadGrid.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { summarize } from '@/services/analytics'
 import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL } from '@/types'
@@ -106,6 +107,8 @@ const statusColor = { da_valutare: 'var(--ink-3)', da_definire: 'var(--accent)',
         <div class="mt-1 text-[11.5px] text-ink-3">{{ t.hint }}</div>
       </div>
     </div>
+
+    <LoadGrid class="mt-10" />
 
     <div class="mt-10 grid max-w-5xl grid-cols-1 gap-10 lg:grid-cols-2">
       <!-- Per stato -->

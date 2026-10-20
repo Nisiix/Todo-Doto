@@ -106,8 +106,8 @@ describe('gestione permessi dei progetti', () => {
     Object.assign(window, { __pgmNetworkDrives: ['/rete'] })
     await ws.create({ path: '/rete/perm', projectsPath: '/rete/progetti', name: 'Rete', mode: 'network', password: 'segreto1' })
     await ws.storage!.mutateUsers((f) => {
-      f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] })
-      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carlo', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [] })
+      f.users.push({ id: 'usr_b', username: 'b', hostname: 'PC2', displayName: 'Bea', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [], weeklyHours: 0, absences: [] })
+      f.users.push({ id: 'usr_c', username: 'c', hostname: 'PC3', displayName: 'Carlo', role: 'member', createdAt: '', sid: '', domain: '', email: '', mailOn: [], weeklyHours: 0, absences: [] })
     })
     await ws.refresh()
     await ws.createProject({ name: 'Aperto', description: '', folderId: null, members: [], visibility: 'public' })

@@ -4,6 +4,10 @@ import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { Eraser, HardDrive, KeyRound, Shield, ShieldOff, UserX } from 'lucide-vue-next'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import AvailabilityDialog from '@/components/dialogs/AvailabilityDialog.vue'
+import { absenceOn } from '@/services/load'
+import { formatDue } from '@/services/items'
+import { useToday } from '@/composables/useToday'
 import PermissionsDialog from '@/components/dialogs/PermissionsDialog.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
@@ -24,6 +28,10 @@ const m = defineMessages({
     makeCleaner: 'Rendi Cleaner',
     makeMember: 'Rendi membro',
     removeFromWs: 'Rimuovi dal workspace',
+    availability: 'Disponibilità',
+    availabilityHint: 'Ore a settimana e assenze',
+    absentNow: (to: string) => `assente fino al ${to}`,
+    absentNext: (from: string, to: string) => `assente dal ${from} al ${to}`,
     title: 'Membri',
     networkLead1:
       'Chi apre questa cartella di rete e inserisce la password compare qui. Gli amministratori gestiscono password, ruoli e chi partecipa a ciascun progetto. Un elemento da fare può essere cestinato da chi ne è assegnatario, dai',
@@ -43,6 +51,10 @@ const m = defineMessages({
     makeCleaner: 'Make Cleaner',
     makeMember: 'Make member',
     removeFromWs: 'Remove from workspace',
+    availability: 'Availability',
+    availabilityHint: 'Hours per week and absences',
+    absentNow: (to: string) => `away until ${to}`,
+    absentNext: (from: string, to: string) => `away from ${from} to ${to}`,
     title: 'Members',
     networkLead1:
       'Whoever opens this network folder and enters the password appears here. Administrators manage the password, roles and who takes part in each project. A to-do item can be trashed by its assignee, by',
@@ -79,6 +91,23 @@ watch(
 function openPermissions() {
   permissionsProject.value = null
   showPermissions.value = true
+}
+
+// Disponibilità (ore e assenze): la persona stessa o un amministratore
+const availabilityFor = ref<string | null>(null)
+const showAvailability = ref(false)
+function openAvailability(u: User) {
+  availabilityFor.value = u.id
+  showAvailability.value = true
+}
+const { today } = useToday()
+/** Assenza in corso o la prossima entro 30 giorni. */
+function absenceText(u: User) {
+  const now = absenceOn(u.absences, today.value)
+  if (now) return m.absentNow(formatDue(now.to))
+  const limit = new Date(Date.parse(today.value) + 30 * 86_400_000).toISOString().slice(0, 10)
+  const next = u.absences.find((a) => a.from > today.value && a.from <= limit)
+  return next ? m.absentNext(formatDue(next.from), formatDue(next.to)) : ''
 }
 
 const RANK: Record<Role, number> = { admin: 0, cleaner: 1, member: 2 }
@@ -132,12 +161,15 @@ const menu = (u: User) => [
           </div>
           <span class="block text-[12px] text-ink-3">{{ u.sid && u.domain ? m.domainSince(accountLabel(u), dayjs(u.createdAt).format(DATE.date)) : m.userSince(u.username, u.hostname, dayjs(u.createdAt).format(DATE.date)) }}</span>
         </div>
+        <span v-if="absenceText(u)" class="rounded-full bg-p-media/15 px-2 text-[11.5px] font-medium text-ink-2" data-member-absence>{{ absenceText(u) }}</span>
         <span class="text-[12px] tabular-nums text-ink-3">{{ projectsOf(u) ? m.restricted(projectsOf(u)) : '' }}</span>
+        <BaseButton v-if="ws.isAdmin || u.id === ws.currentUser?.id" size="sm" variant="ghost" :title="m.availabilityHint" data-availability-open @click="openAvailability(u)">{{ m.availability }}</BaseButton>
         <BaseMenu v-if="ws.isAdmin && u.id !== ws.currentUser?.id" :items="menu(u)">
           <MenuTriggerButton :size="16" />
         </BaseMenu>
       </li>
     </ul>
     <PermissionsDialog v-model:open="showPermissions" :project-id="permissionsProject" />
+    <AvailabilityDialog v-model:open="showAvailability" :user-id="availabilityFor" />
   </div>
 </template>

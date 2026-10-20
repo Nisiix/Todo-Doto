@@ -18,7 +18,7 @@ const meta: WorkspaceMeta = {
   mail: MAIL_DEFAULTS,
 }
 const users: UsersFile = {
-  users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt, sid: '', domain: '', email: '', mailOn: [] }],
+  users: [{ id: 'usr_1', username: 'a', hostname: 'PC', displayName: 'A', role: 'admin', createdAt: meta.createdAt, sid: '', domain: '', email: '', mailOn: [], weeklyHours: 0, absences: [] }],
 }
 const project = (id: string): Project => ({
   schema: 1,

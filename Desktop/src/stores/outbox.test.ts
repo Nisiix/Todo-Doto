@@ -26,7 +26,7 @@ async function setup(path: string) {
   await ws.create({ path, name: 'Studio', mode: 'network', password: 'segreto1' })
   const p = (await ws.createProject({ name: 'Sito', description: '', folderId: null, members: [] }))!
   await ws.storage!.mutateUsers((f) =>
-    f.users.push({ id: 'usr_c', username: 'carla', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: 'carla@studio.it', mailOn: ['mention', 'assigned', 'digest'] }),
+    f.users.push({ id: 'usr_c', username: 'carla', hostname: 'PC3', displayName: 'Carla', role: 'member', createdAt: '', sid: '', domain: '', email: 'carla@studio.it', mailOn: ['mention', 'assigned', 'digest'], weeklyHours: 0, absences: [] }),
   )
   await ws.refresh()
   return { ws, p }

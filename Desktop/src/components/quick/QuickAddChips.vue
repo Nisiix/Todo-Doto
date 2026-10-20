@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { CalendarDays, Flag, Milestone as MilestoneIcon, X } from 'lucide-vue-next'
+import { CalendarDays, Flag, Hourglass, Milestone as MilestoneIcon, X } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import LabelBadge from '@/components/board/LabelBadge.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -9,8 +9,8 @@ import type { QuickAddResult, QuickToken } from '@/services/quickAdd'
 import { DATE, defineMessages } from '@/i18n'
 
 const m = defineMessages({
-  it: { recognized: 'Riconosciuto:', remove: 'Lascia nel titolo', due: 'Scadenza' },
-  en: { recognized: 'Recognized:', remove: 'Keep it in the title', due: 'Due' },
+  it: { recognized: 'Riconosciuto:', remove: 'Lascia nel titolo', due: 'Scadenza', estimate: (h: number) => `Stima ${h} h` },
+  en: { recognized: 'Recognized:', remove: 'Keep it in the title', due: 'Due', estimate: (h: number) => `Estimate ${h} h` },
 })
 
 /** Ciò che l'inserimento rapido ha riconosciuto nel testo; la X lo lascia nel titolo. */
@@ -32,6 +32,7 @@ const milestoneName = (id: string) => Object.values(ws.projects).flatMap((p) => 
       <template v-if="t.kind === 'priority'"><Flag :size="12" class="text-ink-3" /> {{ PRIORITY_LABEL[t.value as Priority] }}</template>
       <template v-else-if="t.kind === 'assignee'"><UserAvatar :name="ws.userName(t.value)" size="xs" /> {{ ws.userName(t.value) }}</template>
       <template v-else-if="t.kind === 'label'"><LabelBadge :label-id="t.value" /></template>
+      <template v-else-if="t.kind === 'estimate'"><Hourglass :size="12" class="text-ink-3" /> {{ m.estimate(Number(t.value)) }}</template>
       <template v-else-if="t.kind === 'milestone'"><MilestoneIcon :size="12" class="text-ink-3" /> {{ milestoneName(t.value) }}</template>
       <template v-else><CalendarDays :size="12" class="text-ink-3" /> {{ m.due }} {{ dayjs(t.value).format(DATE.dayMonth) }} · {{ STATUS_LABEL.confermato }}</template>
       <button type="button" class="-mr-1 rounded-full p-0.5 text-ink-3 hover:bg-surface-2 hover:text-ink" :title="m.remove" :aria-label="m.remove" @click="emit('remove', t)">

@@ -71,9 +71,10 @@ describe('projectSignals', () => {
       item({ title: 'domanda con risposta', questions: [q(ago(9), 1)] }),
       item({ title: 'confermato senza data', status: 'confermato', confirmedAt: ago(2), assigneeId: 'u1' }),
       item({ title: 'utente rimosso', assigneeId: 'u-gone' }),
+      item({ title: 'durante le ferie', assigneeId: 'u2', status: 'confermato', dueDate: '2026-10-28', confirmedAt: ago(1) }),
       item({ title: 'completato in ritardo', bucket: 'done', dueDate: '2026-10-01', status: 'confermato' }),
     ]
-    const s = projectSignals({ items }, { now: NOW, userIds: ['u1', 'u2'] })
+    const s = projectSignals({ items }, { now: NOW, userIds: ['u1', 'u2'], absences: { u2: [{ from: '2026-10-26', to: '2026-10-30' }] } })
     const byTitle = Object.fromEntries(s.map((x) => [x.item.title, x]))
     expect(byTitle['in ritardo']).toMatchObject({ kind: 'overdue', severity: 'high', days: 5 })
     expect(byTitle['urgente']).toMatchObject({ kind: 'urgent_unassigned', severity: 'high' })
@@ -81,11 +82,12 @@ describe('projectSignals', () => {
     expect(byTitle['domanda vecchia']).toMatchObject({ kind: 'unanswered', severity: 'high', days: 9 })
     expect(byTitle['confermato senza data']).toMatchObject({ kind: 'confirmed_no_due', severity: 'low' })
     expect(byTitle['utente rimosso']).toMatchObject({ kind: 'removed_assignee', severity: 'medium' })
+    expect(byTitle['durante le ferie']).toMatchObject({ kind: 'due_in_absence', severity: 'medium', days: 8 })
     expect(byTitle['fermo']).toMatchObject({ kind: 'stale', severity: 'low', days: 25 })
     expect(byTitle['domanda con risposta']).toBeUndefined()
     expect(byTitle['completato in ritardo']).toBeUndefined()
     // ordine: prima i gravi (urgente prima per priorità), poi medi, poi bassi
-    expect(s.map((x) => x.severity)).toEqual(['high', 'high', 'high', 'medium', 'medium', 'low', 'low'])
+    expect(s.map((x) => x.severity)).toEqual(['high', 'high', 'high', 'medium', 'medium', 'medium', 'low', 'low'])
     expect(s[0]!.item.title).toBe('urgente')
   })
 

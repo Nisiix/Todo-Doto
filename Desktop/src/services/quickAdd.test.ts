@@ -147,6 +147,14 @@ describe('parseQuickAdd', () => {
     expect(parseQuickAdd('Demo ~v2', ctx).milestoneId).toBeNull()
   })
 
+  it('stima: ore, decimali con la virgola, giorni da 8 ore', () => {
+    expect(parseQuickAdd('Export =3h', ctx)).toMatchObject({ title: 'Export', estimateHours: 3 })
+    expect(parseQuickAdd('Export =1,5h', ctx).estimateHours).toBe(1.5)
+    expect(parseQuickAdd('Export =2g', ctx).estimateHours).toBe(16)
+    expect(parseQuickAdd('Export =4', ctx).estimateHours).toBe(4)
+    expect(parseQuickAdd('a=b', ctx).estimateHours).toBeNull()
+  })
+
   it('le espressioni da ignorare restano nel titolo', () => {
     const r = parseQuickAdd('Rilascio per domani !alta', { ...ctx, ignore: ['Per Domani'] })
     expect(r.dueDate).toBeNull()
@@ -156,7 +164,7 @@ describe('parseQuickAdd', () => {
 
   it('testo senza comandi: invariato', () => {
     const r = parseQuickAdd('  Pagina di accesso  ', ctx)
-    expect(r).toMatchObject({ title: 'Pagina di accesso', priority: null, assigneeId: null, labelId: null, dueDate: null, milestoneId: null, tokens: [] })
+    expect(r).toMatchObject({ title: 'Pagina di accesso', priority: null, assigneeId: null, labelId: null, dueDate: null, milestoneId: null, estimateHours: null, tokens: [] })
   })
 })
 

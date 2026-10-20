@@ -43,8 +43,13 @@ export const UserSchema = z.object({
   email: z.string().default(''),
   /** Per cosa ricevere un'email: menzioni, task assegnati, riepilogo del mattino. */
   mailOn: z.array(z.enum(['mention', 'assigned', 'digest'])).default([]),
+  /** Ore disponibili a settimana per i task (0 = non indicate: il carico si conta in task) (0.6.0). */
+  weeklyHours: z.number().default(0),
+  /** Assenze (ferie, trasferte): giorni inclusi, YYYY-MM-DD (0.6.0). */
+  absences: z.array(z.object({ id: z.string(), from: z.string(), to: z.string(), note: z.string().default('') })).default([]),
 })
 export type User = z.infer<typeof UserSchema>
+export type Absence = User['absences'][number]
 export type MailTopic = User['mailOn'][number]
 
 export const UsersFileSchema = z.object({ users: z.array(UserSchema).default([]) })
