@@ -6,6 +6,7 @@ window.PGM_I18N = {
     'nav.why': 'Intro',
     'nav.how': 'How it works',
     'nav.features': 'Features',
+    'nav.tutorial': 'Tutorials',
     'nav.download': 'Download',
     'nav.language': 'Language',
     'nav.theme': 'Toggle light/dark theme',
@@ -23,6 +24,17 @@ window.PGM_I18N = {
     'why.s3.t': 'Clear roles and permissions',
     'why.s4.t': 'Fast, from the keyboard',
     'why.s4.p': 'A few-megabyte executable that opens in under a second. Search all projects with <span class="kbd">Ctrl</span> <span class="kbd">K</span>, browse the list with the arrow keys, light or dark theme.',
+
+    'tut.title': 'Video tutorials',
+    'tut.lead': 'Three short silent videos to see the app at work before installing it.',
+    'tut.player': 'Tutorial video',
+    'tut.t1': 'Getting started',
+    'tut.t1d': 'Workspace, projects and tasks in a minute',
+    'tut.t2': 'Tasks and teamwork',
+    'tut.t2d': 'Filters, questions, Gantt and search',
+    'tut.t3': 'Stack and PC setup',
+    'tut.t3d': 'Newcomers are ready in minutes',
+    'feat.zoomHint': 'Click an image to enlarge it.',
 
     'how.title': 'How it works',
     'how.lead': 'Three steps, then you get to work.',
@@ -232,6 +244,8 @@ window.PGM_I18N = {
       noFiles: 'Gli installer di questa lingua non sono ancora pubblicati: nel frattempo trovi tutte le versioni nelle Release su GitHub.',
       noServer: 'Il server di download è in preparazione: i pulsanti scaricano l’ultima Release pubblicata su GitHub.',
       noChangelog: 'Le note di versione sono pubblicate nelle Release su GitHub.',
+      zoom: 'Ingrandisci l’immagine',
+      close: 'Chiudi (Esc)',
     },
     en: {
       version: (v, date) => `Version ${v} · Windows 10/11 (64-bit)` + (date ? ` · ${date}` : ''),
@@ -239,6 +253,8 @@ window.PGM_I18N = {
       noFiles: 'The installers for this language are not published yet: meanwhile you can find every version in the GitHub Releases.',
       noServer: 'The download server is being set up: the buttons download the latest Release published on GitHub.',
       noChangelog: 'Release notes are published in the GitHub Releases.',
+      zoom: 'Enlarge the image',
+      close: 'Close (Esc)',
     },
   },
 }

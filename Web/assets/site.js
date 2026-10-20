@@ -63,6 +63,11 @@
     document.querySelectorAll('img[data-shot]').forEach((img) => {
       img.src = img.getAttribute('src').replace(/\/screens\/(it|en)\//, `/screens/${lang}/`)
     })
+    // Video tutorial e anteprime nella lingua scelta
+    document.querySelectorAll('img[data-poster]').forEach((img) => {
+      img.src = img.getAttribute('src').replace(/\/video\/(it|en)\//, `/video/${lang}/`)
+    })
+    showTutorial(currentTutorial, false)
     root.lang = lang
     root.setAttribute('data-lang', lang)
     root.classList.remove('i18n-pending')
@@ -161,6 +166,121 @@
       .catch(() => { log.innerHTML = `<p>${t.noChangelog}</p>` })
   }
 
+  // --- video tutorial: un lettore, l'elenco sceglie quale video --------------------
+  const player = document.querySelector('video[data-video]')
+  let currentTutorial = player ? player.dataset.video : ''
+  function showTutorial(id, play) {
+    if (!player || !id) return
+    const src = `assets/video/${lang}/${id}.mp4`
+    const source = player.querySelector('source')
+    if (source.getAttribute('src') !== src) {
+      source.setAttribute('src', src)
+      player.setAttribute('poster', `assets/video/${lang}/${id}.jpg`)
+      player.load()
+    }
+    currentTutorial = id
+    player.dataset.video = id
+    document.querySelectorAll('[data-tutorial]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tutorial === id)))
+    if (play) player.play().catch(() => {})
+  }
+  document.querySelectorAll('[data-tutorial]').forEach((b) =>
+    b.addEventListener('click', () => {
+      showTutorial(b.dataset.tutorial, true)
+      if (player.getBoundingClientRect().top < 0) player.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }),
+  )
+
+  // --- immagini delle funzionalità: clic per ingrandire, Esc / X / clic fuori per chiudere ---
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  let lb = null
+  function zoomLabels() {
+    const t = I18N.runtime[lang] || I18N.runtime.it
+    document.querySelectorAll('img[data-shot]').forEach((img) => img.setAttribute('aria-label', `${t.zoom}: ${img.alt}`))
+  }
+  function openShot(img) {
+    if (lb) return
+    const t = I18N.runtime[lang] || I18N.runtime.it
+    const from = img.getBoundingClientRect()
+    lb = document.createElement('div')
+    lb.className = 'lightbox'
+    lb.setAttribute('role', 'dialog')
+    lb.setAttribute('aria-modal', 'true')
+    lb.setAttribute('aria-label', img.alt)
+    lb.innerHTML = `<button type="button" class="lightbox__close" aria-label="${t.close}" title="${t.close}">×</button><img class="lightbox__img" alt="" /><p class="lightbox__cap"></p>`
+    const big = lb.querySelector('.lightbox__img')
+    big.src = img.currentSrc || img.src
+    big.alt = img.alt
+    lb.querySelector('.lightbox__cap').textContent = img.alt
+    document.body.appendChild(lb)
+    document.documentElement.classList.add('lightbox-open')
+    // Dimensione finale: tutta la finestra, mantenendo le proporzioni
+    const ratio = (img.naturalWidth || from.width) / (img.naturalHeight || from.height)
+    const maxW = Math.min(innerWidth * 0.94, 1600)
+    const maxH = innerHeight * 0.86
+    const w = Math.min(maxW, maxH * ratio)
+    const h = w / ratio
+    const to = { left: (innerWidth - w) / 2, top: (innerHeight - h) / 2 - 12, width: w, height: h }
+    Object.assign(big.style, { left: `${to.left}px`, top: `${to.top}px`, width: `${w}px`, height: `${h}px` })
+    const fromT = `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / w})`
+    lb.ctx = { img, fromT }
+    if (!reduced) {
+      big.style.transform = fromT
+      big.getBoundingClientRect() // applica la posizione di partenza prima della transizione
+    }
+    requestAnimationFrame(() => {
+      lb.classList.add('is-open')
+      big.style.transform = ''
+    })
+    lb.addEventListener('click', (e) => {
+      if (!(e.target instanceof Element) || !e.target.closest('.lightbox__cap')) closeShot()
+    })
+    lb.querySelector('.lightbox__close').focus()
+  }
+  function closeShot() {
+    if (!lb || lb.closing) return
+    const el = lb
+    el.closing = true
+    const big = el.querySelector('.lightbox__img')
+    const { img } = el.ctx
+    // Torna alla posizione attuale della miniatura (la pagina può essere scorsa nel frattempo)
+    const from = img.getBoundingClientRect()
+    const to = big.getBoundingClientRect()
+    el.classList.remove('is-open')
+    if (!reduced) big.style.transform = `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})`
+    const done = () => {
+      el.remove()
+      document.documentElement.classList.remove('lightbox-open')
+      img.focus({ preventScroll: true })
+    }
+    if (reduced) done()
+    else setTimeout(done, 280)
+    lb = null
+  }
+  document.querySelectorAll('img[data-shot]').forEach((img) => {
+    img.tabIndex = 0
+    img.setAttribute('role', 'button')
+    img.addEventListener('click', () => openShot(img))
+    img.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        openShot(img)
+      }
+    })
+  })
+  window.addEventListener('keydown', (e) => {
+    if (!lb) return
+    if (e.key === 'Escape') closeShot()
+    // Il fuoco resta nella finestra ingrandita (c'è un solo controllo: Chiudi)
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      lb.querySelector('.lightbox__close').focus()
+    }
+  })
+
   applyLang(lang)
+  zoomLabels()
+  document.addEventListener('click', (e) => {
+    if (e.target instanceof Element && e.target.closest('[data-set-lang]')) zoomLabels()
+  })
 })()
 

@@ -296,3 +296,29 @@ footer { border-top: 1px solid var(--line); padding: 2.5rem 0; color: var(--ink-
 .dl-other { margin: .9rem 0 0; font-size: .88rem; color: var(--ink-2); }
 .link { border: 0; background: none; padding: 0; font: inherit; color: var(--accent-ink); font-weight: 600; cursor: pointer; }
 .link:hover { text-decoration: underline; }
+
+/* --- video tutorial ------------------------------------------------------ */
+.tutorials { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 3fr); gap: 1.5rem; align-items: start; }
+@media (max-width: 900px) { .tutorials { grid-template-columns: 1fr; } }
+.tutorials__player video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: var(--surface-2); }
+.tutorials__list { list-style: none; margin: 0; padding: 0; display: grid; gap: .7rem; }
+.tut { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: .75rem; align-items: center; width: 100%; padding: .5rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: border-color .15s, background .15s; }
+.tut:hover { background: var(--surface-2); }
+.tut[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.tut img { width: 112px; height: 63px; object-fit: cover; border-radius: 8px; background: var(--surface-2); }
+.tut__text { display: grid; gap: .1rem; min-width: 0; }
+.tut__text strong { font-size: .95rem; line-height: 1.2; }
+.tut__text span { font-size: .82rem; color: var(--ink-2); line-height: 1.3; }
+.tut__text small { font-size: .75rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.hint { color: var(--ink-3); font-size: .9rem; }
+
+/* --- immagini ingrandibili (lightbox) ------------------------------------ */
+img[data-shot] { cursor: zoom-in; }
+.lightbox-open { overflow: hidden; }
+.lightbox { position: fixed; inset: 0; z-index: 100; cursor: zoom-out; background: rgb(20 22 27 / 0); transition: background .28s ease; }
+.lightbox.is-open { background: rgb(20 22 27 / .78); }
+.lightbox__img { position: fixed; max-width: none; border-radius: 10px; box-shadow: 0 30px 80px -20px rgb(0 0 0 / .6); transform-origin: 0 0; transition: transform .28s cubic-bezier(.2, .7, .2, 1); background: var(--surface); }
+.lightbox__cap { position: fixed; left: 50%; bottom: 1.1rem; transform: translateX(-50%); width: min(900px, 100% - 2rem); margin: 0; text-align: center; color: #e8e6e1; font-size: .9rem; opacity: 0; transition: opacity .2s ease .1s; cursor: default; }
+.lightbox__close { position: fixed; top: 1rem; right: 1rem; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgb(255 255 255 / .14); color: #fff; font: 600 28px/1 system-ui, sans-serif; cursor: pointer; opacity: 0; transition: opacity .2s ease, background .15s; }
+.lightbox__close:hover { background: rgb(255 255 255 / .26); }
+.lightbox.is-open .lightbox__cap, .lightbox.is-open .lightbox__close { opacity: 1; }

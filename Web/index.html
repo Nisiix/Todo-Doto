@@ -59,6 +59,7 @@
       </a>
       <nav class="nav" aria-label="Sezioni" data-i18n-aria-label="nav.label">
         <a href="#perche" data-i18n="nav.why">Intro</a>
+        <a href="#tutorial" data-i18n="nav.tutorial">Tutorial</a>
         <a href="#funzionalita" data-i18n="nav.features">Funzionalità</a>
         <a href="#prezzi" data-i18n="nav.pricing">Prezzi</a>
         <a href="#faq" data-i18n="nav.faq">FAQ</a>
@@ -146,10 +147,39 @@
       </div>
     </section>
 
+    <section id="tutorial">
+      <div class="wrap">
+        <h2 class="sec__title" data-i18n="tut.title">Video tutorial</h2>
+        <p class="sec__lead" data-i18n="tut.lead">Tre video brevi, senza audio, per vedere l’app all’opera prima di installarla.</p>
+        <div class="tutorials" data-tutorials>
+          <figure class="window tutorials__player" style="margin:0">
+            <div class="window__bar" aria-hidden="true"><i></i><i></i><i></i></div>
+            <video data-video="getting-started" controls muted playsinline preload="none" width="1920" height="1080" poster="assets/video/it/getting-started.jpg" aria-label="Tutorial: primi passi" data-i18n-aria-label="tut.player">
+              <source src="assets/video/it/getting-started.mp4" type="video/mp4" />
+            </video>
+          </figure>
+          <ol class="tutorials__list">
+            <li><button type="button" class="tut" data-tutorial="getting-started" aria-pressed="true">
+              <img data-poster loading="lazy" src="assets/video/it/getting-started.jpg" width="1280" height="720" alt="" />
+              <span class="tut__text"><strong data-i18n="tut.t1">Primi passi</strong><span data-i18n="tut.t1d">Workspace, progetti e task in un minuto</span><small>0:33</small></span>
+            </button></li>
+            <li><button type="button" class="tut" data-tutorial="tasks-and-team" aria-pressed="false">
+              <img data-poster loading="lazy" src="assets/video/it/tasks-and-team.jpg" width="1280" height="720" alt="" />
+              <span class="tut__text"><strong data-i18n="tut.t2">Task e lavoro di squadra</strong><span data-i18n="tut.t2d">Filtri, domande, Gantt e ricerca</span><small>0:28</small></span>
+            </button></li>
+            <li><button type="button" class="tut" data-tutorial="stack-and-setup" aria-pressed="false">
+              <img data-poster loading="lazy" src="assets/video/it/stack-and-setup.jpg" width="1280" height="720" alt="" />
+              <span class="tut__text"><strong data-i18n="tut.t3">Stack e configurazione del PC</strong><span data-i18n="tut.t3d">Chi entra nel progetto è pronto in pochi minuti</span><small>0:33</small></span>
+            </button></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
     <section id="funzionalita">
       <div class="wrap">
         <h2 class="sec__title" data-i18n="feat.title">Funzionalità</h2>
-        <p class="sec__lead" data-i18n="feat.lead">Quello che serve per una roadmap condivisa, e niente di più.</p>
+        <p class="sec__lead"><span data-i18n="feat.lead">Quello che serve per una roadmap condivisa, e niente di più.</span> <span class="hint" data-i18n="feat.zoomHint">Clicca su un’immagine per ingrandirla.</span></p>
 
         <article class="feature">
           <div class="feature__text">
