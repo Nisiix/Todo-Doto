@@ -71,6 +71,8 @@ export const useUiStore = defineStore('ui', () => {
   const cleanupOpen = ref(false)
   /** Automazioni (amministratori). */
   const automationsOpen = ref(false)
+  /** Cosa è cambiato tra due date. */
+  const changesOpen = ref(false)
   /** Automazione «confermato senza scadenza»: il task di cui chiedere la scadenza. */
   const dueAsk = ref<{ projectId: string; itemId: string } | null>(null)
   const askDueDate = (projectId: string, itemId: string) => (dueAsk.value = { projectId, itemId })
@@ -89,6 +91,7 @@ export const useUiStore = defineStore('ui', () => {
     calendarsOpen,
     cleanupOpen,
     automationsOpen,
+    changesOpen,
     dueAsk,
     askDueDate,
     projectRequest,

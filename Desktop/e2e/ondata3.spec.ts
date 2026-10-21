@@ -103,3 +103,54 @@ test('automazioni: spente all’inizio; urgente senza responsabile e scadenza ch
   await expect(n).toContainText('task urgente ancora senza responsabile da 1 giorno')
   await expect(n).toContainText('Server giù')
 })
+
+test('cosa è cambiato: dalla copia di sicurezza ad adesso, per tipo, con scadenze «da → a»', async ({ page }) => {
+  await createLocalWorkspace(page)
+  await createProject(page, 'Negozio')
+  await addTasks(page, ['Carrello', 'Pagamenti entro il 10/11/2030', 'Vecchia pagina'])
+
+  // Senza copie non c'è niente da confrontare
+  await workspaceMenu(page, 'Cosa è cambiato')
+  await expect(page.locator('[data-changes-empty]')).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await workspaceMenu(page, 'Impostazioni')
+  await page.locator('[data-settings-tab="backup"]').click()
+  await page.locator('[data-backup-settings]').getByRole('button', { name: 'Crea copia ora' }).click()
+  await expect(page.locator('[data-backup-settings] [data-backup-status]')).toContainText('Ultima copia:')
+  await page.keyboard.press('Escape')
+
+  // Dopo la copia: un completato, una scadenza spostata, uno nel cestino, uno nuovo
+  await row(page, 'Carrello').getByTitle('Segna come completato (C)').click()
+  await openTask(page, 'Pagamenti')
+  await page.locator('#d-due').fill('2030-11-24')
+  await page.locator('[data-detail-save]').getByRole('button', { name: 'Salva' }).click()
+  await page.keyboard.press('Escape')
+  await row(page, 'Vecchia pagina').click()
+  await expect(page.locator('#d-priority')).toHaveCount(1)
+  await page.keyboard.press('Delete')
+  await expect(row(page, 'Vecchia pagina')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await addTasks(page, ['Recensioni'])
+
+  await workspaceMenu(page, 'Cosa è cambiato')
+  const changes = page.locator('[data-changes]')
+  await expect(changes.locator('[data-changes-from] option:checked')).toContainText('copia manuale')
+  await expect(changes.locator('[data-changes-to] option:checked')).toHaveText('adesso')
+  const project = changes.locator('[data-changes-project="Negozio"]')
+  await expect(project.locator('[data-change="added"]')).toContainText('Recensioni')
+  await expect(project.locator('[data-change="completed"]')).toContainText('Carrello')
+  await expect(project.locator('[data-change="trashed"]')).toContainText('Vecchia pagina')
+  await expect(project.locator('[data-change="due"]')).toContainText('10 nov 2030')
+  await expect(project.locator('[data-change="due"]')).toContainText('24 nov 2030')
+
+  // Solo le scadenze spostate
+  await changes.locator('[data-changes-kind="due"]').click()
+  await expect(project.locator('[data-change]')).toHaveCount(1)
+
+  // Un clic apre il task
+  await changes.locator('[data-changes-kind="due"]').click()
+  await project.locator('[data-change="added"] button').click()
+  await expect(changes).toHaveCount(0)
+  await expect(page.locator('#d-title, textarea[aria-label="Titolo"]').first()).toHaveValue('Recensioni')
+})

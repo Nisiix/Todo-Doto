@@ -22,6 +22,7 @@ import {
   Sun,
   Users,
   Workflow,
+  GitCompareArrows,
 } from 'lucide-vue-next'
 import { useEventListener, watchDebounced } from '@vueuse/core'
 import { useAiStore, withAi } from '@/stores/ai'
@@ -67,6 +68,7 @@ const m = defineMessages({
       calendars: 'Calendari delle scadenze (.ics)',
       cleanup: 'Pulizia guidata',
       automations: 'Automazioni',
+      changes: 'Cosa è cambiato tra due date',
       theme: 'Cambia tema (chiaro o scuro)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Allegati' } as Record<ProjectSection, string>,
@@ -100,6 +102,7 @@ const m = defineMessages({
       calendars: 'Due-date calendars (.ics)',
       cleanup: 'Guided cleanup',
       automations: 'Automations',
+      changes: 'What changed between two dates',
       theme: 'Switch theme (light or dark)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Attachments' } as Record<ProjectSection, string>,
@@ -152,6 +155,7 @@ const commands = computed<Command[]>(() => {
     ws.isAdmin && { id: 'automations', label: m.cmd.automations, keywords: ['automazioni', 'regole', 'promemoria', 'automations', 'rules'], icon: Workflow, run: () => (ui.automationsOpen = true) },
     ws.isAdmin && { id: 'cleanup', label: m.cmd.cleanup, keywords: ['pulizia', 'pulisci', 'ordine', 'cleanup', 'tidy'], icon: Brush, run: () => (ui.cleanupOpen = true) },
     ws.isNetwork && { id: 'members', label: m.cmd.members, keywords: ['membri', 'utenti', 'members', 'users'], icon: Users, run: () => void router.push({ name: 'members' }) },
+    { id: 'changes', label: m.cmd.changes, keywords: ['cambiato', 'cambiamenti', 'differenze', 'confronto', 'ferie', 'changes', 'diff', 'compare'], icon: GitCompareArrows, run: () => (ui.changesOpen = true) },
     { id: 'calendars', label: m.cmd.calendars, keywords: ['calendario', 'calendari', 'outlook', 'ics', 'calendar'], icon: CalendarDays, run: () => (ui.calendarsOpen = true) },
     { id: 'settings', label: m.cmd.settings, keywords: ['impostazioni', 'settings', 'preferenze', 'opzioni'], icon: Settings, run: () => ui.openSettings() },
     { id: 'theme', label: m.cmd.theme, keywords: ['tema', 'scuro', 'chiaro', 'dark', 'light', 'theme'], icon: Moon, run: () => ui.toggleTheme() },

@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
-import { AlertTriangle, Archive, BarChart3, Brush, Workflow, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
+import { AlertTriangle, Archive, BarChart3, Brush, Workflow, GitCompareArrows, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
@@ -12,6 +12,7 @@ import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
 import CalendarsDialog from '@/components/dialogs/CalendarsDialog.vue'
 import CleanupDialog from '@/components/dialogs/CleanupDialog.vue'
 import AutomationsDialog from '@/components/dialogs/AutomationsDialog.vue'
+import ChangesDialog from '@/components/dialogs/ChangesDialog.vue'
 import ShortcutsDialog from '@/components/dialogs/ShortcutsDialog.vue'
 import NotificationsPanel from './NotificationsPanel.vue'
 import GlobalSearch from './GlobalSearch.vue'
@@ -28,6 +29,7 @@ const m = defineMessages({
     calendars: 'Calendari delle scadenze',
     cleanup: 'Pulizia guidata',
     automations: 'Automazioni',
+    changes: 'Cosa è cambiato',
     analytics: 'Analisi',
     audit: 'Cronologia operazioni',
     shortcuts: 'Scorciatoie da tastiera',
@@ -53,6 +55,7 @@ const m = defineMessages({
     calendars: 'Due-date calendars',
     cleanup: 'Guided cleanup',
     automations: 'Automations',
+    changes: 'What changed',
     analytics: 'Analytics',
     audit: 'Activity log',
     shortcuts: 'Keyboard shortcuts',
@@ -103,6 +106,7 @@ const menu = computed(() => [
   { label: m.labels, icon: Tag, onSelect: () => (showLabels.value = true) },
   { label: m.members, icon: Users, onSelect: () => router.push({ name: 'members' }) },
   { label: m.calendars, icon: CalendarDays, onSelect: () => (ui.calendarsOpen = true) },
+  { label: m.changes, icon: GitCompareArrows, onSelect: () => (ui.changesOpen = true) },
   ...(ws.isAdmin
     ? [
         { label: m.analytics, icon: BarChart3, onSelect: () => router.push({ name: 'analytics' }) },
@@ -214,6 +218,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     <CalendarsDialog v-model:open="ui.calendarsOpen" />
     <CleanupDialog v-model:open="ui.cleanupOpen" />
     <AutomationsDialog v-model:open="ui.automationsOpen" />
+    <ChangesDialog v-model:open="ui.changesOpen" />
     <ShortcutsDialog v-model:open="showShortcuts" />
   </header>
 </template>

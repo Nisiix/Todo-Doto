@@ -2043,6 +2043,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     workingEntries,
     workingByItem,
     canUserSee,
+    canSee,
     backups,
     backupError,
     backupBusy,
