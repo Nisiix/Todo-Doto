@@ -93,6 +93,22 @@ export const MAIL_DEFAULTS: MailSettings = {
   digest: { enabled: false, hour: 8 },
 }
 
+/**
+ * Automazioni (0.7.0): regole fisse che l'amministratore accende. Le valuta
+ * ogni PC per la persona che lo usa (niente server, niente esecuzioni doppie):
+ * gli avvisi sono notifiche locali con chiave di deduplica.
+ */
+export const AutomationsSchema = z.object({
+  /** Task con priorità immediata ancora senza responsabile dopo `days` giorni → notifica agli amministratori. */
+  urgentUnassigned: z.object({ enabled: z.boolean().default(false), days: z.number().int().min(1).max(30).default(1) }).default({}),
+  /** Domanda senza risposta dopo `days` giorni → avviso a chi vi è menzionato. */
+  unansweredQuestion: z.object({ enabled: z.boolean().default(false), days: z.number().int().min(1).max(60).default(5) }).default({}),
+  /** Un task diventa Confermato senza scadenza → l'app la chiede a chi lo conferma. */
+  confirmedNoDue: z.object({ enabled: z.boolean().default(false) }).default({}),
+})
+export type Automations = z.infer<typeof AutomationsSchema>
+export type AutomationRule = keyof Automations
+
 export const WorkspaceMetaSchema = z.object({
   schema: z.number().default(1),
   id: z.string(),
@@ -123,6 +139,8 @@ export const WorkspaceMetaSchema = z.object({
     .default({ enabled: false, adminGroups: [], cleanerGroups: [] }),
   /** Email del workspace (Outlook del PC o server SMTP aziendale) e riepilogo del mattino. */
   mail: MailSettingsSchema.default(MAIL_DEFAULTS),
+  /** Automazioni accese dall'amministratore (0.7.0). */
+  automations: AutomationsSchema.default({}),
 })
 export type WorkspaceMeta = z.infer<typeof WorkspaceMetaSchema>
 
@@ -451,6 +469,8 @@ export const NOTIFICATION_TYPES = [
   'assigned',
   'setup_incomplete',
   'unblocked',
+  'urgent_unassigned',
+  'question_waiting',
 ] as const
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
 export const NOTIFICATION_LABEL: Record<NotificationType, string> = common.notification

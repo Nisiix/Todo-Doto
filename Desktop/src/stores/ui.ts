@@ -69,6 +69,11 @@ export const useUiStore = defineStore('ui', () => {
   const calendarsOpen = ref(false)
   /** Pulizia guidata (amministratori). */
   const cleanupOpen = ref(false)
+  /** Automazioni (amministratori). */
+  const automationsOpen = ref(false)
+  /** Automazione «confermato senza scadenza»: il task di cui chiedere la scadenza. */
+  const dueAsk = ref<{ projectId: string; itemId: string } | null>(null)
+  const askDueDate = (projectId: string, itemId: string) => (dueAsk.value = { projectId, itemId })
   const settingsTab = ref('general')
   function openSettings(tab = 'general') {
     settingsTab.value = tab
@@ -83,6 +88,9 @@ export const useUiStore = defineStore('ui', () => {
   return {
     calendarsOpen,
     cleanupOpen,
+    automationsOpen,
+    dueAsk,
+    askDueDate,
     projectRequest,
     requestProject,
     settingsOpen,

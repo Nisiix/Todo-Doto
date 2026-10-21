@@ -104,6 +104,8 @@ const dirty = computed(
     labelId.value !== props.item.labelId ||
     assigneeId.value !== props.item.assigneeId,
 )
+/** Valori caricati per ultimi: un campo non toccato segue gli aggiornamenti (es. la scadenza chiesta alla conferma). */
+let base: Item = props.item
 function load(it: Item) {
   title.value = it.title
   notes.value = it.notes
@@ -112,6 +114,18 @@ function load(it: Item) {
   dueDate.value = it.dueDate
   labelId.value = it.labelId
   assigneeId.value = it.assigneeId
+  base = it
+}
+/** Aggiornamento mentre si modifica: si prendono solo i campi che qui non sono stati cambiati. */
+function merge(it: Item) {
+  if (title.value === base.title) title.value = it.title
+  if (notes.value === base.notes) notes.value = it.notes
+  if (priority.value === base.priority) priority.value = it.priority
+  if (status.value === base.status) status.value = it.status
+  if (dueDate.value === base.dueDate) dueDate.value = it.dueDate
+  if (labelId.value === base.labelId) labelId.value = it.labelId
+  if (assigneeId.value === base.assigneeId) assigneeId.value = it.assigneeId
+  base = it
 }
 const titleEl = ref<HTMLTextAreaElement | null>(null)
 
@@ -124,10 +138,11 @@ function autosizeTitle() {
 watch(
   () => props.item,
   (it) => {
-    if (!dirty.value) {
-      load(it)
-      requestAnimationFrame(autosizeTitle)
-    } else if (labelId.value && !ws.labelsById[labelId.value]) labelId.value = null // etichetta eliminata nel frattempo
+    const edited = labelId.value !== base.labelId
+    if (it.id !== base.id) load(it)
+    else merge(it)
+    requestAnimationFrame(autosizeTitle)
+    if (edited && labelId.value && !ws.labelsById[labelId.value]) labelId.value = null // etichetta scelta qui ed eliminata nel frattempo
   },
 )
 watch(title, () => requestAnimationFrame(autosizeTitle), { immediate: true })

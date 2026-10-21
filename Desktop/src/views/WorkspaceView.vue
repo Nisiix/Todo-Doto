@@ -3,6 +3,7 @@ import TopBar from '@/components/layout/TopBar.vue'
 import SideRail from '@/components/layout/SideRail.vue'
 import AiBanner from '@/components/layout/AiBanner.vue'
 import OfflineReportDialog from '@/components/dialogs/OfflineReportDialog.vue'
+import DueAskDialog from '@/components/dialogs/DueAskDialog.vue'
 import { onMounted } from 'vue'
 import { useGitHubStore } from '@/stores/github'
 import { useReadinessStore } from '@/stores/readiness'
@@ -10,6 +11,7 @@ import { useOutboxStore } from '@/stores/outbox'
 import { useAiStore } from '@/stores/ai'
 import { useHealthStore } from '@/stores/health'
 import { useCalendarStore } from '@/stores/calendars'
+import { useAutomationsStore } from '@/stores/automations'
 
 // Progetti collegati a GitHub: lo stack si risincronizza da solo all'apertura (se attivo)
 const github = useGitHubStore()
@@ -26,6 +28,8 @@ const health = useHealthStore()
 onMounted(() => void health.maybeSnapshot().catch(() => undefined))
 // Calendari .ics delle scadenze (se attivati su questo PC)
 useCalendarStore()
+// Automazioni accese dall'amministratore: avvisi per chi usa questo PC
+useAutomationsStore()
 </script>
 
 <template>
@@ -39,5 +43,6 @@ useCalendarStore()
       </main>
     </div>
     <OfflineReportDialog />
+    <DueAskDialog />
   </div>
 </template>

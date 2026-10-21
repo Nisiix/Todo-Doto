@@ -13,11 +13,12 @@ import { useOutboxStore } from './outbox'
 import { mailOutlook, mailSmtp, type MailMessage } from '@/services/office'
 import { openSecret, sealSecret } from '@/services/mail'
 import { diffProjects } from '@/services/changes'
-import { EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Milestone, type ProjectTemplate, type Stack, type Visibility } from '@/types'
+import { AutomationsSchema, EMPTY_STACK, MAIL_DEFAULTS, projectVisibility, type AiTool, type Milestone, type ProjectTemplate, type Stack, type Visibility } from '@/types'
 import { applyStatusRules, firstLine } from '@/services/items'
 import { MAX_HANDLED, normalizeSeq, planGitClose, subjectOf, taskCode, type GitCommit } from '@/services/gitLink'
 import { pruneBlockers, wouldCycle } from '@/services/dependencies'
 import { nextOccurrence } from '@/services/repeat'
+import { shouldAskDueDate } from '@/services/automations'
 import { materializeTemplate, templateFromProject } from '@/services/templates'
 import type { BackupBundle, BackupInfo, BackupReason } from '@/services/backup'
 import { detectStack, inferProjectsPath, samePath } from '@/services/projectScan'
@@ -29,6 +30,7 @@ import { inGroup, roleFromGroups } from '@/services/domain'
 import { pollInterval } from '@/services/polling'
 import type {
   Attachment,
+  Automations,
   AuditAction,
   AuditEntry,
   Bucket,
@@ -603,6 +605,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         encryption: null,
         domainLogin: { enabled: false, adminGroups: [], cleanerGroups: [] },
         mail: structuredClone(MAIL_DEFAULTS),
+        automations: AutomationsSchema.parse({}),
       }
       await s.create(m, { users: [admin] })
       if (m.auth && opts.password && opts.rememberPassword !== false) await rememberPassword(m.id, opts.password, session.localSecret)
@@ -1246,12 +1249,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       it.updatedAt = nowIso()
     })
 
-  const updateItem = (projectId: string, itemId: string, data: Partial<Item>) =>
-    mutateItem(projectId, itemId, (it) => {
+  async function updateItem(projectId: string, itemId: string, data: Partial<Item>) {
+    const find = () => projects.value[projectId]?.items.find((i) => i.id === itemId)
+    const before = find() ? { status: find()!.status } : undefined
+    const r = await mutateItem(projectId, itemId, (it) => {
       Object.assign(it, data)
       // Stato o scadenza cambiati: scadenza solo se Confermato (le altre modifiche non toccano i dati esistenti)
       if ('status' in data || 'dueDate' in data) applyStatusRules(it, nowIso())
     })
+    // Automazione: confermato senza scadenza → la si chiede a chi lo ha confermato
+    if (r && meta.value && shouldAskDueDate(meta.value.automations, before, find())) ui.askDueDate(projectId, itemId)
+    return r
+  }
 
   /**
    * Dipendenze: i task che vanno finiti prima di questo. Si tengono solo task
@@ -1942,6 +1951,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return !!r
   }
 
+  /** Automazioni del workspace (solo amministratori). */
+  async function setAutomations(next: Automations): Promise<boolean> {
+    const s = storage.value
+    if (!s || !isAdmin.value) return false
+    const r = await guard(async () => {
+      meta.value = await s.mutateMeta((x) => void (x.automations = structuredClone(next)))
+      markLocalWrite('workspace.json')
+      return true
+    })
+    return !!r
+  }
+
   /** La propria email e per cosa riceverla. */
   async function setMyMail(email: string, mailOn: MailTopic[]) {
     const s = storage.value
@@ -2028,6 +2049,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     maybeAutoBackup,
     createBackupNow,
     setBackupSettings,
+    setAutomations,
+    accessibleProjects,
     readBackup,
     restoreBackup,
     applyGitCommits,

@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
 import { PopoverContent, PopoverPortal, PopoverRoot, PopoverTrigger } from 'reka-ui'
-import { AtSign, Bell, CheckCheck, UserCheck, CheckCircle2, CircleHelp, FilePlus2, MessageSquare, NotebookPen, Reply, Trash2, Waypoints, Wrench, X, LockOpen } from 'lucide-vue-next'
+import { AtSign, Bell, CheckCheck, UserCheck, CheckCircle2, CircleHelp, FilePlus2, MessageSquare, NotebookPen, Reply, Trash2, Waypoints, Wrench, X, LockOpen, Siren, MessageCircleQuestion } from 'lucide-vue-next'
 import UserAvatar from '@/components/ui/UserAvatar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -57,6 +57,8 @@ const ICON: Record<NotificationType, unknown> = {
   assigned: UserCheck,
   setup_incomplete: Wrench,
   unblocked: LockOpen,
+  urgent_unassigned: Siren,
+  question_waiting: MessageCircleQuestion,
 }
 const list = computed(() => notif.items.slice(0, 80))
 const isSystem = (n: Notification) => !n.byId
@@ -107,7 +109,7 @@ function go(n: Notification) {
         <ul v-if="list.length" class="max-h-[60vh] divide-y divide-line overflow-y-auto">
           <li v-for="n in list" :key="n.id" class="group relative" :data-notification="n.type" :data-unread="!n.read || undefined">
             <button class="flex w-full items-start gap-2.5 py-2 pl-3 pr-9 text-left hover:bg-surface-2" :class="{ 'bg-accent-soft/40': !n.read }" @click="go(n)">
-              <component :is="ICON[n.type]" :size="15" class="mt-0.5 shrink-0" :class="n.type === 'mention' ? 'text-accent' : n.type === 'setup_incomplete' ? 'text-danger' : 'text-ink-3'" />
+              <component :is="ICON[n.type]" :size="15" class="mt-0.5 shrink-0" :class="n.type === 'mention' ? 'text-accent' : n.type === 'setup_incomplete' || n.type === 'urgent_unassigned' ? 'text-danger' : 'text-ink-3'" />
               <span class="min-w-0 flex-1">
                 <span class="block text-[13px] leading-snug">
                   <template v-if="isSystem(n)">{{ n.text }}</template>

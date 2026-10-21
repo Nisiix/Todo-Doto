@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
-import { AlertTriangle, Archive, BarChart3, Brush, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
+import { AlertTriangle, Archive, BarChart3, Brush, Workflow, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
@@ -11,6 +11,7 @@ import SettingsDialog from '@/components/dialogs/SettingsDialog.vue'
 import LabelsDialog from '@/components/dialogs/LabelsDialog.vue'
 import CalendarsDialog from '@/components/dialogs/CalendarsDialog.vue'
 import CleanupDialog from '@/components/dialogs/CleanupDialog.vue'
+import AutomationsDialog from '@/components/dialogs/AutomationsDialog.vue'
 import ShortcutsDialog from '@/components/dialogs/ShortcutsDialog.vue'
 import NotificationsPanel from './NotificationsPanel.vue'
 import GlobalSearch from './GlobalSearch.vue'
@@ -26,6 +27,7 @@ const m = defineMessages({
     members: 'Membri',
     calendars: 'Calendari delle scadenze',
     cleanup: 'Pulizia guidata',
+    automations: 'Automazioni',
     analytics: 'Analisi',
     audit: 'Cronologia operazioni',
     shortcuts: 'Scorciatoie da tastiera',
@@ -50,6 +52,7 @@ const m = defineMessages({
     members: 'Members',
     calendars: 'Due-date calendars',
     cleanup: 'Guided cleanup',
+    automations: 'Automations',
     analytics: 'Analytics',
     audit: 'Activity log',
     shortcuts: 'Keyboard shortcuts',
@@ -105,6 +108,7 @@ const menu = computed(() => [
         { label: m.analytics, icon: BarChart3, onSelect: () => router.push({ name: 'analytics' }) },
         { label: m.audit, icon: History, onSelect: () => router.push({ name: 'audit' }) },
         { label: m.cleanup, icon: Brush, onSelect: () => (ui.cleanupOpen = true) },
+        { label: m.automations, icon: Workflow, onSelect: () => (ui.automationsOpen = true) },
       ]
     : []),
   { sep: true, label: '' },
@@ -209,6 +213,7 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
     <LabelsDialog v-model:open="showLabels" />
     <CalendarsDialog v-model:open="ui.calendarsOpen" />
     <CleanupDialog v-model:open="ui.cleanupOpen" />
+    <AutomationsDialog v-model:open="ui.automationsOpen" />
     <ShortcutsDialog v-model:open="showShortcuts" />
   </header>
 </template>

@@ -21,6 +21,7 @@ import {
   Sparkles,
   Sun,
   Users,
+  Workflow,
 } from 'lucide-vue-next'
 import { useEventListener, watchDebounced } from '@vueuse/core'
 import { useAiStore, withAi } from '@/stores/ai'
@@ -65,6 +66,7 @@ const m = defineMessages({
       settings: 'Apri Impostazioni',
       calendars: 'Calendari delle scadenze (.ics)',
       cleanup: 'Pulizia guidata',
+      automations: 'Automazioni',
       theme: 'Cambia tema (chiaro o scuro)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Allegati' } as Record<ProjectSection, string>,
@@ -97,6 +99,7 @@ const m = defineMessages({
       settings: 'Open Settings',
       calendars: 'Due-date calendars (.ics)',
       cleanup: 'Guided cleanup',
+      automations: 'Automations',
       theme: 'Switch theme (light or dark)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Attachments' } as Record<ProjectSection, string>,
@@ -146,6 +149,7 @@ const commands = computed<Command[]>(() => {
       : []),
     ws.isAdmin && { id: 'analytics', label: m.cmd.analytics, keywords: ['analisi', 'analytics', 'carico', 'statistiche'], icon: BarChart3, run: () => void router.push({ name: 'analytics' }) },
     ws.isAdmin && { id: 'audit', label: m.cmd.audit, keywords: ['cronologia', 'audit', 'history', 'storico'], icon: History, run: () => void router.push({ name: 'audit' }) },
+    ws.isAdmin && { id: 'automations', label: m.cmd.automations, keywords: ['automazioni', 'regole', 'promemoria', 'automations', 'rules'], icon: Workflow, run: () => (ui.automationsOpen = true) },
     ws.isAdmin && { id: 'cleanup', label: m.cmd.cleanup, keywords: ['pulizia', 'pulisci', 'ordine', 'cleanup', 'tidy'], icon: Brush, run: () => (ui.cleanupOpen = true) },
     ws.isNetwork && { id: 'members', label: m.cmd.members, keywords: ['membri', 'utenti', 'members', 'users'], icon: Users, run: () => void router.push({ name: 'members' }) },
     { id: 'calendars', label: m.cmd.calendars, keywords: ['calendario', 'calendari', 'outlook', 'ics', 'calendar'], icon: CalendarDays, run: () => (ui.calendarsOpen = true) },

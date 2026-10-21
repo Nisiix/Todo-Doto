@@ -40,6 +40,8 @@ export const common = defineMessages({
       assigned: 'Un elemento viene assegnato a me',
       setup_incomplete: 'Al mio PC manca qualcosa per lavorare a un progetto',
       unblocked: 'Un mio task non è più bloccato: si può partire',
+      urgent_unassigned: 'Un task urgente resta senza responsabile (amministratori, se l’automazione è attiva)',
+      question_waiting: 'Una domanda in cui sono menzionato aspetta ancora risposta (se l’automazione è attiva)',
     },
     /** Testi delle notifiche: seguono il nome di chi ha fatto l'azione. */
     activity: {
@@ -191,6 +193,8 @@ export const common = defineMessages({
       assigned: 'An item is assigned to me',
       setup_incomplete: 'My PC is missing something to work on a project',
       unblocked: 'One of my tasks is no longer blocked: work can start',
+      urgent_unassigned: 'An urgent task is still unassigned (admins, when the automation is on)',
+      question_waiting: 'A question I am mentioned in is still unanswered (when the automation is on)',
     },
     activity: {
       created: 'added an item',
