@@ -83,7 +83,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   // --- richieste dalla palette dei comandi al progetto aperto (nuovo task, decisioni…) ---
-  type ProjectAction = 'newItem' | 'decisions' | 'insights' | 'roadmap'
+  type ProjectAction = 'newItem' | 'decisions' | 'insights' | 'roadmap' | 'ask'
   const projectRequest = ref<{ action: ProjectAction; projectId: string; at: number } | null>(null)
   const requestProject = (action: ProjectAction, projectId: string) => (projectRequest.value = { action, projectId, at: Date.now() })
 

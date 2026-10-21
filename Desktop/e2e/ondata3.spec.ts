@@ -154,3 +154,119 @@ test('cosa è cambiato: dalla copia di sicurezza ad adesso, per tipo, con scaden
   await expect(changes).toHaveCount(0)
   await expect(page.locator('#d-title, textarea[aria-label="Titolo"]').first()).toHaveValue('Recensioni')
 })
+
+/** PDF minimo con una riga di testo per pagina (Helvetica), con la tabella xref corretta. */
+function tinyPdf(pages: string[]): string {
+  const objs: string[] = []
+  const kids = pages.map((_, i) => `${4 + i * 2} 0 R`).join(' ')
+  objs.push('<< /Type /Catalog /Pages 2 0 R >>')
+  objs.push(`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`)
+  objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+  pages.forEach((text, i) => {
+    const stream = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`
+    objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + i * 2} 0 R >>`)
+    objs.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`)
+  })
+  let out = '%PDF-1.4\n'
+  const offsets: number[] = []
+  objs.forEach((o, i) => {
+    offsets.push(out.length)
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`
+  })
+  const xref = out.length
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return out
+}
+
+/** IA locale simulata: modelli installati, embedding per gruppi di parole, risposta che cita il passaggio giusto. */
+async function fakeAi(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as Record<string, unknown>
+    w.__pgmSeedFiles = { '/appdata/config.json': JSON.stringify({ ai: { enabled: true, bannerDismissed: true, autoDetectDone: true } }) }
+    const chats: string[] = []
+    w.__pgmAiChats = chats
+    const groups = [/redis|backend|prerequisit/i, /accesso|login|sso/i, /fattur/i]
+    // Una ricerca senza parole note punta altrove: non somiglia a nessun passaggio
+    const vec = (t: string) => {
+      const g = groups.map((x) => (x.test(t.replace(/^search_(query|document): /, '')) ? 1 : 0))
+      return [...g, t.startsWith('search_query: ') && !g.some(Boolean) ? 1 : 0, 0.05]
+    }
+    w.__pgmAi = {
+      request(req: { url: string; body?: string }) {
+        const path = new URL(req.url).pathname
+        if (path === '/api/tags') return { status: 200, body: JSON.stringify({ models: [{ name: 'qwen3:4b' }, { name: 'nomic-embed-text:latest' }] }) }
+        if (path === '/api/version') return { status: 200, body: '{"version":"0.12.6"}' }
+        if (path === '/api/embed') return { status: 200, body: JSON.stringify({ embeddings: (JSON.parse(req.body ?? '{}').input as string[]).map(vec) }) }
+        if (path === '/api/chat') {
+          const user = (JSON.parse(req.body ?? '{}').messages as { content: string }[])[1]!.content
+          chats.push(user)
+          const n = (re: RegExp) => Number(new RegExp(`\\[(\\d+)\\] ${re.source}`).exec(user)?.[1] ?? 0)
+          const pdf = n(/documento\.pdf/)
+          const task = n(/TODO-1 /)
+          const answer = /prerequisit/i.test(user)
+            ? { answer: `Per il backend servono Redis 7 e Node 22 [${pdf}].`, sources: [pdf], found: true }
+            : { answer: `L’accesso con SSO è il task TODO-1 [${task}].`, sources: [task], found: true }
+          return { status: 200, body: JSON.stringify({ message: { content: JSON.stringify(answer) } }) }
+        }
+        return { status: 404, body: '{}' }
+      },
+    }
+  })
+}
+
+test('chiedi al progetto: risposta dall’IA locale con le fonti, anche da un PDF allegato; indice salvato sul PC', async ({ page }) => {
+  await fakeAi(page)
+  await createLocalWorkspace(page)
+  await createProject(page, 'Gestionale')
+  await addTasks(page, ['Accesso con SSO', 'Esportazione fatture'])
+
+  // Allegato PDF con i prerequisiti (il selettore di file del test sceglie /demo/documento.pdf)
+  await page.evaluate(async (pdf) => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ writeBinary(p: string, d: Uint8Array): Promise<void> }> }).__pgmFs()
+    await fs.writeBinary('/demo/documento.pdf', new TextEncoder().encode(pdf))
+  }, tinyPdf(['Copertina del manuale', 'Il backend richiede Redis 7 e Node 22']))
+  await page.locator('aside').first().getByRole('link', { name: /^Allegati( \d+)?$/ }).click()
+  await page.getByRole('button', { name: 'Allegato', exact: true }).click()
+  await page.getByRole('radio', { name: 'File' }).click()
+  await page.getByRole('button', { name: 'Sfoglia' }).click()
+  await expect(page.locator('#a-name')).toHaveValue('documento.pdf')
+  await page.getByRole('button', { name: 'Crea', exact: true }).click()
+  await expect(page.getByText('documento.pdf', { exact: true })).toBeVisible()
+
+  await page.locator('[data-ask-open]').click()
+  const ask = page.locator('[data-ask]')
+  await ask.locator('[data-ask-input]').fill('Quali prerequisiti servono per il backend?')
+  await ask.locator('[data-ask-input]').press('Enter')
+  await expect(ask.locator('[data-ask-text]')).toContainText('Per il backend servono Redis 7 e Node 22')
+  await expect(ask.locator('[data-ask-sources]')).toContainText('documento.pdf, p. 2')
+  await expect(ask.locator('[data-ask-sources]')).toContainText('Il backend richiede Redis 7')
+  // Al modello vanno solo i passaggi trovati
+  const sent = await page.evaluate(() => (window as unknown as { __pgmAiChats: string[] }).__pgmAiChats.join('\n'))
+  expect(sent).toContain('Redis 7')
+  expect(sent).not.toContain('Esportazione fatture')
+
+  // Una fonte che è un task: il clic lo apre
+  await ask.locator('[data-ask-input]').fill('A che punto è il login?')
+  await ask.locator('[data-ask-submit]').click()
+  await expect(ask.locator('[data-ask-text]')).toContainText('L’accesso con SSO')
+  await ask.locator('[data-ask-cite]').first().click()
+  await expect(ask).toHaveCount(0)
+  await expect(page.locator('#d-priority')).toHaveCount(1)
+  await expect(page.locator('aside:has(#d-priority) textarea').first()).toHaveValue('Accesso con SSO')
+  await page.keyboard.press('Escape')
+
+  // Niente di pertinente: nessuna domanda al modello
+  await page.locator('[data-ask-open]').click()
+  await ask.locator('[data-ask-input]').fill('Chi ha scritto il contratto con il fornitore?')
+  await ask.locator('[data-ask-submit]').click()
+  await expect(ask.locator('[data-ask-nothing]')).toBeVisible()
+  expect(await page.evaluate(() => (window as unknown as { __pgmAiChats: string[] }).__pgmAiChats.length)).toBe(2)
+
+  // Indice degli embedding salvato su questo PC
+  const files = await page.evaluate(async () => {
+    const fs = await (window as unknown as { __pgmFs: () => Promise<{ readDir(p: string): Promise<string[]> }> }).__pgmFs()
+    return fs.readDir('/appdata/ia')
+  })
+  expect(files).toHaveLength(1)
+})

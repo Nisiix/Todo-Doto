@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Activity, Archive, ClipboardList, Flag, Gavel, LayoutTemplate, MoreHorizontal, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Star, Trash2, Users, X } from 'lucide-vue-next'
+import { Activity, Archive, ClipboardList, Flag, Gavel, LayoutTemplate, MoreHorizontal, HardDrive, ListPlus, Lock, Map as MapIcon, Plus, RotateCcw, Sparkles, Star, Trash2, Users, X } from 'lucide-vue-next'
 import { useEventListener } from '@vueuse/core'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
@@ -26,6 +26,7 @@ import GanttChart from '@/components/board/GanttChart.vue'
 import ProjectAiTools from '@/components/project/ProjectAiTools.vue'
 import CommitSuggestions from '@/components/ai/CommitSuggestions.vue'
 import TasksFromTextDialog from '@/components/ai/TasksFromTextDialog.vue'
+import AskProjectDialog from '@/components/ai/AskProjectDialog.vue'
 import QuickAddBar from '@/components/quick/QuickAddBar.vue'
 import ProjectInsights from '@/components/project/ProjectInsights.vue'
 import { projectSignals } from '@/services/insights'
@@ -68,6 +69,8 @@ const m = defineMessages({
     newItem: 'Nuovo task',
     fromText: 'Da un testo',
     roadmap: 'Roadmap per il cliente',
+    ask: 'Chiedi',
+    askHint: 'Chiedi al progetto: risposte da task, decisioni e documenti, con le fonti (IA locale)',
     roadmapHint: 'Una pagina con cosa è fatto e cosa arriva, da mandare al cliente o stampare in PDF',
     more: 'Altro',
     saveTemplate: 'Salva come modello…',
@@ -114,6 +117,8 @@ const m = defineMessages({
     fromText: 'From a text',
     roadmap: 'Client roadmap',
     roadmapHint: 'A page with what is done and what is coming, to send to the client or print to PDF',
+    ask: 'Ask',
+    askHint: 'Ask the project: answers from tasks, decisions and documents, with sources (local AI)',
     more: 'More',
     saveTemplate: 'Save as template…',
     report: 'Report',
@@ -248,6 +253,7 @@ const showRoadmap = ref(false)
 const showDecisions = ref(false)
 const showMilestones = ref(false)
 const showReport = ref(false)
+const showAsk = ref(false)
 const showTemplates = ref(false)
 const moreMenu = computed(() => (ws.isAdmin && !trashed.value ? [{ label: m.saveTemplate, icon: LayoutTemplate, onSelect: () => (showTemplates.value = true) }] : []))
 const openMilestones = computed(() => project.value?.milestones.filter((x) => !x.closedAt).length ?? 0)
@@ -283,6 +289,7 @@ watch(
     if (!r || r.projectId !== props.id || !project.value) return
     ui.projectRequest = null
     if (r.action === 'decisions') showDecisions.value = true
+    else if (r.action === 'ask') showAsk.value = true
     else if (r.action === 'roadmap') showRoadmap.value = !trashed.value
     else {
       if (section.value !== 'todo') void router.push({ name: 'project', params: { id: props.id } })
@@ -397,6 +404,9 @@ const tabs: { id: Bucket; label: string }[] = [
           <BaseButton v-if="decisionCount" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.decisionsHint" data-decisions-open @click="showDecisions = true">
             <Gavel :size="14" /> {{ m.decisions }} <span class="tabular-nums text-ink-3">{{ decisionCount }}</span>
           </BaseButton>
+          <BaseButton v-if="ai.active" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.askHint" data-ask-open @click="showAsk = true">
+            <Sparkles :size="14" /> {{ m.ask }}
+          </BaseButton>
           <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.reportHint" data-report-open @click="showReport = true">
             <ClipboardList :size="14" /> {{ m.report }}
           </BaseButton>
@@ -502,6 +512,7 @@ const tabs: { id: Bucket; label: string }[] = [
     <RoadmapDialog v-model:open="showRoadmap" :project="project" />
     <DecisionsDialog v-model:open="showDecisions" :project="project" />
     <StatusReportDialog v-model:open="showReport" :project="project" />
+    <AskProjectDialog v-model:open="showAsk" :project-id="project.id" />
     <TemplatesDialog v-model:open="showTemplates" :project="project" />
     <MilestonesDialog v-model:open="showMilestones" :project="project" :read-only="trashed" @show-tasks="showMilestoneTasks" />
   </template>

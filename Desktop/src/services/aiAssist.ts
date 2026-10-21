@@ -6,6 +6,7 @@
  */
 import { z } from 'zod'
 import { chatJson, cosine, embed } from './localAi'
+import type { VectorStore } from './vectorIndex'
 import { redactSecrets } from './aiStack'
 import { closedSeqs, subjectOf, taskCode, type GitCommit } from './gitLink'
 import { firstLine } from './items'
@@ -94,15 +95,28 @@ const asDoc = (t: string) => `search_document: ${t}`
 const asQuery = (t: string) => `search_query: ${t}`
 export const itemText = (i: Pick<Item, 'title' | 'notes'>) => `${i.title}\n${i.notes}`.trim().slice(0, 1000)
 
-async function vectorsFor(cfg: AiConfig, texts: string[]): Promise<number[][]> {
+async function vectorsFor(cfg: AiConfig, texts: string[], opts: { index?: VectorStore; onProgress?: (done: number, total: number) => void } = {}): Promise<number[][]> {
   const key = (t: string) => `${cfg.provider}|${cfg.embedModel}|${t}`
-  const missing = [...new Set(texts.filter((t) => !vectors.has(key(t))))]
-  if (missing.length) {
-    const got = await embed(cfg, missing)
-    missing.forEach((t, i) => vectors.set(key(t), got[i]!))
-    while (vectors.size > MAX_CACHE) vectors.delete(vectors.keys().next().value!)
+  // Prima la memoria di questa sessione, poi l'indice salvato su questo PC
+  for (const t of texts) {
+    if (vectors.has(key(t))) continue
+    const v = opts.index?.get(t)
+    if (v) vectors.set(key(t), v)
   }
-  return texts.map((t) => vectors.get(key(t))!)
+  const missing = [...new Set(texts.filter((t) => !vectors.has(key(t))))]
+  for (let i = 0; i < missing.length; i += 64) {
+    opts.onProgress?.(i, missing.length)
+    const part = missing.slice(i, i + 64)
+    const got = await embed(cfg, part)
+    part.forEach((t, j) => {
+      vectors.set(key(t), got[j]!)
+      opts.index?.set(t, got[j]!)
+    })
+  }
+  if (missing.length) opts.onProgress?.(missing.length, missing.length)
+  const out = texts.map((t) => vectors.get(key(t))!)
+  while (vectors.size > MAX_CACHE) vectors.delete(vectors.keys().next().value!)
+  return out
 }
 export const __clearVectors = () => vectors.clear()
 
@@ -115,11 +129,16 @@ export interface Scored<T> {
  * Gli elementi più vicini per significato a `query`, sopra la soglia.
  * `mode`: 'search' (una ricerca contro i task) o 'similar' (un task contro gli altri).
  */
-export async function nearest<T>(cfg: AiConfig, query: string, candidates: { value: T; text: string }[], opts: { mode: 'search' | 'similar'; threshold: number; max: number }): Promise<Scored<T>[]> {
+export async function nearest<T>(
+  cfg: AiConfig,
+  query: string,
+  candidates: { value: T; text: string }[],
+  opts: { mode: 'search' | 'similar'; threshold: number; max: number; index?: VectorStore; onProgress?: (done: number, total: number) => void },
+): Promise<Scored<T>[]> {
   const list = candidates.filter((c) => c.text.trim())
   if (!query.trim() || !list.length) return []
   const [q] = await vectorsFor(cfg, [opts.mode === 'search' ? asQuery(query) : asDoc(query)])
-  const docs = await vectorsFor(cfg, list.map((c) => asDoc(c.text)))
+  const docs = await vectorsFor(cfg, list.map((c) => asDoc(c.text)), { index: opts.index, onProgress: opts.onProgress })
   return list
     .map((c, i) => ({ value: c.value, score: cosine(q!, docs[i]!) }))
     .filter((s) => s.score >= opts.threshold)

@@ -69,6 +69,7 @@ const m = defineMessages({
       cleanup: 'Pulizia guidata',
       automations: 'Automazioni',
       changes: 'Cosa è cambiato tra due date',
+      ask: (p: string) => `Chiedi al progetto ${p}`,
       theme: 'Cambia tema (chiaro o scuro)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Allegati' } as Record<ProjectSection, string>,
@@ -103,6 +104,7 @@ const m = defineMessages({
       cleanup: 'Guided cleanup',
       automations: 'Automations',
       changes: 'What changed between two dates',
+      ask: (p: string) => `Ask the project ${p}`,
       theme: 'Switch theme (light or dark)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Attachments' } as Record<ProjectSection, string>,
@@ -139,6 +141,7 @@ const commands = computed<Command[]>(() => {
     { id: 'overview', label: m.cmd.overview, keywords: ['home', 'overview', 'panoramica'], icon: LayoutDashboard, run: () => void router.push({ name: 'workspace-home' }) },
     live && { id: 'newItem', label: m.cmd.newItem(p.name), keywords: ['nuovo', 'crea', 'aggiungi', 'new', 'add', 'task'], icon: Plus, run: () => ui.requestProject('newItem', p.id) },
     live && { id: 'insights', label: m.cmd.insights(p.name), keywords: ['attenzioni', 'ritardi', 'tempi', 'attention', 'overdue', 'times'], icon: Activity, run: () => ui.requestProject('insights', p.id) },
+    p && ai.active && { id: 'ask', label: m.cmd.ask(p.name), keywords: ['chiedi', 'domanda', 'ia', 'cerca', 'ask', 'question', 'ai'], icon: Sparkles, run: () => ui.requestProject('ask', p.id) },
     p && { id: 'decisions', label: m.cmd.decisions(p.name), keywords: ['decisioni', 'registro', 'decisions', 'log'], icon: Gavel, run: () => ui.requestProject('decisions', p.id) },
     live && { id: 'roadmap', label: m.cmd.roadmap(p.name), keywords: ['roadmap', 'cliente', 'client', 'pdf'], icon: MapIcon, run: () => ui.requestProject('roadmap', p.id) },
     ...(p
