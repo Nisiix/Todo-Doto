@@ -926,7 +926,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
     try {
       await s.appendAudit([entry])
-      audit.value = [...audit.value, entry].slice(-5000)
+      // Un aggiornamento in parallelo può aver già riletto la voce dal file: niente doppioni
+      audit.value = [...audit.value.filter((e) => e.id !== entry.id), entry].slice(-5000)
       writeGen++
     } catch (e) {
       lastError.value = describe(e)
