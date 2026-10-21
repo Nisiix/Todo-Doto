@@ -2,6 +2,14 @@
 
 Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
+## 0.7.0 — 21 ottobre 2026
+
+- Automazioni (menu del workspace, amministratori): se un task urgente resta senza responsabile per un giorno gli amministratori ricevono una notifica; se una domanda resta senza risposta per 5 giorni chi vi è menzionato riceve un avviso; quando si conferma un task senza scadenza l'app la chiede subito. I giorni si scelgono; senza server, ogni avviso arriva una volta sola.
+- Cosa è cambiato: si scelgono due momenti (le copie di sicurezza giornaliere, o adesso) e si vede cosa è stato aggiunto, completato, riaperto, cestinato o eliminato, le scadenze spostate «da → a», i task passati ad altri e i progetti nuovi, rinominati o cestinati. Un clic apre il task.
+- Chiedi al progetto (con l'IA locale): domande come «cosa abbiamo deciso sull'autenticazione?» o «quali prerequisiti servono per il backend?». La risposta viene solo da task, commenti, domande e decisioni, documento di architettura, note dello Stack e allegati di testo o PDF, e cita le fonti, che si aprono con un clic. Nulla esce dal PC.
+- Il dettaglio del task tiene i campi che si stanno modificando e prende gli aggiornamenti degli altri.
+- Con il pannello del task aperto, i pulsanti in cima al progetto mostrano solo l'icona: il nome del progetto resta leggibile.
+
 ## 0.6.0 — 20 ottobre 2026
 
 - Dipendenze: un task «va fatto dopo» altri. Finché quelli non sono completati ha un lucchetto; se scade prima di chi lo blocca, un avviso lo dice. Nel Gantt le frecce collegano le barre e la catena critica è evidenziata. Quando il task si sblocca, chi lo ha in carico riceve una notifica.

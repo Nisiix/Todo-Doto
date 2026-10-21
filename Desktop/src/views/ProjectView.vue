@@ -349,7 +349,7 @@ const tabs: { id: Bucket; label: string }[] = [
   <template v-if="project">
     <div class="flex min-w-0 flex-1 flex-col">
       <!-- Intestazione -->
-      <header class="shrink-0 px-8 pt-6">
+      <header class="@container shrink-0 px-8 pt-6">
         <div v-if="trashed" class="mb-3 flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2 text-[13px] text-ink-2">
           <Lock :size="14" class="shrink-0" />
           <span class="flex-1">{{ m.trashedBanner(dayjs(project.trashedAt).format(DATE.date)) }}</span>
@@ -398,20 +398,20 @@ const tabs: { id: Bucket; label: string }[] = [
             </div>
             <p v-if="project.description" class="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-ink-2">{{ project.description }}</p>
           </div>
-          <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.milestonesHint" data-milestones-open @click="showMilestones = true">
-            <Flag :size="14" /> {{ m.milestones }} <span v-if="openMilestones" class="tabular-nums text-ink-3">{{ openMilestones }}</span>
+          <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.milestonesHint" :aria-label="m.milestones" data-milestones-open @click="showMilestones = true">
+            <Flag :size="14" /> <span class="hidden @4xl:inline">{{ m.milestones }}</span> <span v-if="openMilestones" class="tabular-nums text-ink-3">{{ openMilestones }}</span>
           </BaseButton>
-          <BaseButton v-if="decisionCount" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.decisionsHint" data-decisions-open @click="showDecisions = true">
-            <Gavel :size="14" /> {{ m.decisions }} <span class="tabular-nums text-ink-3">{{ decisionCount }}</span>
+          <BaseButton v-if="decisionCount" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.decisionsHint" :aria-label="m.decisions" data-decisions-open @click="showDecisions = true">
+            <Gavel :size="14" /> <span class="hidden @4xl:inline">{{ m.decisions }}</span> <span class="tabular-nums text-ink-3">{{ decisionCount }}</span>
           </BaseButton>
-          <BaseButton v-if="ai.active" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.askHint" data-ask-open @click="showAsk = true">
-            <Sparkles :size="14" /> {{ m.ask }}
+          <BaseButton v-if="ai.active" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.askHint" :aria-label="m.ask" data-ask-open @click="showAsk = true">
+            <Sparkles :size="14" /> <span class="hidden @4xl:inline">{{ m.ask }}</span>
           </BaseButton>
-          <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.reportHint" data-report-open @click="showReport = true">
-            <ClipboardList :size="14" /> {{ m.report }}
+          <BaseButton size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.reportHint" :aria-label="m.report" data-report-open @click="showReport = true">
+            <ClipboardList :size="14" /> <span class="hidden @4xl:inline">{{ m.report }}</span>
           </BaseButton>
-          <BaseButton v-if="!trashed" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.roadmapHint" data-roadmap-open @click="showRoadmap = true">
-            <MapIcon :size="14" /> {{ m.roadmap }}
+          <BaseButton v-if="!trashed" size="sm" variant="ghost" class="mt-1 shrink-0" :title="m.roadmapHint" :aria-label="m.roadmap" data-roadmap-open @click="showRoadmap = true">
+            <MapIcon :size="14" /> <span class="hidden @4xl:inline">{{ m.roadmap }}</span>
           </BaseButton>
           <BaseMenu v-if="moreMenu.length" :items="moreMenu">
             <BaseButton size="icon-sm" variant="ghost" class="mt-1 shrink-0" :title="m.more" :aria-label="m.more" data-project-more><MoreHorizontal :size="15" /></BaseButton>

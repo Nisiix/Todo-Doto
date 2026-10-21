@@ -467,6 +467,13 @@ Obiettivo: le funzioni di coordinamento per i workspace di rete. Con la raccoman
 
 1. A2 previsione (usa A5) · 2. G3 automazioni (usa G1, G2, A3) · 3. A8 confronto fra date · 4. I1 "Chiedi al progetto".
 
+**Stato: fatta in parte nella 0.7.0** (dettagli in `Desktop/PROGETTO.md` §9j), senza piano a pagamento: le funzioni fatte restano gratuite e non serve il codice delle licenze. Differenze rispetto a quanto descritto sopra:
+
+- **A2 previsione**: non fatta.
+- **G3 automazioni**: solo tre regole (urgente senza responsabile → amministratori; domanda senza risposta → menzionati; confermato senza scadenza → l'app chiede la data). Niente `rules.json` né `ruleRuns`: ogni PC valuta le regole per chi lo usa e le notifiche hanno una chiave fissa, quindi non serve decidere quale PC le esegue. L'età del task urgente si conta dalla creazione (il momento in cui è diventato urgente o è rimasto senza responsabile non si registra).
+- **A8 confronto fra date**: tra copie di sicurezza o con adesso; le date sono quelle delle copie esistenti (7 giornaliere e 4 settimanali), non un giorno qualsiasi.
+- **I1 «Chiedi al progetto»**: gli allegati di Google Drive e le scansioni dei PDF (senza testo) non si leggono; l'indice non si salva se i dati del workspace sono cifrati.
+
 ### Dipendenze fra funzioni
 
 - A2 previsione ← A5 stime (facoltativo ma migliora molto).
