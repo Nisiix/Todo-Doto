@@ -70,7 +70,7 @@ const m = defineMessages({
 })
 
 const ws = useWorkspaceStore()
-/** Workspace di rete con la cartella Dati o quella dei progetti in locale: non si condivide. */
+/** Workspace di rete con la cartella Dati in locale: non si condivide. */
 const sharing = useSharing()
 const confirm = useConfirm()
 const showPermissions = ref(false)

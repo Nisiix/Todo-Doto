@@ -55,7 +55,7 @@ const m = defineMessages({
 const props = defineProps<{ projectId?: string | null }>()
 const open = defineModel<boolean>('open', { default: false })
 const ws = useWorkspaceStore()
-/** Progetti in locale (cartella Dati o cartella del progetto): non si scelgono utenti. */
+/** Progetti non condivisibili (cartella Dati in locale): non si scelgono utenti. */
 const sharing = useSharing()
 const blockedText = (p: Parameters<typeof sharing.projectText>[0]) => sharing.projectText(p)
 const ui = useUiStore()

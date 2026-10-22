@@ -176,7 +176,7 @@ async function inspect(path: string) {
   }
 }
 watchDebounced(() => [open.value, diskPath.value] as const, ([o, p]) => o && void inspect(p), { debounce: 300 })
-// Visibilità ad altri membri solo con la cartella Dati e la cartella del progetto in rete
+// Visibilità ad altri membri solo con la cartella Dati in rete (la cartella del progetto può essere in locale)
 const dataPath = computed(() => ws.storage?.root ?? '')
 // (prima di scrivere il nome la cartella sarà dentro quella dei progetti: conta quella)
 const folderForShare = computed(() => diskPath.value.trim() || ws.projectsRoot)
@@ -214,8 +214,8 @@ async function submit() {
   if (kind.value === 'workspace') return (error.value = m.kindWorkspace)
   if (kind.value === 'projects') return (error.value = m.kindProjects(markers.value.slice(0, 4).join(', ')))
 
-  // Visibilità: conta solo nei workspace di rete (in locale c'è un solo utente). Con le
-  // cartelle in locale gli altri non raggiungerebbero il progetto: lo vedono solo gli amministratori.
+  // Visibilità: conta solo nei workspace di rete (in locale c'è un solo utente). Con la cartella
+  // Dati in locale gli altri non raggiungerebbero il progetto: lo vedono solo gli amministratori.
   const shareable = ws.isNetwork && (await checkShare(projectParts(dataPath.value, dir))).ok
   const vis: Visibility = !ws.isNetwork ? 'public' : shareable ? visibility.value : 'restricted'
   const memberIds = shareable ? resolveMembers(ws.users, vis, members.value) : []

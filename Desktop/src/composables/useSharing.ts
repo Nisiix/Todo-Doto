@@ -4,10 +4,10 @@ import { projectFolderOf, projectParts, projectShareText, shareState, workspaceP
 import type { Project } from '@/types'
 
 /**
- * Si può condividere con gli altri membri? Il workspace se la cartella Dati e
- * quella dei progetti sono in rete; un progetto se lo sono la cartella Dati e
- * la cartella del progetto (vedi services/sharing.ts). Conta solo nei
- * workspace di rete: in locale c'è un solo utente.
+ * Si può condividere con gli altri membri? Il workspace e i suoi progetti se
+ * la cartella Dati è in rete (le cartelle dei progetti possono stare anche in
+ * locale, con lo stesso percorso su ogni PC; vedi services/sharing.ts). Conta
+ * solo nei workspace di rete: in locale c'è un solo utente.
  */
 export function useSharing() {
   const ws = useWorkspaceStore()

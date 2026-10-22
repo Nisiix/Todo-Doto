@@ -10,7 +10,7 @@ import type { WorkspaceMode } from '@/types'
 import { Database, FolderGit2, FolderOpen, HardDrive, Loader2, Network } from 'lucide-vue-next'
 import { isInside, samePath, scanProjects, type DetectedProject } from '@/services/projectScan'
 import { checkFolder, explainFsError } from '@/services/fsErrors'
-import { checkShare, workspaceParts, workspaceShareText, type ShareCheck } from '@/services/sharing'
+import { checkLocalOnly, checkShare, workspaceLocalOnlyText, workspaceParts, workspaceShareText, type ShareCheck } from '@/services/sharing'
 import { defineMessages, plural } from '@/i18n'
 import { common } from '@/i18n/common'
 
@@ -38,9 +38,11 @@ const m = defineMessages({
     selectNone: 'Nessuno',
     where: 'Chi usa il workspace',
     local: 'Solo su questo PC',
-    localHint: 'Nessuna password, sei tu l’unico utente.',
+    localHint: 'Nessuna password, sei tu l’unico utente. Entrambe le cartelle su questo PC.',
     network: 'Condiviso in rete',
     networkHint: 'Cartella Dati su un server; i colleghi entrano con una password.',
+    networkFolders:
+      'La cartella Dati deve essere in rete (es. \\\\server\\Todo Doto o un’unità di rete come Z:\\Todo Doto). La cartella dei progetti può stare anche in locale: in quel caso tutti i PC devono usare lo stesso percorso (es. D:\\Sviluppo).',
     password: 'Password di accesso',
     repeatPassword: 'Ripeti password',
     adminHint: 'Tu sarai amministratore. Chi apre la cartella Dati da un altro PC dovrà inserire la password, e potrà scegliere di farla ricordare.',
@@ -78,9 +80,11 @@ const m = defineMessages({
     selectNone: 'None',
     where: 'Who uses the workspace',
     local: 'Only on this PC',
-    localHint: 'No password, you are the only user.',
+    localHint: 'No password, you are the only user. Both folders on this PC.',
     network: 'Shared on the network',
     networkHint: 'Data folder on a server; colleagues join with a password.',
+    networkFolders:
+      'The data folder must be on the network (e.g. \\\\server\\Todo Doto or a network drive such as Z:\\Todo Doto). The projects folder can also be local: in that case every PC must use the same path (e.g. D:\\Dev).',
     password: 'Access password',
     repeatPassword: 'Repeat password',
     adminHint: 'You will be the administrator. Whoever opens the data folder from another PC enters the password, and can choose to have it remembered.',
@@ -216,18 +220,35 @@ watchDebounced(
   { debounce: 350 },
 )
 
-// Condiviso in rete: la cartella Dati e quella dei progetti devono essere su un'unità di rete
+// Condiviso in rete: la cartella Dati deve essere su un'unità di rete (quella dei progetti
+// può stare anche in locale, con lo stesso percorso su ogni PC). Solo su questo PC: entrambe in locale.
 const share = ref<ShareCheck | null>(null)
+const localOnlyText = ref('')
 watchDebounced(
   () => [open.value, mode.value, dataPath.value, path.value] as const,
   async ([o, md, d, p]) => {
-    if (!o || md !== 'network' || !d.trim() || !p.trim()) return void (share.value = null)
-    const c = await checkShare(workspaceParts(d, p))
-    if (d === dataPath.value && p === path.value) share.value = c
+    if (!o || (!d.trim() && !p.trim())) {
+      share.value = null
+      localOnlyText.value = ''
+      return
+    }
+    if (md === 'network') {
+      const c = d.trim() && p.trim() ? await checkShare(workspaceParts(d, p)) : null
+      if (d === dataPath.value && p === path.value && mode.value === md) {
+        share.value = c
+        localOnlyText.value = ''
+      }
+    } else {
+      const t = workspaceLocalOnlyText(await checkLocalOnly(workspaceParts(d, p)))
+      if (d === dataPath.value && p === path.value && mode.value === md) {
+        share.value = null
+        localOnlyText.value = t
+      }
+    }
   },
   { debounce: 300 },
 )
-const shareText = computed(() => (mode.value === 'network' && share.value ? workspaceShareText(share.value) : ''))
+const shareText = computed(() => (mode.value === 'network' ? (share.value ? workspaceShareText(share.value) : '') : localOnlyText.value))
 
 async function submit() {
   error.value = ''
@@ -243,6 +264,11 @@ async function submit() {
   if (pathProblem) return (error.value = `${m.projectsFolder}: ${pathProblem}`)
   const dataProblem = await checkFolder(fs, dataPath.value, { write: true })
   if (dataProblem) return (error.value = `${m.dataFolder}: ${dataProblem}`)
+  if (mode.value === 'local') {
+    const t = workspaceLocalOnlyText(await checkLocalOnly(workspaceParts(dataPath.value, path.value)))
+    localOnlyText.value = t
+    if (t) return (error.value = t)
+  }
   if (mode.value === 'network') {
     const c = await checkShare(workspaceParts(dataPath.value, path.value))
     share.value = c
@@ -358,6 +384,7 @@ async function submit() {
         <HardDrive :size="14" class="mt-0.5 shrink-0" /> {{ shareText }}
       </p>
       <div v-if="mode === 'network'" class="grid grid-cols-2 gap-2">
+        <p class="col-span-2 text-[12.5px] text-ink-2" data-network-folders>{{ m.networkFolders }}</p>
         <div>
           <label class="label" for="ws-pw">{{ m.password }}</label>
           <input id="ws-pw" v-model="password" type="password" class="field" autocomplete="new-password" />

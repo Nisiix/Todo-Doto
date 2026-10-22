@@ -238,7 +238,7 @@ const visibilityMenu = computed(() => [
   { label: m.visRestrictedItem, onSelect: () => setVisibility('restricted') },
   ...(visibility.value === 'restricted' ? [{ sep: true, label: '' }, { label: m.visUsers, onSelect: openPermissions }] : []),
 ])
-/** Progetto con la cartella Dati o la sua cartella in locale: non si può mostrare agli altri membri. */
+/** Progetto con la cartella Dati in locale (o senza cartella): non si può mostrare agli altri membri. */
 const sharing = useSharing()
 const shareText = computed(() => (project.value ? sharing.projectText(project.value) : ''))
 const favorite = computed(() => ws.isFavorite(props.id))

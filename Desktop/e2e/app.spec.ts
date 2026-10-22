@@ -110,14 +110,21 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await page.getByText('Condiviso in rete').click()
   await page.fill('#ws-pw', 'segreto1')
   await page.fill('#ws-pw2', 'segreto1')
-  // Cartelle su questo PC: non si può condividere il workspace
+  // Cartella Dati su questo PC: non si può condividere il workspace
+  await expect(page.locator('[data-network-folders]')).toContainText('La cartella Dati deve essere in rete')
   await expect(page.locator('[data-share-blocked]')).toContainText('Non è possibile condividere il workspace')
-  await expect(page.locator('[data-share-blocked]')).toContainText('sono in locale, su questo PC')
+  await expect(page.locator('[data-share-blocked]')).toContainText(/la cartella Dati \(\/demo\/\w+\) è in locale, su questo PC/)
+  await expect(page.locator('[data-share-blocked]')).not.toContainText('la cartella dei progetti (')
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
   await expect(page.locator('form').getByText(/^Non è possibile condividere il workspace/).last()).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Rete' })).toHaveCount(0)
-  // Su un'unità di rete sì
-  await pickNetworkFolders(page)
+  // Cartella Dati su un'unità di rete sì, anche con la cartella dei progetti in locale (stesso percorso su ogni PC)
+  const id = Math.random().toString(36).slice(2, 7)
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  await pick(`/demo/progetti-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick(`/rete/dati-${id}`)
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
   await expect(page.locator('[data-share-blocked]')).toHaveCount(0)
   await page.fill('#ws-pw2', 'diversa')
   await page.getByRole('button', { name: 'Crea workspace' }).last().click()
@@ -176,20 +183,46 @@ test('workspace di rete: richiede password con conferma', async ({ page }) => {
   await expect(dialog(page).locator('#perm-filter')).toHaveValue(/.+/)
   await page.keyboard.press('Escape')
 
-  // Progetto con la cartella su questo PC: non si può mostrare agli altri membri
+  // Progetto con la cartella su questo PC: con la cartella Dati in rete si condivide lo stesso
   await page.getByRole('button', { name: 'Progetto' }).first().click()
   await page.fill('#p-disk', '/demo/Locale')
   await page.locator('#p-disk').dispatchEvent('input')
-  await expect(dialog(page).locator('[data-share-blocked]')).toContainText('Non è possibile condividere questo progetto con gli altri membri')
-  await expect(dialog(page).locator('[data-share-blocked]')).toContainText('la cartella del progetto (/demo/Locale) è in locale')
-  await expect(dialog(page).getByRole('radio', { name: 'Pubblica' })).toHaveCount(0)
+  await expect(dialog(page).getByRole('radio', { name: 'Pubblica' })).toHaveAttribute('aria-checked', 'true')
+  await expect(dialog(page).locator('[data-share-blocked]')).toHaveCount(0)
   await page.getByRole('button', { name: 'Crea progetto' }).click()
   await expect(page.getByRole('heading', { name: 'Locale' })).toBeVisible()
-  await expect(aside.getByRole('link', { name: /Locale/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'restricted')
-  // Nell'intestazione «In locale» invece del menu della visibilità; un clic spiega perché
-  await expect(page.locator('[data-visibility-button]')).toHaveCount(0)
-  await page.getByRole('button', { name: 'In locale' }).click()
-  await expect(page.getByText(/Non è possibile condividere questo progetto/).last()).toBeVisible()
+  await expect(aside.getByRole('link', { name: /Locale/ }).locator('[data-visibility]')).toHaveAttribute('data-visibility', 'public')
+  await expect(page.locator('[data-visibility-button]')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'In locale' })).toHaveCount(0)
+})
+
+test('workspace solo su questo PC: la cartella Dati e quella dei progetti devono essere in locale', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Crea workspace' }).first().click()
+  await page.fill('#ws-name', 'Solo PC')
+  const pick = (p: string) => page.evaluate((x) => Object.assign(window, { __pgmPickFolder: x }), p)
+  // Cartella Dati in rete: non va bene per un workspace solo su questo PC
+  await pick('/demo/progetti-solo')
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick('/rete/dati-solo')
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
+  await expect(page.locator('[data-share-blocked]')).toContainText('Un workspace «Solo su questo PC» deve avere la cartella Dati e la cartella dei progetti su questo PC')
+  await expect(page.locator('[data-share-blocked]')).toContainText('la cartella Dati (/rete/dati-solo) è su un’unità di rete')
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.locator('form').getByText(/^Un workspace «Solo su questo PC»/).last()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Solo PC' })).toHaveCount(0)
+  // Anche la cartella dei progetti in rete: lo si dice per entrambe
+  await pick('/rete/progetti-solo')
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await expect(page.locator('[data-share-blocked]')).toContainText('la cartella Dati (/rete/dati-solo) e la cartella dei progetti (/rete/progetti-solo) sono su un’unità di rete')
+  // Entrambe in locale: si crea
+  await pick('/demo/progetti-solo')
+  await page.getByRole('button', { name: 'Scegli la cartella dei progetti' }).click()
+  await pick('/demo/dati-solo')
+  await page.getByRole('button', { name: 'Scegli la cartella Dati Todo Doto' }).click()
+  await expect(page.locator('[data-share-blocked]')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Crea workspace' }).last().click()
+  await expect(page.getByRole('heading', { name: 'Solo PC' })).toBeVisible()
 })
 
 test('workspace di rete: “Ricorda la password” a scelta, cambio password dell’admin', async ({ page }) => {

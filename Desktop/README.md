@@ -69,7 +69,7 @@ src-tauri/    backend Rust minimale: comando get_identity + plugin fs/dialog/ope
 
 ## Come funziona la condivisione in rete
 
-1. Un utente crea un workspace scegliendo una cartella condivisa e la modalità "Condiviso in rete" con una password: diventa amministratore. Se sceglie una cartella che contiene già dei progetti, l'app propone di crearli tutti nel workspace (nome = nome della cartella, Stack ricavato dai file) e chiede una cartella diversa per i dati del workspace.
+1. Un utente crea un workspace con la modalità "Condiviso in rete" e una password: diventa amministratore. La cartella Dati deve essere su una cartella condivisa (`\\server\…` o un'unità di rete come `Z:`); la cartella dei progetti può essere anche in locale, purché tutti i PC usino lo stesso percorso. Un workspace "Solo su questo PC" vuole invece entrambe le cartelle in locale. Se sceglie una cartella che contiene già dei progetti, l'app propone di crearli tutti nel workspace (nome = nome della cartella, Stack ricavato dai file) e chiede una cartella diversa per i dati del workspace.
 2. I colleghi aprono la stessa cartella da "Apri cartella": alla prima apertura inseriscono la password, che viene verificata e memorizzata cifrata sul loro PC.
 3. Ogni progetto è un file JSON separato. Ogni modifica prende il lock del file (`<file>.lock`, creato in modo esclusivo), lo rilegge, applica la modifica, riscrive in modo atomico e rilascia il lock: le modifiche di più persone si sommano anche se avvengono nello stesso istante. I lock lasciati da un crash vengono riconosciuti e rimossi.
 4. Un watcher sulla cartella più un controllo ogni 4 secondi ricaricano solo i file cambiati; l'interfaccia si aggiorna da sola e segnala "Aggiornato da …".
