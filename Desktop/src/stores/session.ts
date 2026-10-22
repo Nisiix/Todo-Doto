@@ -3,12 +3,12 @@ import { computed, ref } from 'vue'
 import { getFs } from '@/services/fs'
 import { loadConfig, saveConfig } from '@/services/config'
 import { domainIdentity } from '@/services/office'
-import { DEFAULT_AI_CONFIG, type Identity, type LocalConfig, type RecentWorkspace } from '@/types'
+import { DEFAULT_AI_CONFIG, LocalConfigSchema, type Identity, type LocalConfig, type RecentWorkspace } from '@/types'
 
 /** Identità locale (SO) e configurazione per macchina. */
 export const useSessionStore = defineStore('session', () => {
   const identity = ref<Identity>({ username: '', hostname: '' })
-  const config = ref<LocalConfig>({ theme: 'system', recent: [], reopenLast: true, offlineCopy: true, vpn: {}, favorites: {}, mutedNotifications: [], ai: { ...DEFAULT_AI_CONFIG }, snoozed: {}, calendars: {} })
+  const config = ref<LocalConfig>(LocalConfigSchema.parse({ ai: { ...DEFAULT_AI_CONFIG } }))
   const ready = ref(false)
 
   /** Chiave con cui si cifrano le password memorizzate in locale. */

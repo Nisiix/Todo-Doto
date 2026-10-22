@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GitHubMark from '@/components/ui/GitHubMark.vue'
-import { AlertTriangle, Archive, BarChart3, Brush, Workflow, GitCompareArrows, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
+import { AlertTriangle, Archive, BarChart3, Brush, Workflow, GitCompareArrows, Heart, MessageSquareHeart, CalendarDays, ChevronDown, Cloud, History, Keyboard, LogOut, Moon, Settings, Sun, Tag, Users, WifiOff } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { useEventListener } from '@vueuse/core'
 import BrandMark from '@/components/ui/BrandMark.vue'
@@ -33,6 +33,8 @@ const m = defineMessages({
     analytics: 'Analisi',
     audit: 'Cronologia operazioni',
     shortcuts: 'Scorciatoie da tastiera',
+    feedback: 'Invia un feedback',
+    donate: 'Sostieni Todo Doto',
     closeWs: 'Chiudi workspace',
     backupLast: (when: string) => `Ultima copia dei dati: ${when}`,
     backupNone: 'Nessuna copia dei dati ancora',
@@ -59,6 +61,8 @@ const m = defineMessages({
     analytics: 'Analytics',
     audit: 'Activity log',
     shortcuts: 'Keyboard shortcuts',
+    feedback: 'Send feedback',
+    donate: 'Support Todo Doto',
     closeWs: 'Close workspace',
     backupLast: (when: string) => `Last data backup: ${when}`,
     backupNone: 'No data backup yet',
@@ -118,6 +122,8 @@ const menu = computed(() => [
   { sep: true, label: '' },
   ...(backupLine.value ? [{ ...backupLine.value, onSelect: () => ui.openSettings(ws.isAdmin ? 'backup' : 'general') }] : []),
   { label: m.shortcuts, icon: Keyboard, onSelect: () => (showShortcuts.value = true) },
+  { label: m.feedback, icon: MessageSquareHeart, onSelect: () => (ui.feedbackOpen = true) },
+  { label: m.donate, icon: Heart, onSelect: () => (ui.donateOpen = true) },
   { sep: true, label: '' },
   {
     label: m.closeWs,

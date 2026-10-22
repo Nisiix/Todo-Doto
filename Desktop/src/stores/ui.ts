@@ -73,6 +73,9 @@ export const useUiStore = defineStore('ui', () => {
   const automationsOpen = ref(false)
   /** Cosa è cambiato tra due date. */
   const changesOpen = ref(false)
+  /** «Invia un feedback» e «Sostieni Todo Doto» (anche dalla schermata iniziale). */
+  const feedbackOpen = ref(false)
+  const donateOpen = ref(false)
   /** Automazione «confermato senza scadenza»: il task di cui chiedere la scadenza. */
   const dueAsk = ref<{ projectId: string; itemId: string } | null>(null)
   const askDueDate = (projectId: string, itemId: string) => (dueAsk.value = { projectId, itemId })
@@ -92,6 +95,8 @@ export const useUiStore = defineStore('ui', () => {
     cleanupOpen,
     automationsOpen,
     changesOpen,
+    feedbackOpen,
+    donateOpen,
     dueAsk,
     askDueDate,
     projectRequest,

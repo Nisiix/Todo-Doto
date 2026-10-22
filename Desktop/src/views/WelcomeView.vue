@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
-import { Database, FolderGit2, FolderOpen, HardDrive, Moon, Network, Plus, Sun, Trash2, X } from 'lucide-vue-next'
+import { Database, FolderGit2, FolderOpen, HardDrive, Heart, MessageSquareHeart, Moon, Network, Plus, Sun, Trash2, X } from 'lucide-vue-next'
 import BaseMenu from '@/components/ui/BaseMenu.vue'
 import MenuTriggerButton from '@/components/ui/MenuTriggerButton.vue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -31,6 +31,8 @@ const m = defineMessages({
     openFolder: 'Apri cartella',
     userOn: (u: string, h: string) => `${u} su ${h}`,
     lightTheme: 'Tema chiaro',
+    feedback: 'Invia un feedback',
+    donate: 'Sostieni Todo Doto',
     darkTheme: 'Tema scuro',
     recent: 'Workspace recenti',
     removeRecent: 'Rimuovi dai recenti',
@@ -56,6 +58,8 @@ const m = defineMessages({
     openFolder: 'Open folder',
     userOn: (u: string, h: string) => `${u} on ${h}`,
     lightTheme: 'Light theme',
+    feedback: 'Send feedback',
+    donate: 'Support Todo Doto',
     darkTheme: 'Dark theme',
     recent: 'Recent workspaces',
     removeRecent: 'Remove from recent',
@@ -174,7 +178,13 @@ function newWorkspace() {
         <p v-if="error" class="mt-3 text-[13px] text-danger">{{ error }}</p>
       </div>
       <div class="flex items-center justify-between text-[12.5px] text-ink-3">
-        <span>{{ m.userOn(session.identity.username, session.identity.hostname) }}</span>
+        <span class="min-w-0 flex-1 truncate">{{ m.userOn(session.identity.username, session.identity.hostname) }}</span>
+        <button class="rounded-md p-1.5 hover:bg-surface-2 hover:text-ink" :title="m.feedback" :aria-label="m.feedback" data-welcome-feedback @click="ui.feedbackOpen = true">
+          <MessageSquareHeart :size="16" />
+        </button>
+        <button class="rounded-md p-1.5 hover:bg-surface-2 hover:text-ink" :title="m.donate" :aria-label="m.donate" data-welcome-donate @click="ui.donateOpen = true">
+          <Heart :size="16" />
+        </button>
         <button class="rounded-md p-1.5 hover:bg-surface-2 hover:text-ink" :title="ui.isDark ? m.lightTheme : m.darkTheme" @click="ui.toggleTheme()">
           <Sun v-if="ui.isDark" :size="16" />
           <Moon v-else :size="16" />

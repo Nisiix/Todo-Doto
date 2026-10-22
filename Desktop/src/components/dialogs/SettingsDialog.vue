@@ -2,10 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import BaseDialog from '@/components/ui/BaseDialog.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import { Archive, ArchiveRestore, Bell, Cpu, FolderOpen, Heart, KeyRound, Lock, Mail, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, ArrowUpCircle, Bell, Copy, Cpu, FolderOpen, Heart, KeyRound, MessageSquareHeart, RefreshCw, Lock, Mail, ShieldCheck, SlidersHorizontal, UserRound } from 'lucide-vue-next'
 import { useConfirm } from '@/composables/useConfirm'
 import { getFs } from '@/services/fs'
-import { DONATE_URL } from '@/services/branding'
+import { APP_VERSION, AUTHOR_EMAIL, DONATE_URL, DOWNLOAD_URL } from '@/services/branding'
+import { useUpdatesStore } from '@/stores/updates'
 import VpnSettings from './VpnSettings.vue'
 import MailSettings from './MailSettings.vue'
 import DomainLoginSettings from './DomainLoginSettings.vue'
@@ -92,6 +93,18 @@ const m = defineMessages({
     donateTitle: 'Sostieni il progetto',
     donateText: 'Todo Doto è gratuito. Una donazione è ben accetta e supporterà lo sviluppo del progetto.',
     donate: 'Dona con PayPal',
+    copyAddress: (a: string) => `Copia l’indirizzo PayPal ${a}`,
+    copied: 'Indirizzo copiato',
+    versionTitle: (v: string) => `Todo Doto ${v}`,
+    autoCheck: 'Avvisami quando esce una nuova versione',
+    autoCheckHint: 'Una richiesta al giorno a GitHub per sapere qual è l’ultima versione: nessun dato tuo viene inviato.',
+    checkNow: 'Controlla ora',
+    checking: 'Controllo…',
+    upToDate: 'Hai l’ultima versione.',
+    newVersion: (v: string) => `È disponibile la versione ${v}.`,
+    checkFailed: 'Non è stato possibile controllare adesso (rete o GitHub non raggiungibili).',
+    download: 'Scarica',
+    feedback: 'Invia un feedback',
   },
   en: {
     pwUpdated: 'Password updated. Other users will have to enter it again on their next access.',
@@ -160,6 +173,18 @@ const m = defineMessages({
     donateTitle: 'Support the project',
     donateText: 'Todo Doto is free. Donations are welcome and will support the development of the project.',
     donate: 'Donate with PayPal',
+    copyAddress: (a: string) => `Copy the PayPal address ${a}`,
+    copied: 'Address copied',
+    versionTitle: (v: string) => `Todo Doto ${v}`,
+    autoCheck: 'Tell me when a new version is out',
+    autoCheckHint: 'One request a day to GitHub to know the latest version: none of your data is sent.',
+    checkNow: 'Check now',
+    checking: 'Checking…',
+    upToDate: 'You have the latest version.',
+    newVersion: (v: string) => `Version ${v} is available.`,
+    checkFailed: 'Could not check right now (network or GitHub unreachable).',
+    download: 'Download',
+    feedback: 'Send feedback',
   },
 })
 
@@ -286,6 +311,22 @@ async function toggleEncryption() {
   }
 }
 const donate = async () => (await getFs()).openExternal(DONATE_URL, 'link')
+async function copyAddress() {
+  await navigator.clipboard.writeText(AUTHOR_EMAIL)
+  ui.toast(m.copied, 'success', undefined, 1800)
+}
+// Versione, avviso di nuove versioni e feedback
+const updates = useUpdatesStore()
+const checkMessage = computed(() => {
+  const r = updates.lastResult
+  if (!r) return ''
+  return r === 'error' ? m.checkFailed : r === 'new' && updates.available ? m.newVersion(updates.available.version) : m.upToDate
+})
+const downloadUpdate = async () => (await getFs()).openExternal(DOWNLOAD_URL, 'link')
+function openFeedback() {
+  open.value = false
+  ui.feedbackOpen = true
+}
 
 const themes: { value: Theme; label: string }[] = [
   { value: 'light', label: m.light },
@@ -348,7 +389,31 @@ const themes: { value: Theme; label: string }[] = [
           <p id="s-donate-title" class="text-[13.5px] font-semibold">{{ m.donateTitle }}</p>
           <p class="text-[12.5px] leading-snug text-ink-2">{{ m.donateText }}</p>
         </div>
-        <BaseButton size="sm" variant="primary" class="shrink-0" data-donate-button @click="donate">{{ m.donate }}</BaseButton>
+        <div class="flex shrink-0 flex-col items-end gap-1">
+          <BaseButton size="sm" variant="primary" data-donate-button @click="donate">{{ m.donate }}</BaseButton>
+          <button type="button" class="flex items-center gap-1 text-[11.5px] text-ink-3 hover:text-ink" :title="m.copyAddress(AUTHOR_EMAIL)" data-donate-address @click="copyAddress">
+            <Copy :size="11" /> {{ AUTHOR_EMAIL }}
+          </button>
+        </div>
+      </section>
+
+      <section class="space-y-2 rounded-md border border-line px-3 py-2.5" data-app-version>
+        <div class="flex items-center gap-2">
+          <ArrowUpCircle :size="16" class="shrink-0 text-accent" />
+          <p class="flex-1 text-[13.5px] font-semibold">{{ m.versionTitle(APP_VERSION) }}</p>
+          <BaseButton size="sm" variant="ghost" :disabled="updates.checking" data-check-updates @click="updates.check()">
+            <RefreshCw :size="13" :class="{ 'animate-spin': updates.checking }" /> {{ updates.checking ? m.checking : m.checkNow }}
+          </BaseButton>
+          <BaseButton size="sm" variant="ghost" data-settings-feedback @click="openFeedback"><MessageSquareHeart :size="13" /> {{ m.feedback }}</BaseButton>
+        </div>
+        <p v-if="checkMessage" class="flex items-center gap-2 text-[12.5px]" :class="updates.lastResult === 'error' ? 'text-danger' : 'text-ink-2'" data-check-result>
+          {{ checkMessage }}
+          <BaseButton v-if="updates.lastResult === 'new'" size="sm" variant="primary" @click="downloadUpdate">{{ m.download }}</BaseButton>
+        </p>
+        <label class="flex items-start gap-2 text-[13px]">
+          <input type="checkbox" class="mt-0.5 accent-accent" :checked="updates.prefs.check" data-auto-check @change="updates.setEnabled(($event.target as HTMLInputElement).checked)" />
+          <span>{{ m.autoCheck }}<span class="block text-[12px] text-ink-3">{{ m.autoCheckHint }}</span></span>
+        </label>
       </section>
 
     </div>

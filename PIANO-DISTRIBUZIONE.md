@@ -68,8 +68,9 @@ Verifica del 22 ottobre 2026: cosa c'è già, cosa manca e in che ordine farlo p
 - [ ] Rilasciare la 0.7.0 (merge in `main`, tag `v0.7.0`).
 - [ ] Decidere la licenza e aggiungere `LICENSE`.
 - [ ] Sistemare indirizzo ed email nel sito (canonico, `og:image`, dati strutturati, `mailto`), dominio nuovo o GitHub Pages.
-- [ ] Repository: descrizione, sito, topics (`project-management`, `roadmap`, `local-first`, `tauri`, `windows`, `offline`, `todo`), README per chi arriva, Discussions accese, modelli per «Segnala un problema» e «Proponi un'idea», `FUNDING.yml`.
-- [ ] Nell'app: «Invia un feedback» e «Segnala un problema» (aprono GitHub con versione e sistema già compilati, o l'email); avviso di nuova versione.
+- [x] Modelli per «Segnala un problema», «Proponi un'idea» e «Fai una domanda» (`.github/ISSUE_TEMPLATE`, `.github/DISCUSSION_TEMPLATE`) e `FUNDING.yml`.
+- [ ] Repository: descrizione, sito, topics (`project-management`, `roadmap`, `local-first`, `tauri`, `windows`, `offline`, `todo`), README per chi arriva, **Discussions da attivare** (Settings › General › Features › Discussions).
+- [x] Nell'app: «Invia un feedback» (problema, idea, domanda su GitHub con versione e sistema già compilati, o email a nisos@live.it); avviso di nuova versione; «Sostieni Todo Doto» nel menu.
 - [ ] Donazioni: PayPal senza email nel link, GitHub Sponsors.
 
 ### Passo 2 · Fiducia (1–3 settimane)

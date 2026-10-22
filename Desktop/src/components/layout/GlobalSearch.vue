@@ -23,6 +23,8 @@ import {
   Users,
   Workflow,
   GitCompareArrows,
+  Heart,
+  MessageSquareHeart,
 } from 'lucide-vue-next'
 import { useEventListener, watchDebounced } from '@vueuse/core'
 import { useAiStore, withAi } from '@/stores/ai'
@@ -70,6 +72,8 @@ const m = defineMessages({
       automations: 'Automazioni',
       changes: 'Cosa è cambiato tra due date',
       ask: (p: string) => `Chiedi al progetto ${p}`,
+      feedback: 'Invia un feedback (problema, idea, domanda)',
+      donate: 'Sostieni Todo Doto (donazione)',
       theme: 'Cambia tema (chiaro o scuro)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Allegati' } as Record<ProjectSection, string>,
@@ -105,6 +109,8 @@ const m = defineMessages({
       automations: 'Automations',
       changes: 'What changed between two dates',
       ask: (p: string) => `Ask the project ${p}`,
+      feedback: 'Send feedback (problem, idea, question)',
+      donate: 'Support Todo Doto (donation)',
       theme: 'Switch theme (light or dark)',
     },
     sections: { stack: 'Stack', todo: 'Todo', gantt: 'Gantt', attachments: 'Attachments' } as Record<ProjectSection, string>,
@@ -161,6 +167,8 @@ const commands = computed<Command[]>(() => {
     { id: 'changes', label: m.cmd.changes, keywords: ['cambiato', 'cambiamenti', 'differenze', 'confronto', 'ferie', 'changes', 'diff', 'compare'], icon: GitCompareArrows, run: () => (ui.changesOpen = true) },
     { id: 'calendars', label: m.cmd.calendars, keywords: ['calendario', 'calendari', 'outlook', 'ics', 'calendar'], icon: CalendarDays, run: () => (ui.calendarsOpen = true) },
     { id: 'settings', label: m.cmd.settings, keywords: ['impostazioni', 'settings', 'preferenze', 'opzioni'], icon: Settings, run: () => ui.openSettings() },
+    { id: 'feedback', label: m.cmd.feedback, keywords: ['feedback', 'segnala', 'problema', 'bug', 'idea', 'domanda', 'aiuto', 'report', 'help'], icon: MessageSquareHeart, run: () => (ui.feedbackOpen = true) },
+    { id: 'donate', label: m.cmd.donate, keywords: ['dona', 'donazione', 'sostieni', 'paypal', 'donate', 'support'], icon: Heart, run: () => (ui.donateOpen = true) },
     { id: 'theme', label: m.cmd.theme, keywords: ['tema', 'scuro', 'chiaro', 'dark', 'light', 'theme'], icon: Moon, run: () => ui.toggleTheme() },
   ]
   return list.filter((c): c is Command => !!c)

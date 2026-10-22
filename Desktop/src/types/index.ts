@@ -684,6 +684,19 @@ export const LocalConfigSchema = z.object({
   snoozed: z.record(z.string(), z.record(z.string(), z.string())).default({}),
   /** Calendari .ics delle scadenze tenuti aggiornati da questo PC, per workspace (0.6.0). */
   calendars: z.record(z.string(), z.boolean()).default({}),
+  /**
+   * Avviso di nuova versione (0.7.0): controllo dell'ultima Release su GitHub
+   * al massimo una volta al giorno, ultima versione vista, versione da non
+   * riproporre («Più tardi»).
+   */
+  updates: z
+    .object({
+      check: z.boolean().default(true),
+      lastCheck: z.string().default(''),
+      latest: z.object({ version: z.string(), url: z.string(), publishedAt: z.string().default(''), notes: z.string().default('') }).nullable().default(null),
+      skipped: z.string().default(''),
+    })
+    .default({}),
 })
 
 /** Filtro della lista elementi di un progetto. */

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Proponi un'idea · Suggest an idea
+    url: https://github.com/Nisiix/Todo-Doto/discussions/new?category=ideas
+    about: Funzioni nuove e miglioramenti si discutono qui · New features and improvements are discussed here
+  - name: Fai una domanda · Ask a question
+    url: https://github.com/Nisiix/Todo-Doto/discussions/new?category=q-a
+    about: Come si fa…? · How do I…?
+  - name: Sostieni Todo Doto · Support Todo Doto
+    url: https://www.paypal.com/donate/?business=nisos%40live.it&item_name=Todo+Doto&currency_code=EUR
+    about: Todo Doto è gratuito; una donazione aiuta lo sviluppo · Todo Doto is free; a donation helps development

@@ -9,6 +9,9 @@ Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: u
 - Chiedi al progetto (con l'IA locale): domande come «cosa abbiamo deciso sull'autenticazione?» o «quali prerequisiti servono per il backend?». La risposta viene solo da task, commenti, domande e decisioni, documento di architettura, note dello Stack e allegati di testo o PDF, e cita le fonti, che si aprono con un clic. Nulla esce dal PC.
 - Il dettaglio del task tiene i campi che si stanno modificando e prende gli aggiornamenti degli altri.
 - Con il pannello del task aperto, i pulsanti in cima al progetto mostrano solo l'icona: il nome del progetto resta leggibile.
+- Invia un feedback (menu del workspace, palette, schermata iniziale, Impostazioni): segnala un problema, proponi un'idea o fai una domanda su GitHub, con la versione già compilata, oppure scrivi all'autore per email.
+- Avviso di nuova versione: una volta al giorno l'app controlla l'ultima versione pubblicata e, se ce n'è una più recente, lo dice in cima alla finestra con «Novità» e «Scarica». Si può controllare a mano o disattivare in Impostazioni › Generali.
+- Sostieni Todo Doto (menu del workspace e schermata iniziale): donazione con PayPal o indirizzo PayPal da copiare.
 
 ## 0.6.0 — 20 ottobre 2026
 

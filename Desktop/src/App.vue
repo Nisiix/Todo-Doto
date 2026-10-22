@@ -6,6 +6,11 @@ import { useUiStore } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import ConfirmHost from '@/components/ui/ConfirmHost.vue'
+import UpdateBanner from '@/components/layout/UpdateBanner.vue'
+import FeedbackDialog from '@/components/dialogs/FeedbackDialog.vue'
+import DonateDialog from '@/components/dialogs/DonateDialog.vue'
+import { useUpdatesStore } from '@/stores/updates'
+import { isTauri } from '@/services/fs'
 import { useEventListener } from '@vueuse/core'
 import { defineMessages } from '@/i18n'
 
@@ -18,6 +23,7 @@ const session = useSessionStore()
 const ui = useUiStore()
 const ws = useWorkspaceStore()
 const router = useRouter()
+const updates = useUpdatesStore()
 const booted = ref(false)
 /** Workspace che si sta riaprendo all'avvio (mostrato al posto di "Avvio…"). */
 const reopening = ref('')
@@ -38,6 +44,8 @@ onMounted(async () => {
     }
   }
   booted.value = true
+  // Nuova versione su GitHub: nell'app desktop (nell'anteprima del browser solo se un test lo chiede)
+  if (isTauri || (window as unknown as { __pgmUpdates?: boolean }).__pgmUpdates) void updates.autoCheck()
 })
 
 useEventListener(window, 'keydown', (e: KeyboardEvent) => {
@@ -49,10 +57,15 @@ useEventListener(window, 'keydown', (e: KeyboardEvent) => {
 </script>
 
 <template>
-  <div class="h-full">
-    <RouterView v-if="booted" />
-    <div v-else class="flex h-full items-center justify-center text-ink-3" data-starting>{{ reopening ? opening(reopening) : starting }}</div>
+  <div class="flex h-full flex-col">
+    <UpdateBanner />
+    <div class="min-h-0 flex-1">
+      <RouterView v-if="booted" />
+      <div v-else class="flex h-full items-center justify-center text-ink-3" data-starting>{{ reopening ? opening(reopening) : starting }}</div>
+    </div>
     <ToastHost />
     <ConfirmHost />
+    <FeedbackDialog v-model:open="ui.feedbackOpen" />
+    <DonateDialog v-model:open="ui.donateOpen" />
   </div>
 </template>
