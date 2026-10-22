@@ -206,7 +206,7 @@ window.PGM_I18N = {
     'price.biz.l4': 'Priority support within 4 business hours',
     'price.biz.l5': '30-minute remote onboarding',
     'price.biz.cta': 'Buy Business',
-    'price.note': '<b>How the license works.</b> A license covers one workspace (one folder) and all its members, up to the plan’s seats: one license, one office. When a subscription ends the app keeps working on the Free plan: your data is yours, always. IT consultants and resellers: <a href="mailto:supporto@projectgoalmanager.app?subject=Partner">get in touch</a> for the multi-workspace plan.',
+    'price.note': '<b>How the license works.</b> A license covers one workspace (one folder) and all its members, up to the plan’s seats: one license, one office. When a subscription ends the app keeps working on the Free plan: your data is yours, always. IT consultants and resellers: <a href="mailto:nisos@live.it?subject=Partner">get in touch</a> for the multi-workspace plan.',
     'faq.title': 'Frequently asked questions',
     'faq.lead': 'The answers we give most often to people deciding.',
     'faq.q1': 'Where is my data?',

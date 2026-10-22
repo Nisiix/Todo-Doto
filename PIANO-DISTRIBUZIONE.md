@@ -67,7 +67,8 @@ Verifica del 22 ottobre 2026: cosa c'è già, cosa manca e in che ordine farlo p
 
 - [ ] Rilasciare la 0.7.0 (merge in `main`, tag `v0.7.0`).
 - [ ] Decidere la licenza e aggiungere `LICENSE`.
-- [ ] Sistemare indirizzo ed email nel sito (canonico, `og:image`, dati strutturati, `mailto`), dominio nuovo o GitHub Pages.
+- [x] Email del sito: ora nisos@live.it in tutte le pagine.
+- [ ] Indirizzo del sito (canonico, `og:image`, dati strutturati): dominio nuovo o GitHub Pages.
 - [x] Modelli per «Segnala un problema», «Proponi un'idea» e «Fai una domanda» (`.github/ISSUE_TEMPLATE`, `.github/DISCUSSION_TEMPLATE`) e `FUNDING.yml`.
 - [ ] Repository: descrizione, sito, topics (`project-management`, `roadmap`, `local-first`, `tauri`, `windows`, `offline`, `todo`), README per chi arriva, **Discussions da attivare** (Settings › General › Features › Discussions).
 - [x] Nell'app: «Invia un feedback» (problema, idea, domanda su GitHub con versione e sistema già compilati, o email a nisos@live.it); avviso di nuova versione; «Sostieni Todo Doto» nel menu.
