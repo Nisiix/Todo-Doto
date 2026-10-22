@@ -8,6 +8,7 @@ Monorepo del progetto.
 | [`Web/`](./Web) | Il sito dell'applicazione, in italiano e in inglese: landing page statica, sezione download con l'installer nella lingua scelta e pagine legali (termini, privacy, condizioni) |
 | `.github/workflows/` | `build-windows.yml`: build automatica degli installer Windows (italiano e inglese) a ogni push su `main` e Release sui tag `v*` · `site.yml`: pubblica `Web/` su GitHub Pages |
 | [`PIANO-LANCIO.md`](./PIANO-LANCIO.md) | Posizionamento, prezzi per funzionalità, calendario di lancio e marketing (con fonti) |
+| [`PIANO-DISTRIBUZIONE.md`](./PIANO-DISTRIBUZIONE.md) | Distribuzione gratuita, donazioni e feedback: cosa manca e in che ordine farlo |
 | [`GUIDA-OPERATIVA.md`](./GUIDA-OPERATIVA.md) | Procedure passo per passo per dominio ed email, segreti GitHub, certificato OV, Merchant of Record (Paddle) e winget |
 
 ## Avvio rapido
