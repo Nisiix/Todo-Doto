@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy policy — Todo Doto</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html?lang=en">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="12" width="4" height="14" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="2" width="4" height="24" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="2" width="4" height="24" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="12" width="4" height="14" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Todo Doto
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="index.html?lang=en#funzionalita">Features</a>
+        <a href="index.html?lang=en#download">Download</a>
+        <div class="lang" role="group" aria-label="Language">
+          <a href="privacy.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="privacy-policy.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
+        <button class="theme" type="button" aria-label="Toggle light/dark theme" title="Theme (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow">
+      <h1>Privacy policy</h1>
+      <p class="upd">Last updated: November 24, 2026</p>
+
+      <p>This policy explains which data <b>Todo Doto</b> (the desktop application) and this website process, and how. The short answer: <b>the application sends your data to no one</b>; everything stays on your computer or in the shared folder you choose.</p>
+
+      <h2>1. Controller</h2>
+      <p>The data controller is the author of the Application, who can be contacted through the GitHub repository indicated on the website.</p>
+
+      <h2>2. The desktop application</h2>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.1 Data you enter</h2>
+      <p>Projects, items, descriptions, questions, comments, attachments (as references to files or links), labels, project stack, workspace members and the activity log are saved as JSON files in the workspace folder. They are not transmitted to us or to any external service. In a network workspace they are accessible to the people who have access to that folder.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.2 Local identity</h2>
+      <p>To attribute changes, the Application reads the user name and computer name from the operating system and saves them in the workspace users file, together with the display name you choose. It does not collect e-mail addresses, phone numbers or other identifiers.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.3 Workspace password</h2>
+      <p>The password of a network workspace is stored in the workspace only as a hash (PBKDF2-SHA256 with a random salt). If you choose to remember it, on your computer it is stored encrypted with Windows DPAPI for your account (elsewhere with AES-GCM and a local key). Optionally the administrator can turn on <strong>data encryption on disk</strong>: all workspace files (except the settings needed to open it), the backups and the laptop copy are encrypted with AES-GCM 256 and a key protected by the workspace password.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.4 Local data</h2>
+      <p>In the user data folder (<code>%APPDATA%\com.nisos.projectgoalmanager</code>) the Application keeps: theme, list of recent workspaces, favorites, notification preferences, encrypted passwords, the encrypted OAuth credentials if you use Google Drive and, for network workspaces with “Keep a copy of the workspace on this PC” on, a copy of the workspace data to work when the shared folder is unreachable (encrypted like the workspace or with Windows DPAPI). The copy can be turned off in Settings. Notifications you receive stay in the Application’s local storage. Project folders you create with “Create project folder” are written only where you choose. You can delete everything by removing that folder.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.5 Google Drive (optional)</h2>
+      <p>If you connect a Google account, the Application talks directly to Google’s APIs from your computer, with your consent and with read-only permission (<code>drive.readonly</code>). Only the structure of the synced folder (names, identifiers, types and links of the files) is saved in the shared workspace, visible to the other members; the content of the documents is downloaded only when you open it and is not saved in the workspace. The access token stays encrypted on your computer. Google’s processing is described in Google’s privacy policy.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.6 Email, Microsoft Teams, VPN and domain account (optional)</h2>
+      <p>If the administrator configures them, the Application sends emails with the Outlook installed on the PC of whoever acts or with the company SMTP server (the SMTP password is stored in the workspace encrypted with the workspace password) and messages to a Microsoft Teams channel through a Workflow chosen by the administrator (Microsoft Power Automate addresses only). Messages contain the task title, project, who and what, due date and, only for whoever is mentioned, the comment text; never descriptions, attachments or paths. Each user chooses whether to enter their email and what to receive. The VPN is connected with the connections already configured in Windows, without the Application seeing the credentials. With company sign-in the Application reads the domain, SID and groups from the Windows account and stores the user's domain and SID in the workspace.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.7 No telemetry</h2>
+      <p>The Application contains no analytics, tracking or automatic error reporting tools and does not contact any server of ours. The only network connections are those to Google that you enable with the Drive feature, those for email and Teams configured by the administrator and, unless you turn it off (Settings › General), one request a day to GitHub to learn the latest published version: the request carries no data about you or your workspaces. “Send feedback” opens a GitHub page or your mail program only when you choose it, with the app and system version already filled in.</p>
+
+      <!-- Paid plans suspended: the app is free for now. Remove the comment to restore them.
+      <h2>2b. License purchases</h2>
+      <p>Payment for the Team and Business plans takes place on the pages of an authorized reseller (Merchant of Record) that processes payment and billing data as an independent controller, under its own privacy notice. We receive the name or company name, e-mail address, plan purchased and order identifier, needed to issue the license, send it to you and provide support (legal basis: performance of the contract). We keep this data for the duration of the license and as required by tax law.</p>
+      -->
+      <h2>3. This website</h2>
+      <p>The website is made of static pages. It uses no profiling cookies or third-party analytics tools. The light/dark theme and language preferences are saved in your browser (localStorage) and are not transmitted. Fonts are loaded from Google Fonts: in doing so, your browser sends your IP address to Google, according to Google’s policy. The download section may query the public GitHub API to find the latest release. The server hosting the website and any download server may record the IP address, date and time and requested page in technical logs, for security and maintenance, for the time strictly necessary.</p>
+      <p><b>Download counter.</b> To know how many different devices download the Application, when you choose a file in the download section your browser creates a random code once, keeps it in its local storage (localStorage, key <code>todo-doto:device</code>) and sends it, together with the language, type and version of the file, to a function of ours hosted by Supabase (European Union). The server does not keep the code: it stores only a fingerprint keyed with a secret, which cannot be traced back to the code or to you, and it does not store your IP address or your browser. We use these data only in aggregate form (number of devices and of downloads per file), we do not combine them with other information and we do not share them with anyone; we delete them after 24 months. If you clear the site data in your browser, the code is removed and a later download counts as a new device. The download does not depend on the counter: it works even if sending fails.</p>
+
+      <h2>4. Legal basis and retention</h2>
+      <p>For the website, the processing of technical logs is based on the legitimate interest in ensuring its security and operation; logs are kept for a limited period. The download counter is based on the legitimate interest in knowing, in aggregate form, how widely the Application is used; its data are kept for 24 months. For the Application, data are processed exclusively on your devices and under your control: you decide where they are, who accesses them and how long to keep them.</p>
+
+      <h2>5. Your rights</h2>
+      <p>You have the right to access your data, rectify it, erase it, restrict its processing and object, as well as to lodge a complaint with the Italian Data Protection Authority (Garante per la protezione dei dati personali). For the Application’s data you can exercise these rights directly, because the files are yours; for the website logs you can contact us through the GitHub repository.</p>
+
+      <h2>6. Children</h2>
+      <p>The Application and the website are not intended for children under 14 and do not knowingly collect data about them.</p>
+
+      <h2>7. Changes</h2>
+      <p>We will update this policy if the features of the Application or of the website change; the date at the top shows the latest version. The Italian version of this policy is the authoritative one.</p>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Todo Doto</span>
+      <nav class="foot__links" aria-label="Legal">
+        <a href="terms.html">Terms of use</a>
+        <a href="privacy-policy.html">Privacy</a>
+        <a href="conditions.html">Conditions of use</a>
+        <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

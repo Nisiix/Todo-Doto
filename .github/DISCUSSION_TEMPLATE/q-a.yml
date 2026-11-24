@@ -1,0 +1,21 @@
+title: "[Domanda] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prima di chiedere, dai un'occhiata alla guida: https://nisiix.github.io/Todo-Doto/guida.html · Before asking, have a look at the guide: https://nisiix.github.io/Todo-Doto/guide.html
+  - type: textarea
+    id: question
+    attributes:
+      label: La domanda · Your question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Cosa hai già provato · What you already tried
+  - type: input
+    id: version
+    attributes:
+      label: Versione di Todo Doto · Todo Doto version
+      placeholder: "0.7.0"

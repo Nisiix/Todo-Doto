@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="it" data-lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Informativa sulla privacy — Todo Doto</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect x="2" y="12" width="4" height="14" rx="1.5" fill="var(--p-bassa)"/><rect x="9" y="2" width="4" height="24" rx="1.5" fill="var(--p-media)"/>
+          <rect x="16" y="2" width="4" height="24" rx="1.5" fill="var(--p-alta)"/><rect x="23" y="12" width="4" height="14" rx="1.5" fill="var(--p-immediata)"/>
+        </svg>
+        Todo Doto
+      </a>
+      <nav class="nav" aria-label="Sezioni">
+        <a href="index.html#funzionalita">Funzionalità</a>
+        <a href="index.html#download">Scarica</a>
+        <div class="lang" role="group" aria-label="Lingua">
+          <a href="privacy.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
+          <a href="privacy-policy.html" data-set-lang="en" lang="en" title="English">EN</a>
+        </div>
+        <button class="theme" type="button" aria-label="Cambia tema chiaro/scuro" title="Tema (Ctrl+Shift+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow">
+      <h1>Informativa sulla privacy</h1>
+      <p class="upd">Ultimo aggiornamento: 24 novembre 2026</p>
+
+      <p>Questa informativa spiega quali dati tratta <b>Todo Doto</b> (l'applicazione desktop) e questo sito, e come. La risposta breve: <b>l'applicazione non invia i tuoi dati a nessuno</b>; tutto resta sul tuo computer o nella cartella condivisa che scegli tu.</p>
+
+      <h2>1. Titolare</h2>
+      <p>Il titolare del trattamento è l'autore dell'Applicazione, contattabile tramite il repository GitHub indicato nel sito.</p>
+
+      <h2>2. L'applicazione desktop</h2>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.1 Dati che inserisci</h2>
+      <p>Progetti, elementi, descrizioni, domande, commenti, allegati (come riferimenti a file o link), etichette, stack del progetto, membri del workspace e cronologia delle operazioni sono salvati come file JSON nella cartella del workspace. Non vengono trasmessi a noi né ad alcun servizio esterno. In un workspace di rete sono accessibili alle persone che hanno accesso a quella cartella.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.2 Identità locale</h2>
+      <p>Per attribuire le modifiche, l'Applicazione legge il nome utente e il nome del computer dal sistema operativo e li salva nel file degli utenti del workspace, insieme al nome visibile che scegli. Non raccoglie indirizzo e-mail, numeri di telefono o altri identificativi.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.3 Password del workspace</h2>
+      <p>La password di un workspace di rete è conservata nel workspace solo come hash (PBKDF2-SHA256 con salt casuale). Se scegli di ricordarla, sul tuo computer viene memorizzata cifrata con Windows DPAPI per il tuo account (altrove con AES-GCM e una chiave locale). Facoltativamente l'amministratore può attivare la <strong>cifratura dei dati sul disco</strong>: tutti i file del workspace (tranne le impostazioni necessarie ad aprirlo), le copie di sicurezza e la copia sul portatile vengono cifrati con AES-GCM 256 e una chiave protetta dalla password del workspace.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.4 Dati locali</h2>
+      <p>Nella cartella dati dell'utente (<code>%APPDATA%\com.nisos.projectgoalmanager</code>) l'Applicazione conserva: tema, elenco dei workspace recenti, preferiti, preferenze sulle notifiche, password cifrate, se usi Google Drive le credenziali OAuth cifrate e, per i workspace di rete con «Tieni una copia del workspace su questo PC» attivo, una copia dei dati del workspace per lavorare quando la cartella condivisa non è raggiungibile (cifrata come il workspace o con Windows DPAPI). La copia si disattiva dalle Impostazioni. Le notifiche ricevute restano nello storage locale dell'Applicazione. Le cartelle di progetto create con «Crea cartella del progetto» vengono scritte solo dove scegli tu. Puoi cancellare tutto eliminando quella cartella.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.5 Google Drive (facoltativo)</h2>
+      <p>Se colleghi un account Google, l'Applicazione dialoga direttamente con le API di Google dal tuo computer, con il tuo consenso e con il solo permesso di lettura (<code>drive.readonly</code>). Nel workspace condiviso viene salvata soltanto la struttura della cartella sincronizzata (nomi, identificativi, tipi e link dei file), visibile agli altri membri; il contenuto dei documenti viene scaricato solo quando lo apri e non viene salvato nel workspace. Il token di accesso resta cifrato sul tuo computer. Il trattamento da parte di Google è descritto nell'informativa privacy di Google.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.6 Email, Microsoft Teams, VPN e account di dominio (facoltativi)</h2>
+      <p>Se l'amministratore li configura, l'Applicazione invia email con l'Outlook installato sul PC di chi compie l'azione o con il server SMTP dell'azienda (la password SMTP è salvata nel workspace cifrata con la password del workspace) e messaggi a un canale di Microsoft Teams tramite un Workflow indicato dall'amministratore (solo indirizzi di Microsoft Power Automate). I messaggi contengono titolo del task, progetto, chi e cosa, scadenza e, solo per chi è menzionato, il testo del commento; mai descrizioni, allegati o percorsi. Ogni utente sceglie se indicare la propria email e per cosa riceverla. La VPN si collega con le connessioni già configurate in Windows, senza che l'Applicazione veda le credenziali. Con l'accesso aziendale l'Applicazione legge dall'account Windows il dominio, il SID e i gruppi, e salva nel workspace dominio e SID dell'utente.</p>
+      <h2 style="font-size:1.05rem;margin-top:1rem">2.7 Nessuna telemetria</h2>
+      <p>L'Applicazione non contiene strumenti di analisi, tracciamento o segnalazione automatica degli errori e non contatta alcun nostro server. Le uniche connessioni di rete sono quelle verso Google che attivi tu con la funzione Drive, quelle per email e Teams configurate dall'amministratore e, se non la disattivi (Impostazioni › Generali), una richiesta al giorno a GitHub per sapere qual è l'ultima versione pubblicata: la richiesta non contiene dati tuoi né dei tuoi workspace. «Invia un feedback» apre una pagina di GitHub o il tuo programma di posta solo quando lo scegli, con la versione dell'app e del sistema già indicate.</p>
+
+      <!-- Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento.
+      <h2>2b. Acquisto delle licenze</h2>
+      <p>Il pagamento dei piani Team e Business avviene sulle pagine di un rivenditore autorizzato (Merchant of Record) che tratta i dati di pagamento e fatturazione come titolare autonomo, secondo la propria informativa. Noi riceviamo nome o ragione sociale, indirizzo e-mail, piano acquistato e identificativo dell'ordine, necessari per emettere la licenza, inviartela e fornire assistenza (base giuridica: esecuzione del contratto). Conserviamo questi dati per la durata della licenza e per gli obblighi fiscali di legge.</p>
+      -->
+      <h2>3. Questo sito</h2>
+      <p>Il sito è composto da pagine statiche. Non usa cookie di profilazione né strumenti di analisi di terze parti. Le preferenze sul tema chiaro/scuro e sulla lingua sono salvate nel tuo browser (localStorage) e non vengono trasmesse. I caratteri tipografici sono caricati da Google Fonts: nel farlo, il tuo browser invia a Google il tuo indirizzo IP, secondo l'informativa di Google. La sezione download può interrogare l'API pubblica di GitHub per trovare l'ultima versione pubblicata. Il server che ospita il sito e l'eventuale server di download possono registrare nei log tecnici indirizzo IP, data e ora e pagina richiesta, per sicurezza e manutenzione, per il tempo strettamente necessario.</p>
+      <p><b>Contatore dei download.</b> Per sapere quanti dispositivi diversi scaricano l'Applicazione, quando scegli un file nella sezione download il tuo browser crea una sola volta un codice casuale, lo conserva nel proprio spazio locale (localStorage, chiave <code>todo-doto:device</code>) e lo invia, insieme a lingua, tipo e versione del file, a una nostra funzione ospitata da Supabase (Unione europea). Il server non conserva il codice: ne salva solo un'impronta cifrata con una chiave segreta, che non permette di risalire al codice né a te, e non salva il tuo indirizzo IP né il tuo browser. Usiamo questi dati solo in forma aggregata (numero di dispositivi e di download per file), non li incrociamo con altre informazioni e non li cediamo a nessuno; li cancelliamo dopo 24 mesi. Se cancelli i dati del sito dal browser, il codice viene rimosso e un download successivo conta come un nuovo dispositivo. Il download non dipende dal contatore: funziona anche se l'invio non riesce.</p>
+
+      <h2>4. Base giuridica e conservazione</h2>
+      <p>Per quanto riguarda il sito, il trattamento dei log tecnici si fonda sul legittimo interesse a garantirne la sicurezza e il funzionamento; i log sono conservati per un periodo limitato. Il contatore dei download si fonda sul legittimo interesse a conoscere, in forma aggregata, la diffusione dell'Applicazione; i dati sono conservati per 24 mesi. Per l'Applicazione, i dati sono trattati esclusivamente sui tuoi dispositivi e sotto il tuo controllo: tu decidi dove sono, chi vi accede e per quanto tempo conservarli.</p>
+
+      <h2>5. I tuoi diritti</h2>
+      <p>Hai il diritto di accedere ai dati, rettificarli, cancellarli, limitarne il trattamento e opporti, nonché di proporre reclamo al Garante per la protezione dei dati personali. Per i dati dell'Applicazione puoi esercitare questi diritti direttamente, perché i file sono tuoi; per i log del sito puoi contattarci tramite il repository GitHub.</p>
+
+      <h2>6. Minori</h2>
+      <p>L'Applicazione e il sito non sono destinati a minori di 14 anni e non raccolgono consapevolmente dati su di loro.</p>
+
+      <h2>7. Modifiche</h2>
+      <p>Aggiorneremo questa informativa se cambieranno le funzionalità dell'Applicazione o del sito; la data in alto indica l'ultima versione.</p>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Todo Doto</span>
+      <nav class="foot__links" aria-label="Note legali">
+        <a href="termini.html">Termini di utilizzo</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="condizioni.html">Condizioni di utilizzo</a>
+        <a href="https://github.com/Nisiix/Todo-Doto">GitHub</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/site.js"></script>
+</body>
+</html>

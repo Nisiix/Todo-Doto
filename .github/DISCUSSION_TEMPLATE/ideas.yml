@@ -1,0 +1,35 @@
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie! Racconta il problema prima della soluzione: aiuta a trovare quella giusta. Italiano o inglese.
+        Thanks! Describe the problem before the solution: it helps find the right one. Italian or English.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Quale problema risolverebbe · What problem would it solve
+      description: Cosa fai oggi e cosa ti costa fatica · What you do today and what is hard about it
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: L'idea · The idea
+      description: Come te la immagini nell'app · How you picture it in the app
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Chi la userebbe · Who would use it
+      options:
+        - Solo io · Just me
+        - Il mio gruppo (2–10 persone) · My team (2–10 people)
+        - Tutto l'ufficio (oltre 10) · The whole office (more than 10)
+  - type: input
+    id: version
+    attributes:
+      label: Versione di Todo Doto · Todo Doto version
+      placeholder: "0.7.0"

@@ -1,0 +1,41 @@
+# Repository pubblico Todo Doto (vetrina): pubblica Web/ su GitHub Pages.
+# Questo file arriva dal repository del codice (Vetrina/workflows/pages.yml),
+# insieme al sito: non modificarlo qui, verrebbe sovrascritto.
+name: Sito
+
+on:
+  push:
+    branches: [main]
+    paths: ['Web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true # attiva GitHub Pages (sorgente: Actions) se non lo è ancora
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: Web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

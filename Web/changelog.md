@@ -1,0 +1,170 @@
+# Novità
+
+Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
+
+## 0.7.0 — 21 ottobre 2026
+
+- Automazioni (menu del workspace, amministratori): se un task urgente resta senza responsabile per un giorno gli amministratori ricevono una notifica; se una domanda resta senza risposta per 5 giorni chi vi è menzionato riceve un avviso; quando si conferma un task senza scadenza l'app la chiede subito. I giorni si scelgono; senza server, ogni avviso arriva una volta sola.
+- Cosa è cambiato: si scelgono due momenti (le copie di sicurezza giornaliere, o adesso) e si vede cosa è stato aggiunto, completato, riaperto, cestinato o eliminato, le scadenze spostate «da → a», i task passati ad altri e i progetti nuovi, rinominati o cestinati. Un clic apre il task.
+- Chiedi al progetto (con l'IA locale): domande come «cosa abbiamo deciso sull'autenticazione?» o «quali prerequisiti servono per il backend?». La risposta viene solo da task, commenti, domande e decisioni, documento di architettura, note dello Stack e allegati di testo o PDF, e cita le fonti, che si aprono con un clic. Nulla esce dal PC.
+- Il dettaglio del task tiene i campi che si stanno modificando e prende gli aggiornamenti degli altri.
+- Con il pannello del task aperto, i pulsanti in cima al progetto mostrano solo l'icona: il nome del progetto resta leggibile.
+- Invia un feedback (menu del workspace, palette, schermata iniziale, Impostazioni): segnala un problema, proponi un'idea o fai una domanda su GitHub, con la versione già compilata, oppure scrivi all'autore per email.
+- Avviso di nuova versione: una volta al giorno l'app controlla l'ultima versione pubblicata e, se ce n'è una più recente, lo dice in cima alla finestra con «Novità» e «Scarica». Si può controllare a mano o disattivare in Impostazioni › Generali.
+- Sostieni Todo Doto (menu del workspace e schermata iniziale): donazione con PayPal o indirizzo PayPal da copiare.
+
+## 0.6.0 — 20 ottobre 2026
+
+- Dipendenze: un task «va fatto dopo» altri. Finché quelli non sono completati ha un lucchetto; se scade prima di chi lo blocca, un avviso lo dice. Nel Gantt le frecce collegano le barre e la catena critica è evidenziata. Quando il task si sblocca, chi lo ha in carico riceve una notifica.
+- Tappe: versioni o rilasci con data obiettivo, avanzamento, filtro e linea nel Gantt; nell'inserimento rapido «~v1.3». A tappa raggiunta, le note di versione si scrivono dai task completati e si copiano o si aggiungono al CHANGELOG.md del progetto.
+- Carico per settimana (Analisi): scadenze e ore stimate di ciascuno nelle prossime settimane, in tutti i progetti, con le collisioni e «Passa a…» con i consigliati. Stima in ore nel task o con «=3h».
+- Assenze e ore settimanali (Membri › Disponibilità): si vedono nell'elenco degli assegnatari, riducono il carico e segnalano i task che scadono mentre chi li ha è assente.
+- Salute dei progetti: un anello giallo o rosso nella barra laterale, con i motivi, e l'andamento settimana per settimana in Analisi.
+- PC pronti: in Analisi la matrice progetti × persone con lo stato del PC; nell'elenco degli assegnatari, se il PC della persona è pronto per il progetto.
+- Rapporto di stato interno per un periodo: completati, ritardi, prossime scadenze, tappe, decisioni, domande e attenzioni. Si copia in Markdown, si salva come pagina da stampare in PDF o si manda per email; l'introduzione la può scrivere l'IA locale.
+- Nota di passaggio: passando un task a un'altra persona, il dettaglio propone un riassunto per chi lo riceve, da aggiungere come commento.
+- Calendari delle scadenze (.ics) nella cartella Dati, per te e per ogni progetto, da aprire in Outlook o Thunderbird; si attivano dal menu del workspace.
+- Lista di controllo nei task e ripetizione settimanale o mensile: completandolo nasce il prossimo, con la lista da rifare.
+- Modelli di progetto: si salva un progetto come modello e se ne crea uno nuovo con Stack, cartelle degli allegati, tappe e task, con le date da oggi.
+- Pulizia guidata per gli amministratori: etichette mai usate, cartelle vuote, progetti fermi, allegati spariti, tappe da chiudere e cestini vecchi.
+
+## 0.5.0 — 20 ottobre 2026
+
+- Inserimento rapido: sopra la lista si scrive «Esportazione CSV !alta @mario #bug entro venerdì» e Invio crea il task con priorità, assegnatario, etichetta e scadenza. Ciò che è riconosciuto si vede prima; la X lo lascia nel titolo. Funziona anche nel dialog «Nuovo task».
+- Oggi: una pagina con quello che riguarda te in tutti i progetti (in ritardo, in scadenza oggi e in settimana, urgenti, domande che aspettano una tua risposta, risposte alle tue domande). Si completa e si rinvia senza aprire il progetto; il rinvio vale solo per te e non cambia la scadenza.
+- Decisioni: in una domanda, la risposta scelta diventa «la decisione», con la motivazione. Il progetto ha il suo registro delle decisioni, con ricerca e copia in Markdown.
+- Attenzioni e tempi: nel progetto, l'elenco di ciò che sta andando storto senza che nessuno l'abbia segnalato (ritardi, urgenze senza nessuno, domande senza risposta, task fermi) e i tempi mediani da creato a confermato e a completato, con l'età dei task da fare.
+- Git per task: nel dettaglio, i commit che citano TODO-n e il nome del branch da copiare; il task risulta «in lavorazione» con commit recenti o con il suo branch aperto sul PC.
+- Archivio: i completati da più di 90 giorni stanno in fondo a «Completati», dietro «Mostra archiviati». La ricerca li trova sempre.
+- Palette dei comandi: in Ctrl+K, «>» mostra i comandi (Oggi, nuovo task, decisioni, attenzioni, sezioni del progetto, impostazioni…) e «+» aggiunge un task al progetto aperto.
+
+## 0.4.0 — 20 ottobre 2026
+
+- VPN dell'ufficio dalle impostazioni: si sceglie una VPN già configurata in Windows e Todo Doto la collega da sola quando la cartella condivisa non risponde (anche all'apertura). Le credenziali restano a Windows.
+- Accesso aziendale: con l'account di dominio (Active Directory o Microsoft Entra ID) la stessa persona è lo stesso utente su qualunque PC; i ruoli si possono ricavare dai gruppi di Active Directory.
+- Email e Teams: «Invia per email» su task, roadmap e riepilogo; canale Microsoft Teams per progetto con task creati, completati, assegnazioni, domande e menzioni; email a chi viene menzionato o riceve un task; il punto della giornata ogni mattina. Invio con Outlook del PC o con il server SMTP aziendale; tutto facoltativo e scelto dall'amministratore.
+- Pensato per team più grandi: cronologia in file per mese e per PC (niente più file unico riscritto da tutti), giornale delle modifiche per sapere quali file rileggere, controllo della cartella meno frequente con la finestra in secondo piano o lontani dal PC, progetti con centinaia di task divisi in capitoli.
+
+## 0.3.0 — 20 ottobre 2026
+
+- Todo Doto è gratuito: licenze e abbonamenti sono sospesi. Chi vuole può sostenere lo sviluppo con una donazione PayPal (Impostazioni › Generali e sito).
+- Chi lavora a cosa: nel dettaglio del task «Ci sto lavorando»; nella lista una pastiglia verde con chi ci lavora, senza spostare le colonne; nella nuova Panoramica l'elenco di tutto il team.
+- Roadmap per il cliente: una pagina con cosa è fatto e cosa arriva, senza descrizioni, commenti o dettagli interni, da mandare o stampare in PDF.
+- Configura questo PC: in un solo passaggio i programmi che servono a tutti i tuoi progetti, ognuno installato una volta sola.
+- Stack non aggiornato: se i file del progetto cambiano (es. una nuova versione di Node.js), un avviso propone di aggiornare lo Stack con un clic.
+- Portatile fuori ufficio: senza la cartella condivisa si continua a lavorare sulla copia del PC; al ritorno le modifiche si uniscono a quelle dei colleghi, campo per campo, e i conflitti si mostrano.
+- Cifratura dei dati sul disco per i workspace di rete (Impostazioni › Dati utente, amministratori): file, copie di sicurezza e copia fuori ufficio illeggibili senza la password.
+- Rilevamento dei cambiamenti più leggero sulle cartelle di rete: si interrogano solo le cartelle cambiate.
+
+## 0.2.26 — 16 ottobre 2026
+
+- IA locale, gratuita e tutta sul PC (Ollama con Qwen 3 4B, o un server compatibile OpenAI come LM Studio): l'app comunica solo con il motore installato sul PC, mai con servizi esterni.
+- Impostazioni › IA locale: prova di connessione e download dei modelli con barra di avanzamento. Nell'installer per Windows, opzione facoltativa per installare anche l'IA.
+- Stack: "Rileva dai file del progetto" con l'IA attiva propone anche prerequisiti, passi, variabili e note che i file non dicono esplicitamente, da scegliere prima di aggiungerli.
+- Funzioni assistite: "Come risolvere" per i prerequisiti, task da un testo, avviso dei task simili, ricerca per significato, commit che potrebbero completare un task, riepilogo della settimana, AGENTS.md/CLAUDE.md dallo Stack.
+- Un banner in alto invita ad attivare l'IA locale; chiuso, non ricompare.
+
+## 0.2.25 — 16 ottobre 2026
+
+- Nella barra laterale le sezioni del progetto sono ora nell'ordine Stack, Todo, Gantt, Allegati.
+- Nuovo sito: prezzi dei piani Free, Team e Business, domande frequenti, guida all'uso, note di versione, confronti con Trello ed Excel, pagine legali aggiornate.
+
+## 0.2.24 — 15 ottobre 2026
+
+- Stack: campi non validi impediscono il salvataggio.
+
+## 0.2.23 — 15 ottobre 2026
+
+- "Rileva dai file del progetto" solo con una cartella del progetto valida.
+
+## 0.2.22 — 15 ottobre 2026
+
+- Riapertura dell'ultimo workspace senza passare dalla scelta del workspace.
+
+## 0.2.21 — 15 ottobre 2026
+
+- Cartella del progetto mostrata solo se c'è davvero su questo PC.
+
+## 0.2.20 — 15 ottobre 2026
+
+- Filtri del Gantt, scadenza non impostata, impostazioni con "Dati utente".
+
+## 0.2.19 — 15 ottobre 2026
+
+- Cartella del progetto su questo PC, impostazioni in schede.
+
+## 0.2.18 — 15 ottobre 2026
+
+- Todo Doto: nuovo nome, Gantt dei task confermati, prerequisiti dai file di progetto.
+
+## 0.2.17 — 15 ottobre 2026
+
+- Commit git → task: "chiude TODO-n" completa il task.
+
+## 0.2.16 — 15 ottobre 2026
+
+- Configurazione dei PC condivisa, notifiche gestibili, copie di sicurezza.
+
+## 0.2.15 — 15 ottobre 2026
+
+- Cancellazioni confinate alla cartella Dati, messaggi sui file del progetto.
+
+## 0.2.14 — 14 ottobre 2026
+
+- "Ricorda la password" a scelta, cifrata con Windows DPAPI.
+
+## 0.2.13 — 14 ottobre 2026
+
+- Preferiti nella barra laterale solo se ci sono progetti con la stella.
+
+## 0.2.12 — 14 ottobre 2026
+
+- Link esterni, verifica .NET e prerequisiti fuori dal PATH, campi del task nel dettaglio.
+
+## 0.2.11 — 14 ottobre 2026
+
+- Progetti dalla loro cartella, stack anche da cartelle di rete e sottocartelle, rete più veloce.
+
+## 0.2.10 — 14 ottobre 2026
+
+- Visibilità dei progetti pubblica o limitata, con pallino nella barra laterale.
+
+## 0.2.9 — 14 ottobre 2026
+
+- Cartelle di rete con errori spiegati, cartella creata con il progetto, import dello stack.
+
+## 0.2.8 — 14 ottobre 2026
+
+- Cartella dei progetti ricavata per i workspace creati prima della 0.2.4.
+
+## 0.2.7 — 14 ottobre 2026
+
+- Nome del progetto dalla sua cartella, senza modifica successiva.
+
+## 0.2.6 — 14 ottobre 2026
+
+- Gestione permessi nella pagina Membri, correzione dell'aggiornamento in background.
+
+## 0.2.5 — 14 ottobre 2026
+
+- GitHub, verifica automatica dei prerequisiti, nome e utenti del progetto.
+
+## 0.2.4 — 14 ottobre 2026
+
+- Cartella dei progetti e cartella Dati separate, configurazione automatica.
+
+## 0.2.3 — 14 ottobre 2026
+
+- Workspace da una cartella di progetti esistenti, con creazione automatica dei progetti.
+
+## 0.2.2 — 14 ottobre 2026
+
+- Sezioni del progetto nella barra laterale, Stack con import .md e prerequisiti automatici.
+
+## 0.2.1 — 14 ottobre 2026
+
+- Salvataggi sotto lock fra PC, exe portabile senza installer.
+
+## 0.2.0 — 14 ottobre 2026
+
+- Prima versione pubblicata con build automatica, sito e installer in italiano e in inglese.
