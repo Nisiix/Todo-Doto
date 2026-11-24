@@ -15,9 +15,8 @@
       var t = localStorage.getItem('pgm-site:theme'); if (t) document.documentElement.setAttribute('data-theme', t)
       var L = ['en', 'it', 'fr', 'de', 'es'], ok = function (x) { return L.indexOf(x) >= 0 }
       var q = new URLSearchParams(location.search).get('lang'), s = localStorage.getItem('pgm-site:lang')
-      // Lingua del browser, se è una di quelle del sito; altrimenti l'inglese
-      var nav = (navigator.languages || [navigator.language || 'en']).map(function (x) { return String(x).slice(0, 2).toLowerCase() }).filter(ok)[0] || 'en'
-      var l = ok(q) ? q : ok(s) ? s : nav
+      // Senza ?lang= né scelta salvata si apre in inglese, qualunque sia la lingua del browser
+      var l = ok(q) ? q : ok(s) ? s : 'en'
       document.documentElement.setAttribute('data-lang', l)
       if (l !== 'it') { document.documentElement.lang = l; document.documentElement.classList.add('i18n-pending') }
     } catch (e) {}

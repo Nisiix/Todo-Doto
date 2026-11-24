@@ -342,9 +342,74 @@ img[data-shot] { cursor: zoom-in; }
 .lightbox.is-open .lightbox__cap, .lightbox.is-open .lightbox__close { opacity: 1; }
 
 /* --- donazioni ------------------------------------------------------------ */
-#sostieni { padding-top: 0; }
+/* Spazio sopra e sotto la card: senza, il bordo superiore toccava la linea della sezione */
+#sostieni { padding: 3.5rem 0; }
 .donate { display: flex; align-items: center; gap: 1.2rem; flex-wrap: wrap; padding: 1.4rem 1.6rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .donate > svg { color: var(--p-immediata); flex: none; }
 .donate > div { flex: 1 1 20rem; }
 .donate .sec__title { font-size: 1.3rem; }
 .donate .sec__lead { margin: 0; }
+
+/* --- stepper delle sezioni (landing) ------------------------------------------
+   A sinistra, sopra il contenuto. Il passo attivo segue lo scorrimento (site.js:
+   classi is-active / is-done e --progress per la linea). Etichette sempre visibili
+   solo dove c'è spazio accanto al contenuto; altrimenti compaiono al passaggio del
+   mouse o con il fuoco. Sotto i 1260px (margine troppo stretto: coprirebbe il testo)
+   si apre dal pulsante in basso a sinistra. */
+.stepper { position: fixed; left: 1rem; top: 50%; transform: translateY(-50%); z-index: 9; --row: 2.25rem; --pad: .5rem; }
+.stepper__toggle { display: none; }
+.stepper__list {
+  position: relative; list-style: none; margin: 0; padding: var(--pad);
+  display: flex; flex-direction: column;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 12px 32px -18px rgb(28 31 38 / .35);
+}
+/* linea che unisce i punti, riempita fino al passo attivo */
+.stepper__list::before, .stepper__list::after {
+  content: ''; position: absolute; left: calc(var(--pad) + .7rem + 5px - 1px); width: 2px;
+  top: calc(var(--pad) + var(--row) / 2); border-radius: 2px;
+}
+.stepper__list::before { bottom: calc(var(--pad) + var(--row) / 2); background: var(--line); }
+.stepper__list::after {
+  height: calc((100% - 2 * var(--pad) - var(--row)) * var(--progress, 0));
+  background: var(--accent); transition: height .25s ease;
+}
+.stepper a {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: .65rem;
+  height: var(--row); padding: 0 .7rem; border-radius: 8px;
+  color: var(--ink-2); font-weight: 600; font-size: .88rem; white-space: nowrap;
+}
+.stepper a:hover { background: var(--surface-2); color: var(--ink); text-decoration: none; }
+.stepper__dot {
+  width: 10px; height: 10px; flex: none; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--line-strong);
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+.stepper a.is-done .stepper__dot { background: var(--accent); border-color: var(--accent); }
+.stepper a.is-active { color: var(--ink); }
+.stepper a.is-active .stepper__dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.stepper__label { transition: opacity .2s ease, max-width .25s ease; }
+@media (max-width: 1559px) and (min-width: 1260px) {
+  /* Accanto al contenuto non c'è spazio per le etichette: solo i punti */
+  .stepper__label { max-width: 0; opacity: 0; overflow: hidden; }
+  .stepper a { gap: 0; }
+  .stepper:hover .stepper__label, .stepper:focus-within .stepper__label { max-width: 12rem; opacity: 1; }
+  .stepper:hover a, .stepper:focus-within a { gap: .65rem; }
+}
+@media (max-width: 1259px) {
+  .stepper { top: auto; bottom: 1rem; transform: none; display: flex; flex-direction: column-reverse; align-items: flex-start; gap: .5rem; }
+  .stepper__toggle {
+    display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    box-shadow: 0 12px 32px -14px rgb(28 31 38 / .45);
+  }
+  .stepper__toggle:hover, .stepper__toggle[aria-expanded='true'] { color: var(--ink); background: var(--surface-2); }
+  .stepper:not(.is-open) .stepper__list { display: none; }
+  .stepper__list { background: var(--surface); box-shadow: var(--shadow); } /* sopra il testo: niente trasparenza */
+  .stepper a { height: 2.6rem; font-size: .95rem; }
+  .stepper { --row: 2.6rem; }
+}
+@media print { .stepper { display: none; } }
+

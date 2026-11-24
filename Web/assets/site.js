@@ -349,6 +349,56 @@
     }
   })
 
+  // --- stepper delle sezioni (landing) ---------------------------------------
+  // Il passo attivo è l'ultimo la cui sezione è salita oltre un terzo della finestra;
+  // in fondo alla pagina è l'ultimo (la sezione Dona è corta e non arriva mai lassù).
+  const stepper = document.querySelector('[data-stepper]')
+  if (stepper) {
+    const toggle = stepper.querySelector('.stepper__toggle')
+    const list = stepper.querySelector('.stepper__list')
+    const steps = [...stepper.querySelectorAll('a[data-step]')].map((a) => ({
+      a,
+      sections: a.getAttribute('data-step').split(/\s+/).map((id) => document.getElementById(id)).filter(Boolean),
+    })).filter((s) => s.sections.length)
+    let current = -2
+    const update = () => {
+      const line = innerHeight / 3
+      let active = -1
+      steps.forEach((s, i) => { if (s.sections[0].getBoundingClientRect().top <= line) active = i })
+      if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) active = steps.length - 1
+      if (active === current) return
+      current = active
+      steps.forEach((s, i) => {
+        s.a.classList.toggle('is-active', i === active)
+        s.a.classList.toggle('is-done', i < active)
+        if (i === active) s.a.setAttribute('aria-current', 'location')
+        else s.a.removeAttribute('aria-current')
+      })
+      list.style.setProperty('--progress', String(steps.length > 1 ? Math.max(active, 0) / (steps.length - 1) : 0))
+    }
+    let queued = false
+    const schedule = () => {
+      if (queued) return
+      queued = true
+      requestAnimationFrame(() => { queued = false; update() })
+    }
+    addEventListener('scroll', schedule, { passive: true })
+    addEventListener('resize', schedule)
+    update()
+
+    // Schermi stretti: il pulsante apre e chiude l'elenco
+    const setOpen = (open) => {
+      stepper.classList.toggle('is-open', open)
+      toggle.setAttribute('aria-expanded', String(open))
+    }
+    toggle.addEventListener('click', () => setOpen(!stepper.classList.contains('is-open')))
+    stepper.addEventListener('click', (e) => { if (e.target instanceof Element && e.target.closest('a')) setOpen(false) })
+    document.addEventListener('click', (e) => { if (e.target instanceof Node && !stepper.contains(e.target)) setOpen(false) })
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && stepper.classList.contains('is-open')) { setOpen(false); toggle.focus() }
+    })
+  }
+
   applyLang(lang)
 })()
 

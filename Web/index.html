@@ -24,14 +24,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/site.css" />
   <script>
-    // Tema e lingua prima del primo paint (la lingua: ?lang=, scelta salvata, lingua del browser).
+    // Tema e lingua prima del primo paint (la lingua: ?lang=, scelta salvata, altrimenti inglese).
     try {
       var t = localStorage.getItem('pgm-site:theme'); if (t) document.documentElement.setAttribute('data-theme', t)
       var L = ['en', 'it', 'fr', 'de', 'es'], ok = function (x) { return L.indexOf(x) >= 0 }
       var q = new URLSearchParams(location.search).get('lang'), s = localStorage.getItem('pgm-site:lang')
-      // Lingua del browser, se è una di quelle del sito; altrimenti l'inglese
-      var nav = (navigator.languages || [navigator.language || 'en']).map(function (x) { return String(x).slice(0, 2).toLowerCase() }).filter(ok)[0] || 'en'
-      var l = ok(q) ? q : ok(s) ? s : nav
+      // Senza ?lang= né scelta salvata si apre in inglese, qualunque sia la lingua del browser
+      var l = ok(q) ? q : ok(s) ? s : 'en'
       document.documentElement.setAttribute('data-lang', l)
       if (l !== 'it') { document.documentElement.lang = l; document.documentElement.classList.add('i18n-pending') }
     } catch (e) {}
@@ -69,11 +68,7 @@
         Todo Doto
       </a>
       <nav class="nav" aria-label="Sezioni" data-i18n-aria-label="nav.label">
-        <a href="#perche" data-i18n="nav.why">Intro</a>
-        <a href="#tutorial" data-i18n="nav.tutorial">Tutorial</a>
-        <a href="#funzionalita" data-i18n="nav.features">Funzionalità</a>
-        <!-- <a href="#prezzi" data-i18n="nav.pricing">Prezzi</a> Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. -->
-        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+        <!-- Le sezioni della pagina sono nello stepper a sinistra (sotto) -->
         <a href="guida.html" data-i18n="nav.guide" data-i18n-href="link.guide">Guida</a>
         <a class="btn btn--primary btn--sm" href="#download" data-i18n="nav.download">Scarica</a>
         <label class="lang-pick" title="Lingua · Language" data-i18n-title="nav.language">
@@ -92,6 +87,23 @@
       </nav>
     </div>
   </header>
+
+  <!-- Stepper delle sezioni: a sinistra, sopra il contenuto. Su schermi stretti si apre dal pulsante in basso a sinistra.
+       data-step: le sezioni che accendono il passo (la prima è la destinazione del link). -->
+  <nav class="stepper" aria-label="Sezioni" data-i18n-aria-label="nav.label" data-stepper>
+    <button class="stepper__toggle" type="button" aria-expanded="false" aria-controls="stepper-list" title="Sezioni" data-i18n-title="nav.label">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="6" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="5" cy="18" r="1.6"/><path d="M10 6h10M10 12h10M10 18h10"/></svg>
+    </button>
+    <ol class="stepper__list" id="stepper-list">
+      <li><a href="#perche" data-step="perche come-funziona"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="nav.why">Intro</span></a></li>
+      <li><a href="#tutorial" data-step="tutorial"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="nav.tutorial">Tutorial</span></a></li>
+      <li><a href="#funzionalita" data-step="funzionalita"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="nav.features">Funzionalità</span></a></li>
+      <!-- <li><a href="#prezzi" data-step="prezzi"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="nav.pricing">Prezzi</span></a></li> Piani a pagamento sospesi: per ora l'app è gratuita. Per riattivarli togliere il commento. -->
+      <li><a href="#faq" data-step="faq"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="nav.faq">FAQ</span></a></li>
+      <li><a href="#download" data-step="download"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="nav.download">Scarica</span></a></li>
+      <li><a href="#sostieni" data-step="sostieni"><span class="stepper__dot" aria-hidden="true"></span><span class="stepper__label" data-i18n="foot.donate">Dona</span></a></li>
+    </ol>
+  </nav>
 
   <main>
     <section class="hero">

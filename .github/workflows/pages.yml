@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
         with:
-          enablement: true # attiva GitHub Pages (sorgente: Actions) se non lo è ancora
+          enablement: true # tentativo; su un repository nuovo serve l'attivazione a mano (Settings → Pages)
       - uses: actions/upload-pages-artifact@v3
         with:
           path: Web
