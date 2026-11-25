@@ -132,6 +132,11 @@
     chooseLang(next)
   })
   document.querySelectorAll('select[data-lang-select]').forEach((s) => s.addEventListener('change', () => chooseLang(s.value)))
+  // Guida: una pagina per lingua, il selettore porta alla pagina nella lingua scelta
+  document.querySelectorAll('select[data-lang-nav]').forEach((s) => s.addEventListener('change', () => {
+    store.set(LANG, s.value)
+    location.href = s.selectedOptions[0].dataset.href
+  }))
 
   // --- download ----------------------------------------------------------------
   // Fonti, in ordine: downloads/manifest.json (server web, vedi downloads/README.md),

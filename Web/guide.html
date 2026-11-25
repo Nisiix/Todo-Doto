@@ -4,10 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Guide — Todo Doto</title>
-  <meta name="description" content="Todo Doto user guide: create and share a workspace, projects and tasks, Stack with guided setup, Gantt, GitHub, roles, backups, shortcuts and common problems." />
+  <meta name="description" content="Todo Doto user guide: shared workspace with key-based access, projects and tasks, Kanban, Gantt, Today and Week, Stack with guided setup, email and Teams, roles, local AI, working away from the office, backups, shortcuts and common problems." />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="512x512" href="assets/icon.png" />
   <link rel="alternate" hreflang="it" href="guida.html" />
+  <link rel="alternate" hreflang="fr" href="guide.fr.html" />
+  <link rel="alternate" hreflang="de" href="guide.de.html" />
+  <link rel="alternate" hreflang="es" href="guide.es.html" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet" />
@@ -23,13 +26,19 @@
       </a>
       <nav class="nav" aria-label="Sections">
         <a href="index.html?lang=en#funzionalita">Features</a>
-        <!-- <a href="index.html?lang=en#prezzi">Pricing</a> piani sospesi -->
+        <!-- <a href="index.html?lang=en#prezzi">Prezzi</a> piani sospesi -->
         <a href="changelog.html?lang=en">Release notes</a>
         <a class="btn btn--primary btn--sm" href="index.html?lang=en#download">Download</a>
-        <div class="lang" role="group" aria-label="Language">
-          <a href="guida.html" data-set-lang="it" lang="it" title="Italiano">IT</a>
-          <a href="guide.html" aria-pressed="true" lang="en" title="English">EN</a>
-        </div>
+        <label class="lang-pick" title="Language">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>
+          <select data-lang-nav aria-label="Language">
+            <option value="en" lang="en" data-href="guide.html" selected>English</option>
+            <option value="it" lang="it" data-href="guida.html">Italiano</option>
+            <option value="fr" lang="fr" data-href="guide.fr.html">Français</option>
+            <option value="de" lang="de" data-href="guide.de.html">Deutsch</option>
+            <option value="es" lang="es" data-href="guide.es.html">Español</option>
+          </select>
+        </label>
         <button class="theme" type="button" aria-label="Toggle light/dark theme" title="Theme (Ctrl+Shift+L)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
         </button>
@@ -39,105 +48,161 @@
   <main class="legal">
     <div class="wrap--narrow guide">
       <h1>Guide</h1>
-      <p class="upd">Everything you need to get started and to run the office. A ten-minute read.</p>
+      <p class="upd">Everything you need to get started and to work as a team. A fifteen-minute read; each section also stands on its own.</p>
 
       <nav class="toc" aria-label="Contents">
         <b>Contents</b>
         <ol>
-          <li><a href="#install">Install and update</a></li>
+          <li><a href="#installare">Install and update</a></li>
           <li><a href="#workspace">Create a workspace</a></li>
-          <li><a href="#share">Share with colleagues</a></li>
-          <li><a href="#projects">Projects, folders, tasks</a></li>
+          <li><a href="#condividere">Share with colleagues</a></li>
+          <li><a href="#progetti">Projects, folders, tasks</a></li>
+          <li><a href="#kanban">Kanban and Gantt</a></li>
+          <li><a href="#oggi">Today and Week</a></li>
           <li><a href="#stack">Stack and PC setup</a></li>
           <li><a href="#github">GitHub and commits that close tasks</a></li>
-          <li><a href="#discussion">Questions, comments, attachments</a></li>
-          <li><a href="#roles">Roles, permissions, Analytics, activity log</a></li>
-          <!-- <li><a href="#license">Plans and license</a></li> piani sospesi -->
+          <li><a href="#discussione">Questions, decisions, attachments</a></li>
+          <li><a href="#notifiche">Notifications, email and Teams</a></li>
+          <li><a href="#ruoli">Roles, permissions, Activity</a></li>
+          <li><a href="#tappe">Milestones, reports, templates</a></li>
+          <li><a href="#ia">Local AI</a></li>
+          <li><a href="#fuori">Away from the office and VPN</a></li>
+          <!-- <li><a href="#licenza">Plans and license</a></li> piani sospesi -->
           <li><a href="#backup">Backups</a></li>
-          <li><a href="#shortcuts">Shortcuts</a></li>
-          <li><a href="#problems">Common problems</a></li>
+          <li><a href="#scorciatoie">Shortcuts</a></li>
+          <li><a href="#problemi">Common problems</a></li>
         </ol>
       </nav>
 
-      <h2 id="install">1. Install and update</h2>
-      <p>From the <a href="index.html?lang=en#download">home page</a> download the setup, the <code>.msi</code> installer or the portable executable (runs without installing anything), in the language you prefer: each file contains one language, English or Italian. No administrator rights needed. If Windows shows “Windows protected your PC”, choose “More info → Run anyway”: the warning is about the program being new, not unsafe.</p>
-      <p>To update, install the latest version over the existing one: workspace data is never touched. The first time you open the app after updating, a window sums up what’s new in that version: close it with “Got it” and it won’t come back. What changed in every version is on the <a href="changelog.html?lang=en">Release notes</a> page and in the Releases feed.</p>
+      <h2 id="installare">1. Install and update</h2>
+      <p>Download the setup, the <code>.msi</code> installer or the portable executable (it runs without installing anything) from the <a href="index.html?lang=en#download">main page</a>. Each file contains one language (English, Italian, French, German or Spanish), which you can then change in Settings › General. No administrator rights are needed. If Windows shows “Windows protected your PC”, choose “More info → Run anyway”: the warning is about the program being new, not about its safety.</p>
+      <p>On the first page of the setup an optional checkbox, unticked, also installs the free <a href="#ia">local AI</a> (about 4 GB to download). If the download fails the app stays installed and you can turn the AI on later from Settings.</p>
+      <p>At every start the app checks whether a newer version is out: if so it shows “Update Todo Doto” with the download links, and you need to install it before continuing. The same happens if a colleague has already opened the workspace with a newer version: this way two different versions never rewrite the same files. To update, install the new version over the existing one: workspace data are not touched. The first time you open the app after an update a box sums up what’s new; it closes with “Got it” and does not come back. The notes for every version are on the <a href="changelog.html?lang=en">Release notes</a> page.</p>
 
       <h2 id="workspace">2. Create a workspace</h2>
-      <p>A workspace has two folders: the <b>projects</b> folder (where they are, or where you will create them) and the app <b>data</b> folder. On first launch choose:</p>
+      <p>A workspace has two folders: the <b>projects</b> folder (where they are, or where you will create them) and the Todo Doto <b>data folder</b>, separate from the first, where the app stores tasks, comments and history. At first start choose:</p>
       <ul>
-        <li><b>Create workspace</b>: name, projects folder and data folder. “Only on this PC” to work alone; “Shared on the network” for the office (see below).</li>
-        <li><b>Open folder</b>: when a colleague already created the workspace on the server, or a folder that already contains projects.</li>
+        <li><b>Create workspace</b>: name, projects folder and data folder. “Only on this PC” to work on your own, with both folders on the PC; “Shared on the network” for the office, with the data folder on a server (see below).</li>
+        <li><b>Open folder</b>: if a colleague has already created the workspace on the server, or for a folder that already contains projects.</li>
       </ul>
-      <p>If the chosen folder already contains projects (subfolders with <code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>go.mod</code>…), the app lists them and offers to create them all in the workspace: name from the folder, Stack read from the files. In that case the workspace data goes in another folder, suggested next to it. On the next launch the last workspace reopens by itself.</p>
+      <p>If the chosen folder already contains projects (subfolders with <code>.git</code>, <code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>go.mod</code>…), the app lists them and offers to create them all in the workspace: name from the folder, Stack derived from the files. At the next start the last workspace reopens by itself (you can turn this off in Settings › General).</p>
 
-      <h2 id="share">3. Share with colleagues</h2>
+      <h2 id="condividere">3. Share with colleagues</h2>
+      <p>There are no passwords: every PC has its own <b>key</b>, protected by the Windows user, and the data in the data folder are always encrypted.</p>
       <ol>
-        <li>Whoever starts the workspace picks a folder on the server (for example <code>\\server\shared\Roadmap</code> or <code>Z:\Roadmap</code>), the “Shared on the network” mode and a password of at least 6 characters. They become the administrator.</li>
-        <li>Every colleague installs the app, uses “Open folder” on the same folder and enters the password; they can choose to remember it on their PC, encrypted by Windows.</li>
-        <li>From then on everyone’s changes show up on the other PCs within seconds, with an “Updated by …” notice and a flashing row. Whatever happens while you are away reaches you as notifications when you reopen.</li>
+        <li>Whoever starts the workspace chooses “Shared on the network” and a data folder on the server (for example <code>\\server\shared\Todo Doto</code> or <code>Z:\Todo Doto</code>). They become administrator. The projects folder can also be local, as long as every PC uses the same path (e.g. <code>D:\Dev</code>).</li>
+        <li>Right after, the app offers to save the <b>recovery key</b>: a <code>.tdkey</code> file protected by a passphrase you choose (at least 10 characters). Keep them safe and apart: they let you back in as administrator if every administrator PC is lost. Until it exists, administrators see a reminder; you can also create it later from Workspace management › General › Security.</li>
+        <li>Each colleague installs the app and uses “Open folder” on the same data folder. Their PC asks for access and shows “Waiting for approval” with the <b>code of the PC</b>.</li>
+        <li>An administrator opens <b>Members</b>, finds the request and, before pressing “Approve”, compares the code with the one the colleague reads on their screen (in person or by phone). They choose “As a new member”, or “As a new PC of …” if it is the second PC of someone already there. The PC gets in by itself within a few seconds.</li>
+        <li>From then on everyone’s changes appear on the other PCs within a few seconds, with an “Updated by …” notice and the row flashing. Whatever happens while you are disconnected reaches you as notifications when you reopen.</li>
       </ol>
-      <p>Requirements: everyone needs read and write permissions on the folder. The password protects access through the app, not the files: anyone who can open the folder in File Explorer can read them.</p>
+      <p>From Members an administrator can also <b>revoke</b> a PC or remove a person: the keys are replaced and that PC can no longer read what is written from then on. Requirements: everyone needs read and write permissions on the data folder. Anyone opening the files with File Explorer or other programs reads nothing, and restricted projects can only be read from the PCs of the people who see them.</p>
 
-      <h2 id="projects">4. Projects, folders, tasks</h2>
-      <p>In the left column you create <b>folders</b> (nested too) and <b>projects</b>. A new project is created from its folder on disk (which gives it its name), from the stack of an existing project (“New project with this stack”) or from a GitHub repository. The open project shows its sections underneath: <b>Stack</b>, <b>To-do</b>, <b>Gantt</b> and <b>Attachments</b>.</p>
-      <p>Every task has a title, description, <b>priority</b> (low, medium, high, urgent: the colored bar on the left grows with urgency), <b>status</b> (to evaluate, to define, confirmed), <b>due date</b> (confirmed status only), <b>assignee</b> and <b>label</b>. The list is sorted by priority, then due date. Filters narrow by period, status, priority, “assigned to”, “created by” and label; search (<span class="kbd">Ctrl</span>+<span class="kbd">K</span> or <span class="kbd">/</span>) looks across all projects.</p>
-      <p>Complete a task with the circle next to its title (or <span class="kbd">C</span>); trash it from the menu (or <span class="kbd">Del</span>). From the Trash you restore it or, administrators only, delete it permanently. The <b>Gantt</b> shows confirmed tasks with a due date, grouped by label or priority, with today’s line and weekends.</p>
+      <h2 id="progetti">4. Projects, folders, tasks</h2>
+      <p>In the left column administrators create <b>folders</b> (nested too) and <b>projects</b>. A new project is created from its folder on disk (which gives it its name), by copying the Stack of an existing project, from a <a href="#tappe">project template</a> or from a GitHub repository. The open project shows its sections below it: <b>Stack</b>, <b>To-do</b>, <b>Kanban</b>, <b>Gantt</b> and <b>Attachments</b>. Moving a project to the trash or deleting it only affects the workspace: the project folder and its files are never touched.</p>
+      <p>Every task has a title, description, <b>priority</b> (low, medium, high, urgent: the colored bar on the left grows with urgency), <b>status</b> (to evaluate, to define, confirmed), <b>due date</b> (only with confirmed status), <b>assignee</b> and <b>label</b>. In the detail you can add a <b>checklist</b>, an <b>estimate</b> in hours, the <b>milestone</b>, <b>dependencies</b> (“to do after” other tasks: while those are open the task shows a padlock) and a weekly or monthly <b>repeat</b>, which creates the next task when you complete it.</p>
+      <p><b>Quick add</b> above the list creates a task as you type, for example <code>CSV export !high @mario #bug by friday</code>: priority, assignee, label and due date are recognized before you press Enter; <code>~v1.3</code> sets the milestone and <code>=3h</code> the estimate. It also works in the title of the “New task” dialog.</p>
+      <p>The list is sorted by priority, then by due date. In network workspaces the <b>“Only mine”</b> button, on when you open the page, shows only the tasks assigned to you or created by you: press it to see everyone else’s too. Filters narrow by due date, status, priority, “assigned to”, “created by”, label and milestone. “Attention” lists what is going wrong without anyone having flagged it: overdue tasks, urgent tasks with nobody on them, unanswered questions, stuck tasks.</p>
+      <p>Complete a task with the circle next to its title (or <span class="kbd">C</span>); trash it from the menu (or <span class="kbd">Del</span>). From the Trash you restore it or, administrators only, delete it permanently. Tasks completed more than 90 days ago stay at the bottom of “Completed”, hidden until you show them. Search (<span class="kbd">Ctrl</span>+<span class="kbd">K</span> or <span class="kbd">/</span>) looks in all projects, archived tasks included; typing <code>&gt;</code> shows the app’s commands and <code>+</code> adds a task to the open project.</p>
 
-      <h2 id="stack">5. Stack and PC setup</h2>
-      <p>The administrator describes what the project is built with: application type, languages, frameworks, repository, project folder, notes, <b>prerequisites</b> (with version, link and check command), ordered <b>steps</b> (command, link or manual operation) and <b>environment variables</b>. Typing the name of a known tool (Node.js, Git, Rust, .NET SDK, Python…) fills in version, link and command; adding languages or frameworks suggests the prerequisites they need.</p>
-      <p>The stack can also fill itself: “Detect from project files” reads the folder (network folders too), “Import .md” reads a README or an architecture document, GitHub reads it from the repository. The stack’s initial files (<code>package.json</code>, <code>.gitignore</code>…) accept the <code>{{name}}</code> and <code>{{slug}}</code> placeholders.</p>
-      <p><b>Set up on your PC</b>: the procedure as a checklist, with commands to copy and links to open. The app checks installed prerequisites by itself (version found, to update, missing) and “Start setup” runs the checks and steps in a command prompt window, in the project folder, stopping at the first error. In network workspaces the outcome is shared: a banner in the Stack warns the administrator when someone is missing a prerequisite.</p>
-      <p>At the bottom of the Stack, the project’s <b>AI tools</b>: connectors, plugins and skills (attached as files, for example <code>SKILL.md</code>).</p>
+      <h2 id="kanban">5. Kanban and Gantt</h2>
+      <p><b>Kanban</b> shows the project’s tasks in columns, with the same filters as the list. Drag a card (or, with the card selected, <span class="kbd">Shift</span>+<span class="kbd">←</span>/<span class="kbd">→</span>) to change its status, complete it or reopen it. “Completed” keeps the tasks finished in the last 14 days.</p>
+      <p>At first there is one column per status. With <b>“Columns”</b> an administrator gives the project its own columns: name, color, an optional task limit (the header changes color when it is exceeded, but nothing is blocked) and the status the column is tied to, so filters, Gantt and emails keep working. “Development template” suggests Backlog, To analyze, Ready, In progress, Code review, Testing; columns can be copied from another project. “Completed” is always the last one.</p>
+      <p><b>Gantt</b> shows confirmed tasks with a due date, grouped by label or priority, with today’s line, weekends and milestones. Arrows link tasks that depend on each other and the longest chain of open tasks is highlighted.</p>
 
-      <h2 id="github">6. GitHub and commits that close tasks</h2>
-      <p>From the <b>GitHub</b> page (next to Drive) you connect with a read-only personal token, stored encrypted on your PC. From the repository list the administrator creates projects: the Stack is read from the repository files and re-syncs from “Sync” or automatically when the workspace opens.</p>
-      <p>Every task has a <code>TODO-n</code> code. Writing <code>closes TODO-12</code> in a commit message (also <code>fixes</code>, <code>resolves</code>; several tasks separated by commas) makes the app complete the task when the project opens, noting which commit did it. Enable it in the Stack with “Close tasks from git commits”.</p>
+      <h2 id="oggi">6. Today and Week</h2>
+      <p><b>Today</b>, in the sidebar, gathers what concerns you across all projects: overdue, due today, questions waiting for your answer, answers to your questions, urgent and due this week. You complete and snooze (until tomorrow, until Monday, for a week) without opening the project; snoozing is just for you and does not change the due date.</p>
+      <p><b>Week</b> (<span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">F</span>) puts the same tasks on the days from Monday to Friday. Dragging a card onto a day plans when you will work on it, without changing the due date; “To catch up” collects past days whose task is still open. With the star you pick up to 3 <b>commitments</b> for the week. Capacity compares estimated hours with your weekly hours, minus absences (Members › Availability). From Friday afternoon a box offers to carry what is still open over to next week.</p>
+      <p>The <b>Overview</b>, at the top of the sidebar, shows what to keep an eye on in the next seven days, open questions, who is working on what (in a task’s detail, “I'm working on it”) and what this PC is missing for your projects.</p>
 
-      <h2 id="discussion">7. Questions, comments, attachments</h2>
-      <p>Opening a task shows the detail panel: title, description and attributes are edited together and saved with “Save” (or <span class="kbd">Ctrl</span>+<span class="kbd">S</span>). In <b>comments</b> and <b>questions</b> you tag a colleague with <code>@name</code>: they get a notification. Questions have nested answers; whoever asked (or an administrator) marks it “resolved”. The workspace home page lists the open questions of every project.</p>
-      <p><b>Attachments</b> have a section of their own: files on the server, links or Google Drive documents, in attachment folders. Images, PDFs, text and web pages show inside the app; one click opens the original. <b>Notifications</b> (bell at the top) report what others did; choose which to receive in Settings.</p>
+      <h2 id="stack">7. Stack and PC setup</h2>
+      <p>The administrator describes what the project is made with: application type, languages, frameworks, repository, project folder, notes, <b>prerequisites</b> (with version, link and check command), ordered <b>steps</b> (command, link or manual operation) and <b>environment variables</b>. Typing the name of a known tool (Node.js, Git, Rust, .NET SDK, Python…) fills in version, link and command; adding languages or frameworks suggests the prerequisites they need.</p>
+      <p>The Stack can also fill itself: “Detect from the project files” reads the folder (network folders too), “Import .md” reads a README or an architecture document, GitHub derives it from the repository. If the project files change later (for example a new Node.js version), a notice in the header offers to update the Stack in one click.</p>
+      <p><b>Set up on your PC</b>: the procedure as a checklist, with commands to copy and links to open. The app checks the installed prerequisites by itself (version found, to update, missing). “Manage automatic setup” does everything from the app: it installs with winget the missing programs it knows how to install, then runs the steps in the project folder one after another, stopping at the first error; manual steps wait for “Done, continue”. You can also save the script to run it elsewhere. In network workspaces the result is shared: in the Stack a banner warns if someone is missing a prerequisite.</p>
+      <p>For a new PC, <b>Set up this PC</b> in the Overview installs in one go the programs all your projects need, each one only once. At the bottom of the Stack are the project’s <b>AI tools</b>: connectors, plugins and skills (attached as files, for example <code>SKILL.md</code>).</p>
 
-      <h2 id="roles">8. Roles, permissions, Analytics, activity log</h2>
+      <h2 id="github">8. GitHub and commits that close tasks</h2>
+      <p>An administrator connects GitHub in Workspace management › Integrations, with a read-only personal token stored encrypted on their PC. From the <b>GitHub</b> page in the sidebar (visible to administrators) they create projects from repositories: the Stack is derived from the repository files and re-syncs from “Sync” or automatically when the workspace opens.</p>
+      <p>Every task has a <code>TODO-n</code> code. Writing <code>closes TODO-12</code> in a commit message (also <code>fixes</code>, <code>resolves</code>, or the Italian <code>chiude</code>; several tasks separated by commas), when the project opens the app reads the latest commits of the branch and completes the task, noting which commit did it. Turn it on in the Stack with “Close tasks from git commits”; it only works if the project folder contains <code>.git</code>, and the app never writes to the repository. The task detail shows the commits that mention it and the branch name to copy (<code>git switch -c todo-12-…</code>).</p>
+
+      <h2 id="discussione">9. Questions, decisions, attachments</h2>
+      <p>Opening a task brings up the detail panel: title, description and attributes are edited together and saved with “Save” (or <span class="kbd">Ctrl</span>+<span class="kbd">S</span>); if a colleague changes the task meanwhile, only the fields you are not touching are updated. In <b>comments</b> and <b>questions</b> you tag a colleague with <code>@name</code>. Questions have nested answers; whoever asked (or an administrator) marks them “resolved” or picks an answer as the <b>decision</b>, with the rationale. “Decisions”, in the project header, is the log of every decision, with search and copy as Markdown.</p>
+      <p>When you hand a task over to someone else, the detail suggests a <b>handoff note</b> with status, checklist, blockers and open questions, to add as a comment.</p>
+      <p><b>Attachments</b> have a section of their own: files on the server, links or Google Drive documents, in attachment folders. Images, PDFs, text and web pages are previewed inside the app; one click opens the original. Google Drive is set up in Workspace management › Integrations; everyone connects their own Google account in Settings › Profile.</p>
+
+      <h2 id="notifiche">10. Notifications, email and Teams</h2>
+      <p><b>Notifications</b> (bell at the top) report what others did on the projects you see; choose which to receive in Settings › Notifications. In the same panel, “Announcements” collects the messages an administrator writes to everyone, to administrators or to whoever sees a project.</p>
+      <p><b>Emails</b> (network workspaces) are optional:</p>
       <ul>
-        <li><b>Administrator</b>: everything, including password, roles, permissions, stack, permanent deletion and backups. Whoever creates the workspace is one and can appoint others.</li>
-        <li><b>Cleaner</b>: like a member, but can move any task to the trash.</li>
-        <li><b>Member</b>: creates, edits, completes, restores; trashes only tasks assigned to them or created by them.</li>
+        <li>An administrator chooses how to send them in Workspace management › <b>Email and Teams</b>: with Outlook on the PC or with the company SMTP server, with “Send me a test”. There they also set the allowed domains, the daily sends (the day’s summary and, on Mondays, the week) and the PC that sends them: ideally a service PC that is always on.</li>
+        <li>Everyone enters their address in Settings › Notifications › <b>Your emails</b> and confirms it with the 6-digit code they receive: nothing arrives until it is confirmed. Then they choose the topics (mentions, assigned tasks, answers to my questions and more).</li>
+        <li>Every personal email has a link that opens the app right on the task.</li>
       </ul>
-      <p>A project is <b>public</b> (visible to every member) or <b>restricted</b> (to chosen users, plus administrators): decided at creation and changed in the project header; users are assigned from the Members page → “Permissions”. The <b>Analytics</b> page (administrators) shows tasks by status and priority, overdue and due soon, open questions, load per user and per project. The <b>activity log</b> records who created, completed, trashed, restored or deleted what.</p>
+      <p>Each project can have a <b>Microsoft Teams channel</b> (in the Stack): the administrator pastes the address of a Teams Workflow and picks the events to post. In Settings › <b>Calendars</b> you turn on due-date calendars (<code>.ics</code>), yours and one per project, to open in Outlook or Thunderbird. When you close the window, queued emails are sent right away.</p>
+
+      <h2 id="ruoli">11. Roles, permissions, Activity</h2>
+      <ul>
+        <li><b>Administrator</b>: everything, including approving PCs, roles, permissions, Stack, columns, permanent deletion, Workspace management and backups. Whoever creates the workspace is one; they can appoint others from Members.</li>
+        <li><b>Cleaner</b>: like a member, but can move any task to the trash.</li>
+        <li><b>Member</b>: creates, edits, completes, restores; trashes only tasks assigned to them or, if unassigned, created by them.</li>
+      </ul>
+      <p>A project is <b>public</b> (visible to all members) or <b>restricted</b> (only to the chosen users, plus administrators): you decide when creating it and change it in the project header; users are assigned from the Members page → “Manage permissions”. A restricted project has its own key: whoever cannot see it cannot read it, not even by opening the files. In Members everyone also sets their <b>Availability</b> (hours per week and absences), which shows when someone assigns them a task.</p>
+      <p>The <b>Activity</b> page has three tabs. “What changed” (for everyone) compares two moments, for example the backup from a week ago and now: tasks added, completed, trashed, due dates moved. “Activity log” and “Analytics” are for administrators: the first records who did what; the second shows tasks by status and priority, overdue tasks, load per person and per week, project health and which PCs are ready for each project.</p>
+      <p>In Workspace management administrators also find <b>Automations</b> (alert for urgent tasks with nobody on them, for questions unanswered for days, asking for a due date when a task is confirmed) and the guided <b>Cleanup</b> (labels never used, empty folders, idle projects, old trash).</p>
+
+      <h2 id="tappe">12. Milestones, reports, templates</h2>
+      <p><b>Milestones</b> (project header) are versions or releases with a target date: they show progress, appear in the Gantt and, once reached, write the release notes from the completed tasks, to copy or add to the project’s <code>CHANGELOG.md</code>.</p>
+      <p>From <b>Documents</b> you create the internal <b>status report</b> for a period (completed, delays, upcoming due dates, decisions) and the <b>client roadmap</b>, which shows what is done and what is coming without descriptions, comments or internal details. You can copy them, save them as a page to print to PDF or send them by email.</p>
+      <p>With “More › Save as template…” an administrator saves a project as a <b>template</b>: Stack, columns, attachment folders, milestones and tasks. A new project created from the template starts again with dates from today.</p>
+
+      <h2 id="ia">13. Local AI</h2>
+      <p>The local AI is optional, free and runs entirely on your PC (Ollama with the Qwen 3 4B model, or an OpenAI-compatible server such as LM Studio): no data leaves the PC. Turn it on from the setup checkbox or in Settings › <b>Local AI</b>, which installs and starts Ollama if it is missing and downloads the models with a progress bar.</p>
+      <p>With the AI on you get: a more precise “Detect from the project files”, “How to fix” for unverified prerequisites, “From a text” (tasks drawn from notes, an email or minutes), a warning about similar tasks, search by meaning, commits that may have completed a task, the weekly summary, AGENTS.md and CLAUDE.md written from the Stack, and <b>“Ask”</b>, which answers questions about the project from tasks, decisions, Stack and attachments, citing the sources. Every suggestion has to be confirmed.</p>
+
+      <h2 id="fuori">14. Away from the office and VPN</h2>
+      <p>With “Keep a copy of the workspace on this PC” (Settings › Profile, on by default) you keep working even when the shared folder does not respond: “Away from the office” appears at the top with the projects still to send. You can change existing tasks and projects; when you are back, the changes are merged with your colleagues’ field by field, and a report shows the rare conflicts.</p>
+      <p>In Settings › Profile › <b>Office connection (VPN)</b> choose a VPN already set up in Windows: Todo Doto connects it by itself when the shared folder does not respond. Credentials stay with Windows. Over VPN the screen updates right away and files are written in the background; if you close the window while a save is in progress, the app waits for it to finish (a second click on the X closes right away).</p>
 
       <!-- piani sospesi: per ora l'app è gratuita
-      <h2 id="license">9. Plans and license</h2>
-      <p>The <b>Free</b> plan includes unlimited personal use and network workspaces up to 3 people. The <b>Team</b> (up to 10 users) and <b>Business</b> (unlimited users) plans are yearly or monthly subscriptions, per workspace: one license, one office, every member. Prices and the feature comparison are in the <a href="index.html?lang=en#prezzi">Pricing section</a>; to buy or for questions write to <a href="mailto:nisos@live.it">nisos@live.it</a>. When the subscription ends the workspace goes back to the Free plan, with all its data.</p>
+      <h2 id="licenza">Plans and license</h2>
+      <p>The <b>Free</b> plan includes unlimited personal use and network workspaces of up to 3 people. The <b>Team</b> (up to 10 users) and <b>Business</b> (unlimited users) plans are yearly or monthly subscriptions, per workspace: one license, one office, all members. Prices and the feature comparison are in the <a href="index.html?lang=en#prezzi">Pricing section</a>; to buy or for questions write to <a href="mailto:nisos@live.it">nisos@live.it</a>. When the subscription ends the workspace goes back to the Free plan, with all its data.</p>
       -->
-      <h2 id="backup">10. Backups</h2>
-      <p>The workspace is a folder: the server backup includes it. On top of that, from Settings the administrator creates and restores workspace <b>backups</b> (<code>.pgmbackup</code> files in the data folder). Every deletion the app performs stays inside the data folder: your project files are never touched.</p>
+      <h2 id="backup">15. Backups</h2>
+      <p>The workspace is a folder: the server backup includes it. On top of that the app makes a <b>backup</b> by itself every day (<code>.pgmbackup</code> files in the data folder, encrypted like the rest) and keeps 7 daily and 4 weekly ones. In Workspace management › <b>Backup</b> the administrator creates a backup by hand, chooses another folder (better another disk or server) and restores the whole workspace or a single project; before every restore a copy of the current state is saved, so even a restore can be undone. The PC keys are not in the backups: keep the recovery key safe. Every deletion by the app stays confined to the data folder: your project files are never touched.</p>
 
-      <h2 id="shortcuts">11. Shortcuts</h2>
+      <h2 id="scorciatoie">16. Shortcuts</h2>
       <ul>
         <li><span class="kbd">N</span> new task in the open project</li>
-        <li><span class="kbd">Ctrl</span>+<span class="kbd">K</span> or <span class="kbd">/</span> search across all projects</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">K</span> or <span class="kbd">/</span> search all projects; <code>&gt;</code> for commands</li>
         <li><span class="kbd">↓</span> from the page to the first row, then <span class="kbd">↑</span> <span class="kbd">↓</span> to move, <span class="kbd">Enter</span> opens, <span class="kbd">C</span> completes, <span class="kbd">Del</span> trashes</li>
-        <li><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> creates from the dialog, <span class="kbd">Ctrl</span>+<span class="kbd">S</span> saves in the detail panel</li>
-        <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span> light/dark theme, <span class="kbd">Esc</span> closes, <span class="kbd">?</span> shows every shortcut</li>
+        <li><span class="kbd">Shift</span>+<span class="kbd">←</span>/<span class="kbd">→</span> moves the selected card in Kanban and Week</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">F</span> Week, <span class="kbd">Ctrl</span>+<span class="kbd">,</span> Settings</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> creates from the dialog, <span class="kbd">Ctrl</span>+<span class="kbd">S</span> saves in the detail</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Shift</span>+<span class="kbd">L</span> light/dark theme, <span class="kbd">Esc</span> closes, <span class="kbd">?</span> shows all shortcuts</li>
       </ul>
 
-      <h2 id="problems">12. Common problems</h2>
+      <h2 id="problemi">17. Common problems</h2>
       <h3>“Folder unreachable, retrying…”</h3>
-      <p>The server is not responding or the network is down. The app retries on its own; saved changes are safe. If it persists, check that you can see the folder in File Explorer.</p>
+      <p>The server is not responding or the network is down. The app retries by itself; changes already saved are safe and, with the away-from-the-office copy on, you keep working. If it persists, check that you can see the folder in File Explorer or connect the VPN.</p>
+      <h3>The PC stays on “Waiting for approval”</h3>
+      <p>An administrator has to approve it in Members › Access requests, after comparing the code of the PC. The app checks again by itself every 10 seconds, or press “Check now”. If the request was rejected, reopen the workspace to ask again.</p>
+      <h3>Every administrator PC is lost</h3>
+      <p>From a new PC open the data folder and, on the waiting screen, choose “I'm an administrator: use the recovery key”: pick the <code>.tdkey</code> file and enter its passphrase. Without a recovery key nobody can approve new PCs any more: that is why the app offers it as soon as the workspace is created.</p>
+      <h3>“Update Todo Doto” appears at start</h3>
+      <p>A newer version is out, or a colleague has already opened the workspace with a newer version. Download and install the suggested version: no data are lost.</p>
+      <h3>I don’t receive emails</h3>
+      <p>Check in Settings › Notifications › Your emails that the address is “Verified” and the topics are on. If the code does not arrive, an administrator has to turn sending on in Workspace management › Email and Teams and check that your domain is among the allowed ones. Look in the spam folder too.</p>
       <h3>Colleagues’ changes arrive late</h3>
-      <p>On some servers change notifications never arrive: the app still checks every 4 seconds and when it comes back to the foreground. A longer delay means a slow network.</p>
-      <h3>Over a VPN or with a slow server, saves take time</h3>
-      <p>The screen updates right away and files are written in the background; if a write fails, the app says so and goes back to the server state. To see how fast the folder is from this PC, open Settings › Profile › <b>Shared folder speed</b> and press “Measure”: you see the server response time, how long a save takes and whether it is a local network, a slow network or a VPN. “Copy for IT” prepares the results for whoever manages the server.</p>
-      <p>If the measurement points to an antivirus, ask IT to exclude the <code>*.lock</code> and <code>*.tmp</code> files in the Data folder from real-time scanning: the app creates and deletes them on every save, and scanning them all can double or triple save times. To work away from the office for long, turn on the copy of the workspace on this PC in Profile.</p>
+      <p>On some servers change notifications do not arrive: the app checks anyway every few seconds and when you come back to the window. A longer delay points to a slow network.</p>
+      <h3>Over VPN or with a slow server, saving takes time</h3>
+      <p>The screen updates right away and files are written in the background; if a write fails, the app says so and goes back to the server’s state. To find out how fast the folder is from this PC open Settings › Profile › <b>Shared folder speed</b> and press “Measure”: you see the server’s response time, how long a save takes and whether it is a local network, a slow network or a VPN. “Copy for IT” prepares the results to pass on to whoever runs the server.</p>
+      <p>If the measurement points to an antivirus, ask IT to exclude the <code>*.lock</code> and <code>*.tmp</code> files of the data folder from real-time scanning: the app creates and deletes them at every save, and scanning them all can double or triple the times. To work away from the office for long, keep the copy of the workspace on this PC turned on in Profile.</p>
       <h3>“Set up on your PC” does not appear in the Stack</h3>
-      <p>It appears only when the project folder is valid on this PC: it exists, contains a recognizable project and is named like the project. The box explains why and lets you look for it; the chosen folder is remembered for this PC.</p>
-      <h3>A prerequisite shows as “not found” although it is installed</h3>
-      <p>It is probably not in the PATH: the app says so when it finds it in the standard install location. Close and reopen the prompt after installing, or use “Check again”. An uncertain outcome can be confirmed by hand by ticking the circle.</p>
-      <h3>The password is not accepted</h3>
-      <p>The administrator may have changed it: enter it again. If you forgot it, the administrator resets it from Settings.</p>
+      <p>It appears only if the project folder is valid on this PC: it exists, contains a recognizable project and has the same name as the project. The box explains why and lets you look for it; the chosen folder is remembered for this PC.</p>
+      <h3>A prerequisite shows “not found” even though it is installed</h3>
+      <p>It is probably not on the PATH: the app says so when it finds it in the standard install location. Close and reopen the prompt after installing, or use “Check again”. An uncertain result can be confirmed by hand by ticking the circle.</p>
 
-      <div class="box" style="margin-top:2.5rem"><p style="margin:0">Didn’t find the answer? Write to <a href="mailto:nisos@live.it">nisos@live.it</a>.</p></div>
+      <div class="box" style="margin-top:2.5rem"><p style="margin:0">Didn’t find the answer? Write to <a href="mailto:nisos@live.it">nisos@live.it</a> or use “Send a report” in Help and information, in the workspace menu.</p></div>
     </div>
   </main>
   <footer>

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guía — Todo Doto</title>
+  <meta name="description" content="Guía de uso de Todo Doto: workspace compartido con acceso por clave, proyectos y tareas, Kanban, Gantt, Hoy y Semana, Stack con configuración guiada, correo y Teams, roles, IA local, trabajo fuera de la oficina, copias de seguridad, atajos y problemas comunes." />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/icon.png" />
+  <link rel="alternate" hreflang="en" href="guide.html" />
+  <link rel="alternate" hreflang="it" href="guida.html" />
+  <link rel="alternate" hreflang="fr" href="guide.fr.html" />
+  <link rel="alternate" hreflang="de" href="guide.de.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/site.css" />
+  <script>try{var t=localStorage.getItem('pgm-site:theme');if(t)document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-lang','es')}catch(e){}</script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="index.html?lang=es">
+        <img class="brand__logo" src="assets/logo.png" width="28" height="28" alt="" />
+        <svg class="wordmark" viewBox="14 14 1572 253" role="img" aria-label="Todo Doto"><path fill="currentColor" fill-rule="evenodd" d="M302.0 264.4C293.2 263.2 280.7 259.5 272.5 255.5C246.1 242.7 230.5 218.6 226.9 185.0C224.1 159.3 230.8 133.6 245.1 114.7C262.1 92.3 293.7 80.2 325.5 83.9C363.9 88.3 390.0 110.8 399.6 147.5C401.9 156.0 402.3 159.7 402.4 173.0C402.5 193.4 399.9 205.5 391.9 221.0C381.4 241.4 362.1 256.4 339.0 262.0C330.6 264.0 309.8 265.4 302.0 264.4ZM481.4 263.9C463.5 261.8 446.2 251.9 435.4 237.7C411.3 205.9 409.7 149.7 432.0 115.8C438.3 106.3 448.8 96.4 457.9 91.6C476.5 81.8 502.1 81.1 519.9 89.8C526.0 92.8 534.8 100.4 539.2 106.4L542.0 110.3L542.0 63.2L542.0 16.0L566.5 16.0L591.0 16.0L591.0 138.5L591.0 261.0L567.0 261.0L543.0 261.0L543.0 247.8L543.0 234.7L539.2 240.6C527.8 258.2 506.3 266.9 481.4 263.9ZM685.6 263.9C654.0 259.3 629.1 240.0 618.7 212.0C613.8 199.1 612.5 190.7 612.6 173.5C612.6 153.9 614.7 144.4 622.0 129.5C630.5 112.1 641.9 100.6 658.5 92.5C672.4 85.8 682.6 83.6 700.0 83.6C727.0 83.7 746.9 91.1 762.8 107.2C774.1 118.6 779.8 128.5 784.4 144.3C793.4 175.2 787.7 209.8 769.9 233.3C752.2 256.6 718.9 268.7 685.6 263.9ZM90.0 160.0L90.0 59.0L53.0 59.0L16.0 59.0L16.0 37.5L16.0 16.0L115.5 16.0L215.0 16.0L215.0 37.5L215.0 59.0L178.0 59.0L141.0 59.0L141.0 160.0L141.0 261.0L115.5 261.0L90.0 261.0L90.0 160.0ZM327.3 223.4C335.5 220.5 343.3 213.4 347.8 204.4C352.0 196.1 353.4 188.3 353.4 173.5C353.3 161.0 353.0 158.6 350.6 151.3C346.9 139.9 340.7 131.8 332.0 127.1C325.7 123.6 325.2 123.5 314.5 123.5C304.4 123.5 303.1 123.7 298.1 126.3C288.0 131.7 281.1 141.2 277.3 155.2C276.0 159.8 275.6 165.1 275.6 175.0C275.7 186.7 276.0 189.5 278.3 196.5C282.6 209.6 289.9 218.4 300.0 222.7C307.3 225.9 319.2 226.2 327.3 223.4ZM707.8 224.5C721.6 222.7 732.7 210.9 737.6 193.0C739.9 184.4 740.0 165.1 737.7 155.7C734.4 142.5 726.5 131.4 716.5 126.2C712.0 123.8 710.5 123.5 700.5 123.5C690.8 123.5 688.9 123.8 684.5 126.0C674.8 130.7 667.4 140.2 663.5 153.0C661.0 161.2 660.4 180.7 662.4 189.9C665.6 205.1 673.3 216.6 683.6 221.6C688.8 224.1 697.5 226.0 701.5 225.4C702.6 225.3 705.4 224.9 707.8 224.5ZM515.0 223.4C529.8 219.0 540.2 205.8 543.6 187.0C548.4 160.6 538.5 134.7 520.3 126.2C515.1 123.8 513.3 123.5 504.0 123.5C494.6 123.5 492.9 123.8 487.9 126.3C474.5 132.8 466.9 147.2 465.4 168.7C463.5 196.2 474.3 217.7 492.9 223.4C499.1 225.4 508.5 225.3 515.0 223.4Z"/><path fill="var(--brand-blue, #2692C8)" fill-rule="evenodd" d="M1172.8 264.0C1162.3 262.3 1154.6 259.9 1145.5 255.5C1134.9 250.4 1126.0 243.4 1119.0 234.7C1092.8 202.3 1092.5 147.4 1118.4 114.3C1136.0 91.8 1166.3 80.3 1198.4 83.9C1229.7 87.3 1253.1 103.1 1266.0 129.5C1279.1 156.4 1279.0 192.5 1265.6 219.5C1254.4 242.0 1235.9 256.3 1210.0 262.5C1202.2 264.4 1180.7 265.2 1172.8 264.0ZM1479.5 263.6C1468.8 261.9 1462.3 259.7 1451.5 254.2C1444.1 250.4 1440.8 247.9 1432.9 240.0C1424.5 231.6 1422.8 229.3 1418.2 220.0C1410.1 203.3 1408.5 196.1 1408.6 174.0C1408.6 154.2 1409.6 148.1 1415.4 134.0C1424.8 110.5 1445.0 93.2 1470.9 86.2C1479.2 84.0 1482.5 83.7 1496.0 83.7C1509.5 83.7 1512.8 84.0 1521.2 86.3C1551.6 94.4 1572.6 115.7 1581.1 147.0C1583.2 154.5 1583.5 157.6 1583.4 174.5C1583.3 197.1 1582.0 203.5 1573.9 220.0C1569.4 229.0 1567.5 231.7 1559.6 239.6C1547.1 252.1 1534.7 258.9 1517.8 262.6C1507.8 264.7 1489.3 265.2 1479.5 263.6ZM877.0 138.6L877.0 16.0L927.4 16.0C957.6 16.0 981.0 16.4 985.7 17.1C1011.2 20.5 1032.5 30.1 1048.6 45.3C1071.6 67.0 1083.1 94.3 1084.7 131.5C1087.3 190.5 1060.1 236.3 1012.7 252.9C992.1 260.1 990.3 260.3 930.8 260.7L877.0 261.2L877.0 138.6ZM1355.0 260.3C1335.5 258.0 1321.4 249.1 1315.8 235.2C1313.5 229.6 1313.5 228.9 1313.0 177.5L1312.5 125.5L1297.8 125.2L1283.0 124.9L1283.0 106.0L1283.0 87.0L1298.0 87.0L1313.0 87.0L1313.0 63.5L1313.0 40.0L1337.0 40.0L1361.0 40.0L1361.0 63.5L1361.0 87.0L1379.0 87.0L1397.0 87.0L1397.0 106.0L1397.0 125.0L1379.0 125.0L1361.0 125.0L1361.0 168.5C1361.0 216.0 1361.1 217.1 1366.6 220.7C1368.9 222.2 1371.9 222.6 1383.2 222.8L1397.0 223.2L1397.0 242.1L1397.0 261.0L1377.8 260.8C1367.2 260.8 1356.9 260.5 1355.0 260.3ZM1200.0 223.4C1217.6 217.8 1228.5 195.6 1226.6 169.0C1225.2 147.9 1217.5 133.5 1203.9 126.3C1198.9 123.7 1197.6 123.5 1187.5 123.5C1176.8 123.5 1176.3 123.6 1170.0 127.1C1161.3 131.8 1155.1 139.9 1151.4 151.3C1149.0 158.6 1148.7 161.0 1148.6 173.5C1148.6 194.1 1152.2 205.3 1162.1 215.2C1171.8 224.9 1185.8 227.9 1200.0 223.4ZM1503.9 224.5C1513.0 223.3 1524.1 214.7 1529.0 205.1C1534.7 193.7 1536.9 170.6 1533.5 156.2C1530.0 141.3 1520.8 129.3 1509.7 125.2C1501.8 122.2 1490.2 122.2 1482.3 125.2C1475.0 127.9 1466.5 136.2 1462.6 144.3C1454.9 160.7 1455.1 189.5 1463.0 205.1C1466.1 211.1 1473.7 218.8 1479.3 221.6C1484.0 224.0 1493.5 226.0 1497.5 225.4C1498.6 225.3 1501.5 224.9 1503.9 224.5ZM985.5 215.6C1003.8 210.5 1017.3 199.6 1024.8 184.0C1031.8 169.4 1034.6 153.0 1033.7 132.5C1032.1 97.7 1020.4 76.0 997.5 65.5C985.4 59.9 978.2 58.7 951.8 58.2L928.0 57.8L928.0 138.0L928.0 218.2L953.8 217.8C974.0 217.4 980.8 217.0 985.5 215.6Z"/></svg>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a href="index.html?lang=es#funzionalita">Funciones</a>
+        <!-- <a href="index.html?lang=es#prezzi">Prezzi</a> piani sospesi -->
+        <a href="changelog.html?lang=es">Notas de versión</a>
+        <a class="btn btn--primary btn--sm" href="index.html?lang=es#download">Descargar</a>
+        <label class="lang-pick" title="Idioma">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>
+          <select data-lang-nav aria-label="Idioma">
+            <option value="en" lang="en" data-href="guide.html">English</option>
+            <option value="it" lang="it" data-href="guida.html">Italiano</option>
+            <option value="fr" lang="fr" data-href="guide.fr.html">Français</option>
+            <option value="de" lang="de" data-href="guide.de.html">Deutsch</option>
+            <option value="es" lang="es" data-href="guide.es.html" selected>Español</option>
+          </select>
+        </label>
+        <button class="theme" type="button" aria-label="Cambiar entre tema claro y oscuro" title="Tema (Ctrl+Mayús+L)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap--narrow guide">
+      <h1>Guía</h1>
+      <p class="upd">Todo lo necesario para empezar y trabajar en equipo. Un cuarto de hora de lectura; cada sección se lee también por separado.</p>
+
+      <nav class="toc" aria-label="Índice">
+        <b>Índice</b>
+        <ol>
+          <li><a href="#installare">Instalar y actualizar</a></li>
+          <li><a href="#workspace">Crear un workspace</a></li>
+          <li><a href="#condividere">Compartir con los compañeros</a></li>
+          <li><a href="#progetti">Proyectos, carpetas, tareas</a></li>
+          <li><a href="#kanban">Kanban y Gantt</a></li>
+          <li><a href="#oggi">Hoy y Semana</a></li>
+          <li><a href="#stack">Stack y configuración del PC</a></li>
+          <li><a href="#github">GitHub y commits que cierran tareas</a></li>
+          <li><a href="#discussione">Preguntas, decisiones, adjuntos</a></li>
+          <li><a href="#notifiche">Notificaciones, correo y Teams</a></li>
+          <li><a href="#ruoli">Roles, permisos, Actividad</a></li>
+          <li><a href="#tappe">Hitos, informes, plantillas</a></li>
+          <li><a href="#ia">IA local</a></li>
+          <li><a href="#fuori">Fuera de la oficina y VPN</a></li>
+          <!-- <li><a href="#licenza">Planes y licencia</a></li> piani sospesi -->
+          <li><a href="#backup">Copias de seguridad</a></li>
+          <li><a href="#scorciatoie">Atajos</a></li>
+          <li><a href="#problemi">Problemas comunes</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="installare">1. Instalar y actualizar</h2>
+      <p>Descarga desde la <a href="index.html?lang=es#download">página principal</a> el setup, el instalador <code>.msi</code> o el ejecutable portable (se abre sin instalar nada). Cada archivo contiene un idioma (inglés, italiano, francés, alemán o español), que luego se cambia en Ajustes › General. No hacen falta permisos de administrador. Si Windows muestra «Windows protegió su PC», elige «Más información → Ejecutar de todas formas»: el aviso se debe a que el programa es nuevo, no a su seguridad.</p>
+      <p>En la primera página del setup, una casilla opcional, sin marcar, instala también la <a href="#ia">IA local</a> gratuita (unos 4 GB de descarga). Si la descarga falla, la aplicación queda instalada y la IA se activa más tarde desde los Ajustes.</p>
+      <p>En cada inicio la aplicación comprueba si ha salido una versión más reciente: en ese caso muestra «Actualizar Todo Doto» con los enlaces de descarga, y hay que instalarla antes de continuar. Lo mismo ocurre si un compañero ya ha abierto el workspace con una versión más nueva: así dos versiones distintas nunca reescriben los mismos archivos. Para actualizar, instala la versión nueva encima de la existente: los datos de los workspaces no se tocan. La primera vez que abres la aplicación tras actualizar, un recuadro resume las novedades; se cierra con «Entendido» y no vuelve a aparecer. Las novedades de todas las versiones están en la página <a href="changelog.html?lang=es">Notas de versión</a>.</p>
+
+      <h2 id="workspace">2. Crear un workspace</h2>
+      <p>Un workspace tiene dos carpetas: la de los <b>proyectos</b> (donde están, o donde los crearás) y la <b>carpeta de datos</b> de Todo Doto, distinta de la primera, donde la aplicación guarda tareas, comentarios e historial. En el primer inicio elige:</p>
+      <ul>
+        <li><b>Crear workspace</b>: nombre, carpeta de proyectos y carpeta de datos. «Solo en este PC» para trabajar solo, con las dos carpetas en el PC; «Compartido en la red» para la oficina, con la carpeta de datos en un servidor (ver más abajo).</li>
+        <li><b>Abrir carpeta</b>: si un compañero ya ha creado el workspace en el servidor, o para una carpeta que ya contiene proyectos.</li>
+      </ul>
+      <p>Si la carpeta elegida ya contiene proyectos (subcarpetas con <code>.git</code>, <code>package.json</code>, <code>.sln</code>, <code>Cargo.toml</code>, <code>pyproject.toml</code>, <code>go.mod</code>…), la aplicación los muestra y propone crearlos todos en el workspace: nombre de la carpeta, Stack deducido de los archivos. En el siguiente inicio el último workspace se vuelve a abrir solo (se puede desactivar en Ajustes › General).</p>
+
+      <h2 id="condividere">3. Compartir con los compañeros</h2>
+      <p>No hay contraseñas: cada PC tiene su propia <b>clave</b>, protegida por el usuario de Windows, y los datos de la carpeta de datos están siempre cifrados.</p>
+      <ol>
+        <li>Quien crea el workspace elige «Compartido en la red» y una carpeta de datos en el servidor (por ejemplo <code>\\servidor\compartida\Todo Doto</code> o <code>Z:\Todo Doto</code>). Se convierte en administrador. La carpeta de proyectos puede estar también en local, siempre que todos los PC usen la misma ruta (p. ej. <code>D:\Desarrollo</code>).</li>
+        <li>Justo después, la aplicación propone guardar la <b>clave de recuperación</b>: un archivo <code>.tdkey</code> protegido por una frase secreta que eliges tú (al menos 10 caracteres). Guárdalos bien y por separado: sirven para volver a entrar como administrador si se pierden todos los PC de los administradores. Mientras falte, los administradores ven un recordatorio; también se puede crear después desde Gestión del workspace › General › Seguridad.</li>
+        <li>Cada compañero instala la aplicación y usa «Abrir carpeta» sobre la misma carpeta de datos. Su PC solicita acceso y muestra «Esperando aprobación» con el <b>código del PC</b>.</li>
+        <li>Un administrador abre <b>Miembros</b>, encuentra la solicitud y, antes de pulsar «Aprobar», compara el código con el que el compañero lee en su pantalla (en persona o por teléfono). Elige «Como nuevo miembro», o «Como nuevo PC de …» si es el segundo PC de alguien que ya está. El PC entra solo en pocos segundos.</li>
+        <li>Desde ese momento los cambios de cada uno aparecen en los demás PC en pocos segundos, con un aviso «Actualizado por …» y la fila que parpadea. Lo que ocurre mientras estás desconectado te llega como notificación al volver a abrir.</li>
+      </ol>
+      <p>Desde Miembros un administrador también puede <b>revocar</b> un PC o quitar a una persona: las claves se sustituyen y ese PC ya no lee lo que se escriba a partir de entonces. Requisitos: todos necesitan permisos de lectura y escritura en la carpeta de datos. Quien abre los archivos con el Explorador de archivos u otros programas no lee nada, y los proyectos restringidos solo se leen desde los PC de quienes los ven.</p>
+
+      <h2 id="progetti">4. Proyectos, carpetas, tareas</h2>
+      <p>En la columna izquierda los administradores crean <b>carpetas</b> (también anidadas) y <b>proyectos</b>. Un proyecto nuevo se crea desde su carpeta en el disco (que le da el nombre), copiando el Stack de un proyecto existente, desde una <a href="#tappe">plantilla de proyecto</a> o desde un repositorio de GitHub. El proyecto abierto muestra debajo sus secciones: <b>Stack</b>, <b>Pendientes</b>, <b>Kanban</b>, <b>Gantt</b> y <b>Adjuntos</b>. Mover un proyecto a la papelera o eliminarlo solo afecta al workspace: la carpeta del proyecto y sus archivos nunca se tocan.</p>
+      <p>Cada tarea tiene título, descripción, <b>prioridad</b> (baja, media, alta, urgente: la barra de color a la izquierda crece con la urgencia), <b>estado</b> (por evaluar, por definir, confirmado), <b>fecha límite</b> (solo con estado confirmado), <b>responsable</b> y <b>etiqueta</b>. En el detalle se añaden una <b>lista de comprobación</b>, la <b>estimación</b> en horas, el <b>hito</b>, las <b>dependencias</b> («hacer después» de otras tareas: mientras estén abiertas la tarea tiene un candado) y la <b>repetición</b> semanal o mensual, que al completarla crea la siguiente.</p>
+      <p>La <b>entrada rápida</b> encima de la lista crea una tarea mientras escribes, por ejemplo <code>Exportar CSV !high @mario #bug ^15/11</code>: prioridad, responsable, etiqueta y fecha límite se reconocen antes de pulsar Intro; <code>~v1.3</code> indica el hito y <code>=3h</code> la estimación. Las palabras clave se escriben en inglés (<code>!urgent</code>, <code>by friday</code>, <code>tomorrow</code>) o en italiano. También funciona en el título de la ventana «Nueva tarea».</p>
+      <p>La lista se ordena por prioridad y luego por fecha límite. En los workspaces de red el botón <b>«Solo las mías»</b>, activo al abrir, muestra solo las tareas asignadas a ti o creadas por ti: púlsalo para ver también las de los demás. Los filtros limitan por fecha límite, estado, prioridad, «asignada a», «creada por», etiqueta e hito. «Atención» enumera lo que va mal sin que nadie lo haya señalado: retrasos, urgencias sin nadie, preguntas sin respuesta, tareas paradas.</p>
+      <p>Completa una tarea con el círculo junto al título (o <span class="kbd">C</span>); muévela a la papelera desde el menú (o <span class="kbd">Supr</span>). Desde la Papelera se restaura o, solo los administradores, se elimina definitivamente. Las completadas hace más de 90 días quedan al final de «Completado», ocultas hasta que las muestres. La búsqueda (<span class="kbd">Ctrl</span>+<span class="kbd">K</span> o <span class="kbd">/</span>) busca en todos los proyectos, archivadas incluidas; escribiendo <code>&gt;</code> muestra los comandos de la aplicación y con <code>+</code> añade una tarea al proyecto abierto.</p>
+
+      <h2 id="kanban">5. Kanban y Gantt</h2>
+      <p>El <b>Kanban</b> muestra las tareas del proyecto en columnas, con los mismos filtros que la lista. Arrastra una tarjeta (o, con la tarjeta seleccionada, <span class="kbd">Mayús</span>+<span class="kbd">←</span>/<span class="kbd">→</span>) para cambiar su estado, completarla o reabrirla. En «Completado» quedan las tareas terminadas en los últimos 14 días.</p>
+      <p>Al principio hay una columna por estado. Con <b>«Columnas»</b> un administrador da al proyecto columnas propias: nombre, color, un límite de tareas opcional (la cabecera cambia de color al superarlo, pero no bloquea nada) y el estado al que está vinculada la columna, para que filtros, Gantt y correos sigan funcionando. «Plantilla Desarrollo» propone Backlog, Por analizar, Lista, En curso, Revisión de código, Pruebas; las columnas se pueden copiar de otro proyecto. «Completado» es siempre la última.</p>
+      <p>El <b>Gantt</b> muestra las tareas confirmadas con fecha límite, agrupadas por etiqueta o prioridad, con la línea de hoy, los fines de semana y los hitos. Unas flechas unen las tareas que dependen unas de otras y la cadena más larga de tareas abiertas aparece resaltada.</p>
+
+      <h2 id="oggi">6. Hoy y Semana</h2>
+      <p><b>Hoy</b>, en la barra lateral, reúne lo que te afecta en todos los proyectos: con retraso, vencen hoy, preguntas que esperan tu respuesta, respuestas a tus preguntas, urgentes y que vencen esta semana. Se completa y se pospone (hasta mañana, hasta el lunes, durante una semana) sin abrir el proyecto; posponer vale solo para ti y no cambia la fecha límite.</p>
+      <p><b>Semana</b> (<span class="kbd">Ctrl</span>+<span class="kbd">Mayús</span>+<span class="kbd">F</span>) coloca esas mismas tareas en los días de lunes a viernes. Arrastrando una tarjeta a un día planificas cuándo trabajar en ella, sin cambiar la fecha límite; «Por recuperar» reúne los días pasados cuya tarea sigue abierta. Con la estrella eliges hasta 3 <b>compromisos</b> de la semana. La capacidad compara las horas estimadas con tus horas semanales, descontadas las ausencias (Miembros › Disponibilidad). Desde el viernes por la tarde un recuadro propone pasar a la semana siguiente lo que sigue abierto.</p>
+      <p>El <b>Resumen</b>, arriba en la barra lateral, muestra lo que hay que vigilar en los próximos siete días, las preguntas abiertas, quién trabaja en qué (en el detalle de una tarea, «Estoy en ello») y lo que le falta a este PC para tus proyectos.</p>
+
+      <h2 id="stack">7. Stack y configuración del PC</h2>
+      <p>El administrador describe con qué está hecho el proyecto: tipo de aplicación, lenguajes, frameworks, repositorio, carpeta del proyecto, notas, <b>requisitos previos</b> (con versión, enlace y comando de comprobación), <b>pasos</b> ordenados (comando, enlace u operación manual) y <b>variables de entorno</b>. Al escribir el nombre de una herramienta conocida (Node.js, Git, Rust, .NET SDK, Python…) versión, enlace y comando se completan solos; al añadir lenguajes o frameworks se proponen los requisitos que necesitan.</p>
+      <p>El Stack también se rellena solo: «Detectar a partir de los archivos del proyecto» lee la carpeta (también de red), «Importar .md» lee un README o un documento de arquitectura, GitHub lo deduce del repositorio. Si después cambian los archivos del proyecto (por ejemplo una versión nueva de Node.js), un aviso en la cabecera propone actualizar el Stack con un clic.</p>
+      <p><b>Configurar en tu PC</b>: el procedimiento como lista de comprobación, con los comandos para copiar y los enlaces para abrir. La aplicación comprueba sola los requisitos instalados (versión encontrada, por actualizar, falta). «Gestionar la configuración automática» lo hace todo desde la aplicación: instala con winget los programas que faltan y que sabe instalar, y luego ejecuta los pasos en la carpeta del proyecto uno tras otro, deteniéndose en el primer error; los pasos manuales esperan a «Hecho, continuar». El script también se puede guardar para ejecutarlo en otro sitio. En los workspaces de red el resultado se comparte: en el Stack un aviso indica si a alguien le falta un requisito.</p>
+      <p>Para un PC nuevo, <b>Configurar este PC</b> en el Resumen instala de una vez los programas que necesitan todos tus proyectos, cada uno una sola vez. Al final del Stack están las <b>Herramientas de IA</b> del proyecto: conectores, plugins y skills (adjuntas como archivo, por ejemplo <code>SKILL.md</code>).</p>
+
+      <h2 id="github">8. GitHub y commits que cierran tareas</h2>
+      <p>Un administrador conecta GitHub en Gestión del workspace › Integraciones, con un token personal de solo lectura guardado cifrado en su PC. Desde la página <b>GitHub</b> de la barra lateral (visible para los administradores) crea los proyectos a partir de los repositorios: el Stack se deduce de los archivos del repositorio y se vuelve a sincronizar con «Sincronizar» o automáticamente al abrir el workspace.</p>
+      <p>Cada tarea tiene un código <code>TODO-n</code>. Si escribes <code>closes TODO-12</code> en el mensaje de un commit (también <code>fixes</code>, <code>resolves</code>; varias tareas separadas por comas), al abrir el proyecto la aplicación lee los últimos commits de la rama y completa la tarea, anotando qué commit lo hizo. Se activa en el Stack con «Cerrar tareas desde los commits de git» y solo funciona si la carpeta del proyecto contiene <code>.git</code>; la aplicación nunca escribe en el repositorio. En el detalle de la tarea aparecen los commits que la citan y el nombre de la rama para copiar (<code>git switch -c todo-12-…</code>).</p>
+
+      <h2 id="discussione">9. Preguntas, decisiones, adjuntos</h2>
+      <p>Al abrir una tarea aparece el panel de detalle: título, descripción y atributos se editan juntos y se guardan con «Guardar» (o <span class="kbd">Ctrl</span>+<span class="kbd">S</span>); si mientras tanto un compañero cambia la tarea, solo se actualizan los campos que no estás tocando. En los <b>comentarios</b> y las <b>preguntas</b> mencionas a un compañero con <code>@nombre</code>. Las preguntas tienen respuestas anidadas; quien preguntó (o un administrador) la marca como «resuelta» o elige una respuesta como <b>decisión</b>, con su motivo. «Decisiones», en la cabecera del proyecto, es el registro de todas las decisiones, con búsqueda y copia en Markdown.</p>
+      <p>Cuando pasas una tarea a otra persona, el detalle propone una <b>nota de traspaso</b> con estado, lista de comprobación, bloqueos y preguntas abiertas, para añadirla como comentario.</p>
+      <p>Los <b>adjuntos</b> tienen su propia sección: archivos en el servidor, enlaces o documentos de Google Drive, en carpetas de adjuntos. Imágenes, PDF, texto y páginas web se ven dentro de la aplicación; un clic abre el original. Google Drive se configura en Gestión del workspace › Integraciones; cada uno conecta su propia cuenta de Google en Ajustes › Perfil.</p>
+
+      <h2 id="notifiche">10. Notificaciones, correo y Teams</h2>
+      <p>Las <b>notificaciones</b> (campana arriba) señalan lo que otros han hecho en los proyectos que ves; elige cuáles recibir en Ajustes › Notificaciones. En el mismo panel, «Comunicados» reúne los mensajes que un administrador escribe a todos, a los administradores o a quien ve un proyecto.</p>
+      <p>Los <b>correos</b> (workspaces de red) son opcionales:</p>
+      <ul>
+        <li>Un administrador elige cómo enviarlos en Gestión del workspace › <b>Correo y Teams</b>: con Outlook del PC o con el servidor SMTP de la empresa, con «Enviarme una prueba». Ahí indica también los dominios admitidos, los envíos diarios (el resumen del día y, los lunes, la semana) y el PC que los envía: mejor un PC de servicio siempre encendido.</li>
+        <li>Cada uno indica su dirección en Ajustes › Notificaciones › <b>Tus correos</b> y la confirma con el código de 6 cifras que recibe: hasta que la confirma no llega nada. Después elige los temas (menciones, tareas asignadas, respuestas a mis preguntas y otros).</li>
+        <li>Cada correo personal tiene un enlace que abre la aplicación directamente en la tarea.</li>
+      </ul>
+      <p>Cada proyecto puede tener un <b>canal de Microsoft Teams</b> (en el Stack): el administrador pega la dirección de un Workflow de Teams y elige los eventos que se publican. En Ajustes › <b>Calendarios</b> activas los calendarios de fechas límite (<code>.ics</code>), el tuyo y uno por proyecto, para abrirlos en Outlook o Thunderbird. Al cerrar la ventana, los correos en cola salen enseguida.</p>
+
+      <h2 id="ruoli">11. Roles, permisos, Actividad</h2>
+      <ul>
+        <li><b>Administrador</b>: todo, incluidos la aprobación de los PC, roles, permisos, Stack, columnas, eliminación definitiva, Gestión del workspace y copias de seguridad. Quien crea el workspace lo es; puede nombrar a otros desde Miembros.</li>
+        <li><b>Limpiador</b>: como un miembro, pero puede mover a la papelera cualquier tarea.</li>
+        <li><b>Miembro</b>: crea, edita, completa, restaura; mueve a la papelera solo las tareas asignadas a él o, si no están asignadas, creadas por él.</li>
+      </ul>
+      <p>Un proyecto es <b>público</b> (visible para todos los miembros) o <b>restringido</b> (solo para los usuarios elegidos, además de los administradores): se decide al crearlo y se cambia en la cabecera del proyecto; los usuarios se asignan desde la página Miembros → «Gestionar permisos». Un proyecto restringido tiene su propia clave: quien no lo ve no puede leerlo ni abriendo los archivos. En Miembros cada uno indica también su <b>Disponibilidad</b> (horas por semana y ausencias), que se ve cuando alguien le asigna una tarea.</p>
+      <p>La página <b>Actividad</b> tiene tres pestañas. «Qué ha cambiado» (para todos) compara dos momentos, por ejemplo la copia de seguridad de hace una semana y ahora: tareas añadidas, completadas, movidas a la papelera, fechas límite cambiadas. «Registro de actividad» y «Análisis» son para los administradores: el primero registra quién hizo qué; el segundo muestra tareas por estado y prioridad, vencidas, carga por persona y por semana, salud de los proyectos y qué PC están listos para cada proyecto.</p>
+      <p>En Gestión del workspace los administradores encuentran también las <b>Automatizaciones</b> (aviso para tareas urgentes sin responsable, para preguntas sin respuesta desde hace días, petición de la fecha límite al confirmar una tarea) y la <b>Limpieza</b> guiada (etiquetas nunca usadas, carpetas vacías, proyectos parados, papeleras antiguas).</p>
+
+      <h2 id="tappe">12. Hitos, informes, plantillas</h2>
+      <p>Los <b>Hitos</b> (cabecera del proyecto) son versiones o entregas con una fecha objetivo: muestran el avance, aparecen en el Gantt y, una vez alcanzados, redactan las notas de versión a partir de las tareas completadas, para copiarlas o añadirlas al <code>CHANGELOG.md</code> del proyecto.</p>
+      <p>Desde <b>Documentos</b> creas el <b>informe</b> de estado interno de un periodo (completadas, retrasos, próximas fechas límite, decisiones) y la <b>hoja de ruta para el cliente</b>, que muestra lo hecho y lo que llega sin descripciones, comentarios ni detalles internos. Se copian, se guardan como página para imprimir en PDF o se envían por correo.</p>
+      <p>Con «Más › Guardar como plantilla…» un administrador guarda un proyecto como <b>plantilla</b>: Stack, columnas, carpetas de adjuntos, hitos y tareas. Un proyecto nuevo creado desde la plantilla empieza con las fechas a partir de hoy.</p>
+
+      <h2 id="ia">13. IA local</h2>
+      <p>La IA local es opcional, gratuita y funciona entera en tu PC (Ollama con el modelo Qwen 3 4B, o un servidor compatible con OpenAI como LM Studio): ningún dato sale del PC. Se activa desde la casilla del setup o en Ajustes › <b>IA local</b>, que instala y arranca Ollama si falta y descarga los modelos con una barra de progreso.</p>
+      <p>Con la IA activa aparecen: un «Detectar a partir de los archivos del proyecto» más preciso, «Cómo corregirlo» para los requisitos no verificados, «A partir de un texto» (tareas sacadas de notas, un correo o un acta), el aviso de tareas parecidas, la búsqueda por significado, los commits que quizá completaron una tarea, el resumen de la semana, AGENTS.md y CLAUDE.md escritos desde el Stack y <b>«Preguntar»</b>, que responde preguntas sobre el proyecto a partir de tareas, decisiones, Stack y adjuntos, citando las fuentes. Cada propuesta hay que confirmarla.</p>
+
+      <h2 id="fuori">14. Fuera de la oficina y VPN</h2>
+      <p>Con «Mantener una copia del workspace en este PC» (Ajustes › Perfil, activa de forma predeterminada) sigues trabajando aunque la carpeta compartida no responda: arriba aparece «Fuera de la oficina» con los proyectos pendientes de enviar. Puedes cambiar tareas y proyectos existentes; al volver, los cambios se combinan con los de los compañeros campo por campo, y un resumen muestra los raros conflictos.</p>
+      <p>En Ajustes › Perfil › <b>Conexión con la oficina (VPN)</b> eliges una VPN ya configurada en Windows: Todo Doto la conecta sola cuando la carpeta compartida no responde. Las credenciales se quedan en Windows. Por VPN la pantalla se actualiza enseguida y los archivos se escriben en segundo plano; si cierras la ventana mientras se está guardando, la aplicación espera a que termine (un segundo clic en la X cierra enseguida).</p>
+
+      <h2 id="backup">15. Copias de seguridad</h2>
+      <p>El workspace es una carpeta: la copia de seguridad del servidor la incluye. Además, la aplicación hace sola una <b>copia de seguridad</b> al día (archivos <code>.pgmbackup</code> en la carpeta de datos, cifrados como el resto) y conserva 7 diarias y 4 semanales. En Gestión del workspace › <b>Copia de seguridad</b> el administrador crea una copia a mano, elige otra carpeta (mejor otro disco o servidor) y restaura todo el workspace o un solo proyecto; antes de cada restauración se guarda una copia del estado actual, así que también una restauración se puede deshacer. Las claves de los PC no están en las copias: guarda bien la clave de recuperación. Todas las eliminaciones de la aplicación quedan limitadas a la carpeta de datos: los archivos de tus proyectos nunca se tocan.</p>
+
+      <h2 id="scorciatoie">16. Atajos</h2>
+      <ul>
+        <li><span class="kbd">N</span> nueva tarea en el proyecto abierto</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">K</span> o <span class="kbd">/</span> buscar en todos los proyectos; <code>&gt;</code> para los comandos</li>
+        <li><span class="kbd">↓</span> de la página a la primera fila, luego <span class="kbd">↑</span> <span class="kbd">↓</span> para recorrer, <span class="kbd">Intro</span> abre, <span class="kbd">C</span> completa, <span class="kbd">Supr</span> mueve a la papelera</li>
+        <li><span class="kbd">Mayús</span>+<span class="kbd">←</span>/<span class="kbd">→</span> mueve la tarjeta seleccionada en el Kanban y en la Semana</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Mayús</span>+<span class="kbd">F</span> Semana, <span class="kbd">Ctrl</span>+<span class="kbd">,</span> Ajustes</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Intro</span> crea desde la ventana, <span class="kbd">Ctrl</span>+<span class="kbd">S</span> guarda en el detalle</li>
+        <li><span class="kbd">Ctrl</span>+<span class="kbd">Mayús</span>+<span class="kbd">L</span> tema claro/oscuro, <span class="kbd">Esc</span> cierra, <span class="kbd">?</span> muestra todos los atajos</li>
+      </ul>
+
+      <h2 id="problemi">17. Problemas comunes</h2>
+      <h3>«Carpeta no accesible, reintentando…»</h3>
+      <p>El servidor no responde o la red se ha caído. La aplicación lo vuelve a intentar sola; los cambios ya guardados están a salvo y, con la copia para fuera de la oficina activa, sigues trabajando. Si persiste, comprueba que ves la carpeta en el Explorador de archivos o conecta la VPN.</p>
+      <h3>El PC se queda en «Esperando aprobación»</h3>
+      <p>Un administrador tiene que aprobarlo en Miembros › Solicitudes de acceso, tras comparar el código del PC. La aplicación vuelve a comprobar sola cada 10 segundos, o pulsa «Comprobar ahora». Si la solicitud se rechazó, vuelve a abrir el workspace para pedirlo de nuevo.</p>
+      <h3>Se han perdido todos los PC de los administradores</h3>
+      <p>Desde un PC nuevo abre la carpeta de datos y, en la pantalla de espera, elige «Soy administrador: usar la clave de recuperación»: indica el archivo <code>.tdkey</code> y su frase secreta. Sin clave de recuperación nadie puede aprobar PC nuevos: por eso la aplicación la propone en cuanto se crea el workspace.</p>
+      <h3>Al iniciar aparece «Actualizar Todo Doto»</h3>
+      <p>Ha salido una versión más reciente, o un compañero ya ha abierto el workspace con una versión más nueva. Descarga e instala la versión propuesta: no se pierde ningún dato.</p>
+      <h3>No recibo los correos</h3>
+      <p>Comprueba en Ajustes › Notificaciones › Tus correos que la dirección esté «Verificado» y que los temas estén activos. Si el código no llega, un administrador tiene que activar el envío en Gestión del workspace › Correo y Teams y comprobar que tu dominio está entre los admitidos. Mira también en la carpeta de spam.</p>
+      <h3>Los cambios de los compañeros llegan con retraso</h3>
+      <p>En algunos servidores los avisos de cambio no llegan: la aplicación comprueba de todos modos cada pocos segundos y al volver a la ventana. Un retraso mayor indica una red lenta.</p>
+      <h3>Por VPN o con un servidor lento, guardar tarda</h3>
+      <p>La pantalla se actualiza enseguida y los archivos se escriben en segundo plano; si una escritura falla, la aplicación lo dice y vuelve al estado del servidor. Para saber lo rápida que es la carpeta desde este PC abre Ajustes › Perfil › <b>Velocidad de la carpeta compartida</b> y pulsa «Medir»: ves el tiempo de respuesta del servidor, cuánto dura un guardado y si se trata de red local, red lenta o VPN. «Copiar para informática» prepara los resultados para quien gestiona el servidor.</p>
+      <p>Si la medición apunta a un antivirus, pide a informática que excluya del análisis en tiempo real los archivos <code>*.lock</code> y <code>*.tmp</code> de la carpeta de datos: la aplicación los crea y los borra en cada guardado, y analizarlos todos puede duplicar o triplicar los tiempos. Para trabajar mucho tiempo fuera de la oficina, mantén activa en Perfil la copia del workspace en este PC.</p>
+      <h3>«Configurar en tu PC» no aparece en el Stack</h3>
+      <p>Solo aparece si la carpeta del proyecto es válida en este PC: existe, contiene un proyecto reconocible y se llama como el proyecto. El recuadro explica el motivo y permite buscarla; la carpeta elegida se recuerda para este PC.</p>
+      <h3>Un requisito aparece como «no encontrado» aunque está instalado</h3>
+      <p>Probablemente no está en el PATH: la aplicación lo indica cuando lo encuentra en la ruta de instalación estándar. Cierra y vuelve a abrir el símbolo del sistema tras la instalación, o usa «Comprobar de nuevo». Un resultado dudoso se confirma a mano marcando el círculo.</p>
+
+      <div class="box" style="margin-top:2.5rem"><p style="margin:0">¿No has encontrado la respuesta? Escribe a <a href="mailto:nisos@live.it">nisos@live.it</a> o usa «Enviar un aviso» en Ayuda e información, en el menú del workspace.</p></div>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap foot">
+      <span>© 2026 Todo Doto</span>
+      <nav class="foot__links" aria-label="Aviso legal">
+        <a href="terms.html">Términos</a>
+        <a href="privacy-policy.html">Privacidad</a>
+        <a href="conditions.html">Condiciones de uso</a>
+      </nav>
+    </div>
+  </footer>
+  <script src="assets/i18n.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>
