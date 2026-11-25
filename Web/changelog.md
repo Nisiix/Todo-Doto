@@ -1,6 +1,6 @@
 # Novità
 
-Il file è letto dal sito (pagina «Novità», `Web/changelog.html`). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
+Il file è letto dal sito (pagina «Novità», `Web/changelog.html`) ed è incluso nell'app, che dopo un aggiornamento ne mostra la sezione della nuova versione all'apertura. Le traduzioni sono in `CHANGELOG.en.md`, `.fr.md`, `.de.md` e `.es.md`: ogni versione aggiunge la stessa sezione, con gli stessi punti nello stesso ordine, a tutti e cinque i file (un test lo verifica). Formato: un titolo `## <versione> — <data>` per release, poi un elenco puntato.
 
 ## 0.7.0 — 21 ottobre 2026
 
