@@ -115,6 +115,7 @@ code { font-size: .9em; background: var(--surface-2); padding: .05em .35em; bord
 }
 .top__in { display: flex; align-items: center; gap: 1rem; height: 64px; }
 .brand { display: flex; align-items: center; gap: .6rem; color: var(--ink); white-space: nowrap; }
+.brand__logo { display: block; flex: none; border-radius: 6px; }
 .wordmark { display: block; height: 19px; width: auto; aspect-ratio: 1572 / 253; color: var(--ink); }
 .brand:hover { text-decoration: none; }
 .nav { margin-left: auto; display: flex; gap: .25rem; align-items: center; }
@@ -371,7 +372,7 @@ footer { border-top: 1px solid var(--line); padding: 2.5rem 0; color: var(--ink-
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7 10l5 5 5-5M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
             mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7 10l5 5 5-5M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat; }
 }
-@media (max-width: 380px) { .wordmark { height: 16px; } .brand { gap: .45rem; } .brand > svg:first-child { width: 18px; height: 18px; } }
+@media (max-width: 380px) { .wordmark { height: 16px; } .brand { gap: .45rem; } .brand__logo { width: 24px; height: 24px; } }
 .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--surface); margin-left: .25rem; }
 .lang button, .lang a { border: 0; background: none; color: var(--ink-3); font: inherit; font-size: .78rem; font-weight: 700; letter-spacing: .02em; padding: .3rem .5rem; border-radius: 6px; cursor: pointer; line-height: 1; }
 .lang a:hover { text-decoration: none; }
