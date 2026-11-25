@@ -127,6 +127,9 @@
       <p>The server is not responding or the network is down. The app retries on its own; saved changes are safe. If it persists, check that you can see the folder in File Explorer.</p>
       <h3>Colleagues’ changes arrive late</h3>
       <p>On some servers change notifications never arrive: the app still checks every 4 seconds and when it comes back to the foreground. A longer delay means a slow network.</p>
+      <h3>Over a VPN or with a slow server, saves take time</h3>
+      <p>The screen updates right away and files are written in the background; if a write fails, the app says so and goes back to the server state. To see how fast the folder is from this PC, open Settings › Profile › <b>Shared folder speed</b> and press “Measure”: you see the server response time, how long a save takes and whether it is a local network, a slow network or a VPN. “Copy for IT” prepares the results for whoever manages the server.</p>
+      <p>If the measurement points to an antivirus, ask IT to exclude the <code>*.lock</code> and <code>*.tmp</code> files in the Data folder from real-time scanning: the app creates and deletes them on every save, and scanning them all can double or triple save times. To work away from the office for long, turn on the copy of the workspace on this PC in Profile.</p>
       <h3>“Set up on your PC” does not appear in the Stack</h3>
       <p>It appears only when the project folder is valid on this PC: it exists, contains a recognizable project and is named like the project. The box explains why and lets you look for it; the chosen folder is remembered for this PC.</p>
       <h3>A prerequisite shows as “not found” although it is installed</h3>
