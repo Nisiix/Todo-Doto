@@ -55,6 +55,9 @@
     if (entry.key || entry.attrs.length) originals.push(entry)
   })
 
+  /** Chiamata dopo ogni cambio di lingua (lo stepper riscrive la sezione corrente). */
+  let onLangChange = null
+
   function applyLang(next) {
     lang = norm(next)
     // Testi mancanti in una lingua: si usa l'inglese
@@ -82,6 +85,7 @@
     document.querySelectorAll('select[data-lang-select]').forEach((s) => { s.value = lang })
     updateDownload()
     zoomLabels()
+    if (onLangChange) onLangChange()
   }
 
   function chooseLang(next) {
@@ -351,22 +355,36 @@
 
   // --- stepper delle sezioni (landing) ---------------------------------------
   // Il passo attivo è l'ultimo la cui sezione è salita oltre un terzo della finestra;
-  // in fondo alla pagina è l'ultimo (la sezione Dona è corta e non arriva mai lassù).
+  // la linea avanza anche dentro la sezione, fino all'inizio della successiva.
+  // In fondo alla pagina è attivo l'ultimo (la sezione Dona è corta e non arriva lassù).
   const stepper = document.querySelector('[data-stepper]')
   if (stepper) {
     const toggle = stepper.querySelector('.stepper__toggle')
+    const now = stepper.querySelector('.stepper__now')
+    const count = stepper.querySelector('.stepper__count')
     const list = stepper.querySelector('.stepper__list')
     const steps = [...stepper.querySelectorAll('a[data-step]')].map((a) => ({
       a,
       sections: a.getAttribute('data-step').split(/\s+/).map((id) => document.getElementById(id)).filter(Boolean),
     })).filter((s) => s.sections.length)
+    const links = steps.map((s) => s.a)
     let current = -2
-    const update = () => {
+    const label = (i) => (i >= 0 ? steps[i].a.querySelector('.stepper__label').textContent : toggle.getAttribute('title'))
+    const update = (force) => {
       const line = innerHeight / 3
+      const tops = steps.map((s) => s.sections[0].getBoundingClientRect().top)
       let active = -1
-      steps.forEach((s, i) => { if (s.sections[0].getBoundingClientRect().top <= line) active = i })
-      if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) active = steps.length - 1
-      if (active === current) return
+      tops.forEach((t, i) => { if (t <= line) active = i })
+      const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2
+      if (atEnd) active = steps.length - 1
+      // Avanzamento dentro la sezione attiva (0 = inizio, 1 = inizio della successiva)
+      let part = 0
+      if (active >= 0 && active < steps.length - 1) {
+        part = Math.min(1, Math.max(0, (line - tops[active]) / Math.max(1, tops[active + 1] - tops[active])))
+      }
+      const progress = steps.length > 1 ? Math.max(0, active + part) / (steps.length - 1) : 0
+      list.style.setProperty('--progress', progress.toFixed(4))
+      if (active === current && !force) return
       current = active
       steps.forEach((s, i) => {
         s.a.classList.toggle('is-active', i === active)
@@ -374,7 +392,9 @@
         if (i === active) s.a.setAttribute('aria-current', 'location')
         else s.a.removeAttribute('aria-current')
       })
-      list.style.setProperty('--progress', String(steps.length > 1 ? Math.max(active, 0) / (steps.length - 1) : 0))
+      // Pulsante degli schermi stretti: la sezione corrente e la posizione
+      now.textContent = label(active)
+      count.textContent = active >= 0 ? `${active + 1}/${steps.length}` : ''
     }
     let queued = false
     const schedule = () => {
@@ -384,14 +404,41 @@
     }
     addEventListener('scroll', schedule, { passive: true })
     addEventListener('resize', schedule)
-    update()
+    onLangChange = () => update(true)
+    update(true)
+
+    // Dopo il salto il fuoco va sul titolo della sezione (tastiera e lettori di schermo
+    // proseguono da lì), senza scorrere di nuovo la pagina
+    stepper.addEventListener('click', (e) => {
+      const a = e.target instanceof Element ? e.target.closest('a[data-step]') : null
+      if (!a) return
+      const target = document.querySelector(a.getAttribute('href'))
+      const heading = target && target.querySelector('h2')
+      if (!heading) return
+      heading.tabIndex = -1
+      // dopo la navigazione all'ancora, che altrimenti riporta il fuoco sul documento
+      setTimeout(() => heading.focus({ preventScroll: true }), 0)
+    })
+    // Frecce su e giù tra le voci, Home e Fine per la prima e l'ultima
+    list.addEventListener('keydown', (e) => {
+      const at = links.indexOf(document.activeElement)
+      if (at < 0) return
+      const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: links.length - 1 }[e.key]
+      if (to === undefined) return
+      e.preventDefault()
+      links[(to + links.length) % links.length].focus()
+    })
 
     // Schermi stretti: il pulsante apre e chiude l'elenco
     const setOpen = (open) => {
       stepper.classList.toggle('is-open', open)
       toggle.setAttribute('aria-expanded', String(open))
     }
-    toggle.addEventListener('click', () => setOpen(!stepper.classList.contains('is-open')))
+    toggle.addEventListener('click', () => {
+      const open = !stepper.classList.contains('is-open')
+      setOpen(open)
+      if (open) (links[Math.max(current, 0)] || links[0]).focus()
+    })
     stepper.addEventListener('click', (e) => { if (e.target instanceof Element && e.target.closest('a')) setOpen(false) })
     document.addEventListener('click', (e) => { if (e.target instanceof Node && !stepper.contains(e.target)) setOpen(false) })
     window.addEventListener('keydown', (e) => {
