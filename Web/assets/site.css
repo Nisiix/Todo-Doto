@@ -158,17 +158,8 @@ html[lang="de"] .hero h1 { font-size: clamp(2.2rem, 4vw, 3.45rem); }
 .hero p { font-size: 1.15rem; color: var(--ink-2); max-width: 32rem; margin: 0 0 1.6rem; }
 .hero__cta { display: flex; flex-wrap: wrap; gap: .6rem; }
 .hero .hero__meta { margin: 1.1rem 0 0; font-size: .9rem; color: var(--ink-3); }
-/* le quattro barre del logo, grandi, dietro la finestra dell'app */
-.hero__art { position: relative; padding: 3rem 7rem 0 0; }
-.hero__bars { position: absolute; inset: 0 0 -1.5rem auto; display: flex; align-items: flex-end; gap: 1.1rem; }
-.hero__bars i { width: clamp(2.2rem, 4.2vw, 4rem); border-radius: 1.1rem 1.1rem .35rem .35rem; opacity: .92; }
-.hero__bars i:nth-child(1) { height: 46%; background: var(--p-bassa); }
-.hero__bars i:nth-child(2) { height: 88%; background: var(--p-media); }
-.hero__bars i:nth-child(3) { height: 100%; background: var(--p-alta); }
-.hero__bars i:nth-child(4) { height: 62%; background: var(--p-immediata); }
+.hero__art { position: relative; }
 .hero__art .window { position: relative; }
-@media (max-width: 900px) { .hero__art { padding: 2rem 3.5rem 0 0; } .hero__bars { gap: .6rem; } }
-
 /* barra fiducia sotto l'hero */
 .trust { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .9rem; margin-top: 3.5rem; color: var(--ink); font-size: .95rem; font-weight: 600; }
 .trust > span { display: flex; align-items: flex-start; gap: .6rem; padding: 1rem 1.15rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -272,14 +263,6 @@ section + section { border-top: 1px solid var(--line); }
 .faq p { margin: 0 0 .9rem; color: var(--ink-2); }
 
 /* --- confronto -------------------------------------------------------- */
-.compare { width: 100%; border-collapse: collapse; font-size: .95rem; }
-.compare th, .compare td { text-align: left; padding: .7rem .6rem; border-top: 1px solid var(--line); vertical-align: top; }
-.compare th { font-weight: 800; }
-.compare thead th { border-top: 0; color: var(--ink-3); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
-.compare td.y { color: var(--ok); font-weight: 700; }
-.compare td.n { color: var(--ink-3); }
-.compare td.m { color: var(--p-media); font-weight: 700; }
-.compare .tool { font-weight: 700; }
 
 /* --- download ---------------------------------------------------------- */
 #download {
@@ -511,9 +494,5 @@ img[data-shot] { cursor: zoom-in; }
 @media print { .stepper { display: none; } }
 
 
-/* telefono stretto: percorsi lunghi e tabelle di confronto vanno a capo invece di allargare la pagina */
+/* telefono stretto: i percorsi lunghi vanno a capo invece di allargare la pagina */
 code { overflow-wrap: anywhere; }
-@media (max-width: 600px) {
-  .compare { font-size: .85rem; }
-  .compare th, .compare td { padding-left: .45rem; padding-right: .45rem; overflow-wrap: anywhere; hyphens: auto; }
-}
